@@ -1,6 +1,7 @@
-import { env } from "../core/config/env.js";
 import { prisma } from "../core/prisma.js";
 import { hashPassword } from "../core/security/password.js";
+import { env } from "../core/config/env.js";
+import { seedSuperAdmin } from "./admin.seed.js";
 
 const LOCAL_DEV_PASSWORD = env.ADMIN_PASSWORD; // Local/dev shared credential from env.
 
@@ -64,6 +65,8 @@ async function ensureOnboardingCompleted(userId: string, tenantId: string, planK
 }
 
 export async function seedUsers() {
+  await seedSuperAdmin();
+
   const devTenant = await prisma.tenant.findUnique({
     where: { slug: "mh-dev-tenant" },
     select: { id: true },
@@ -78,18 +81,6 @@ export async function seedUsers() {
   });
   if (!devBrand) {
     throw new Error("Brand 'mh-dev-brand' not found. Run tenant seeds first.");
-  }
-
-  await upsertUser({
-    email: env.ADMIN_EMAIL,
-    role: "SUPER_ADMIN",
-    tenantId: devTenant.id,
-    brandId: devBrand.id,
-  });
-
-  const superAdmin = await prisma.user.findUnique({ where: { email: env.ADMIN_EMAIL }, select: { id: true } });
-  if (superAdmin) {
-    await ensureOnboardingCompleted(superAdmin.id, devTenant.id, "pro");
   }
 
   await upsertUser({
@@ -116,7 +107,7 @@ export async function seedUsers() {
     });
   }
 
-  console.log("✅ Seeded SUPER_ADMIN + dev owner accounts (and legacy admin if available)");
+  console.log("✅ Seeded dev owner accounts (and legacy admin if available)");
 }
 
 if (process.argv[1]?.includes("users.seed")) {

@@ -7,8 +7,15 @@
 
 ## Database migrations
 
-- Local: `npm run prisma migrate dev`
-- Docker: `docker compose exec backend npx prisma migrate deploy`
+- Apply the latest migrations from this folder: `npm run db:migrate`
+- To run ad-hoc commands you can still rely on Prisma directly: `npm run prisma -- migrate dev`
+- Inside Docker: `docker compose exec backend npx prisma migrate deploy`
+
+## Admin seeding
+
+- Ensure `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set (see repo-level `.env` that already defines `m.superadmin@mhtrading-eu.com` / `Mgharabli@123$`).
+- Seed/refresh the Super Admin account anytime with `npm run seed:admin` (or `npm run db:seed` for `prisma db seed`).
+- The seed is idempotent: it creates the user if missing and updates the password/role/status if the account already exists.
 
 ## RBAC seeding
 

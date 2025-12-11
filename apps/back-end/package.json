@@ -11,6 +11,9 @@
     "clean": "rimraf dist",
     "start": "node --experimental-specifier-resolution=node dist/server.js",
     "prisma": "prisma",
+    "db:migrate": "prisma migrate deploy",
+    "seed:admin": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/admin.seed.ts",
+    "db:seed": "prisma db seed",
     "auto:new-module": "ts-node scripts/auto-dev/new-module.ts",
     "postinstall": "prisma generate",
     "seed:rbac:dist": "node dist/modules/security-governance/rbac.seed.js",
@@ -44,5 +47,8 @@
     "ts-morph": "^27.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "node --loader ts-node/esm --experimental-specifier-resolution=node ./prisma/seed.ts"
   }
 }
