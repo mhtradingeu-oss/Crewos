@@ -1,0 +1,41 @@
+{
+  "name": "mh-os-superapp",
+  "version": "0.1.0",
+  "private": true,
+  "prisma": {
+    "schema": "apps/back-end/prisma/schema.prisma"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.1.0"
+  },
+  "packageManager": "npm@10.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "npm run build -w @mh-os/shared && npm run build -w mh-os-superapp-backend && npm run build -w mh-os-admin",
+    "clean": "rimraf node_modules && rimraf packages/shared/node_modules && rimraf apps/back-end/node_modules && rimraf apps/front-end/node_modules",
+    "typecheck": "turbo run typecheck",
+    "lint": "npm run lint -w mh-os-superapp-backend && npm run lint -w mh-os-admin",
+    "test:backend-health": "node scripts/test-backend-health.cjs",
+    "migrate:deploy": "cd apps/back-end && npx prisma migrate deploy",
+    "seed:core": "cd apps/back-end && npm run seed:core"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.0",
+    "turbo": "^2.6.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "openai": "^6.9.1"
+  }
+}

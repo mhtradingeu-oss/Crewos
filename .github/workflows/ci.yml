@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma validate
+        env:
+          DATABASE_URL: postgresql://mhos_user:mhos_password@localhost:5432/mhos_ci?schema=public
+        run: npx prisma validate --schema apps/back-end/prisma/schema.prisma
+
+      - name: Lint backend
+        run: npm run lint --workspace=mh-os-superapp-backend
+
+      - name: Lint frontend
+        run: npm run lint --workspace=mh-os-admin
+
+      - name: Typecheck (all workspaces)
+        run: npm run typecheck
+
+      - name: Build shared package
+        run: npm run build --workspace=@mh-os/shared
+
+      - name: Build backend
+        run: npm run build --workspace=mh-os-superapp-backend
+
+      - name: Build frontend
+        run: npm run build --workspace=mh-os-admin

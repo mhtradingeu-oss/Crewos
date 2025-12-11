@@ -1,0 +1,48 @@
+{
+  "name": "mh-os-superapp-backend",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "TS_NODE_TRANSPILE_ONLY=1 node --loader ts-node/esm --experimental-specifier-resolution=node --enable-source-maps ./src/server.ts",
+    "build": "tsc",
+    "lint": "eslint src --ext .ts --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "start": "node --experimental-specifier-resolution=node dist/server.js",
+    "prisma": "prisma",
+    "auto:new-module": "ts-node scripts/auto-dev/new-module.ts",
+    "postinstall": "prisma generate",
+    "seed:rbac:dist": "node dist/modules/security-governance/rbac.seed.js",
+    "seed:brand:hairoticmen:dist": "node dist/modules/brand/hairoticmen.seed.js",
+    "seed:rbac:local": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/modules/security-governance/rbac.seed.ts",
+    "seed:brand:hairoticmen": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/modules/brand/hairoticmen.seed.ts",
+    "seed:core": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/core.seed.ts",
+    "seed:tenants": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/tenants.seed.ts",
+    "seed:all": "npm run seed:core && npm run seed:tenants"
+  },
+  "dependencies": {
+    "@mh-os/shared": "file:../../packages/shared",
+    "@paralleldrive/cuid2": "^3.0.4",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^5.22.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.11.17",
+    "eslint": "^9.39.1",
+    "rimraf": "^5.0.0",
+    "ts-morph": "^27.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

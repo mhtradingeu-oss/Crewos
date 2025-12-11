@@ -1,0 +1,50 @@
+name: "Global-Continue"
+version: 1.0.0
+schema: v1
+
+models:
+  - id: openai-gpt4
+    title: "OpenAI GPT-4.1"
+    provider: "openai"
+    model: "gpt-4.1"
+    apiKey: "${OPENAI_API_KEY}"
+
+  - id: openai-gpt4-mini
+    title: "OpenAI GPT-4.1 Mini"
+    provider: "openai"
+    model: "gpt-4.1-mini"
+    apiKey: "${OPENAI_API_KEY}"
+
+  # لو حابب تستخدم 4o مثلاً لبعض الـ agents
+  - id: openai-gpt4o
+    title: "OpenAI GPT-4o"
+    provider: "openai"
+    model: "gpt-4o"
+    apiKey: "${OPENAI_API_KEY}"
+
+  # Ollama – نماذج محلية للكود
+  - id: ollama-codellama-7b
+    title: "CodeLlama 7B (Ollama)"
+    provider: "ollama"
+    model: "codellama:7b"
+
+  - id: ollama-deepseek-coder
+    title: "Deepseek Coder (Ollama)"
+    provider: "ollama"
+    model: "deepseek-coder:latest"
+
+  - id: ollama-mistral
+    title: "Mistral (Ollama)"
+    provider: "ollama"
+    model: "mistral:latest"
+
+defaultModel: openai-gpt4
+
+allowWrite: true
+allowRead: true
+
+agents:
+  directory: "./agents"
+
+logging:
+  level: info
