@@ -7,8 +7,6 @@ import { z } from "zod";
 const envFilePath = resolveEnvFilePath();
 if (envFilePath) {
   dotenv.config({ path: envFilePath });
-} else {
-  dotenv.config();
 }
 
 const envSchema = z.object({
@@ -44,6 +42,15 @@ export const env = loadEnv();
 function resolveEnvFilePath(): string | undefined {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const backendRoot = path.resolve(moduleDir, "../../..");
+
+  const explicit = process.env.MHOS_BACKEND_ENV_PATH;
+  if (explicit) {
+    const explicitPath = path.isAbsolute(explicit) ? explicit : path.join(backendRoot, explicit);
+    if (existsSync(explicitPath)) {
+      return explicitPath;
+    }
+  }
+
   const candidates = [".env", ".env.local", ".env.docker"];
   for (const candidate of candidates) {
     const candidatePath = path.join(backendRoot, candidate);
@@ -51,5 +58,6 @@ function resolveEnvFilePath(): string | undefined {
       return candidatePath;
     }
   }
+
   return undefined;
 }

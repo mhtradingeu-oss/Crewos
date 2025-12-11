@@ -12,3 +12,5 @@ dist
 .turbo
 .env
 .env.local
+apps/back-end/.env
+apps/back-end/.env.local

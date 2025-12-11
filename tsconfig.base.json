@@ -13,6 +13,10 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "incremental": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@mh-os/shared": ["packages/shared/src/index.ts"],
+      "@mh-os/shared/*": ["packages/shared/src/*"]
+    }
   }
 }

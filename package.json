@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "prisma": {
-    "schema": "apps/back-end/prisma/schema.prisma"
+    "schema": "apps/back-end/prisma/schema.prisma",
+    "seed": "TS_NODE_PROJECT=tsconfig.base.json node --loader ts-node/esm prisma/seed.ts"
   },
   "engines": {
     "node": ">=20.0.0",
