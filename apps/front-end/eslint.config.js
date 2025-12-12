@@ -1,6 +1,6 @@
 import nextConfig from "eslint-config-next";
 
-const overrides = nextConfig.map((entry) => {
+const overrides = nextConfig.map((entry: any) => {
   if (entry.name === "next") {
     return {
       ...entry,
