@@ -1,33 +1,50 @@
-import type { Request, Response } from "express";
+import type { Request, Response, CookieOptions } from "express";
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from "@mh-os/shared";
 import { readCookie } from "./cookies.js";
 
 const isProduction = process.env.NODE_ENV === "production";
-const baseCookieOptions = {
+
+/**
+ * Base cookie options shared by issue & clear.
+ * - httpOnly: protects against XSS
+ * - secure: only over HTTPS in production
+ * - sameSite: Lax allows top-level navigation + blocks CSRF
+ */
+const baseCookieOptions: CookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: "lax" as const,
+  sameSite: "lax",
   path: "/",
 };
 
 export function issueSessionCookie(res: Response, token: string) {
+  if (!token) {
+    console.error("[auth] Session token is missing");
+    throw new Error("Session token is missing");
+  }
   try {
     res.cookie(SESSION_COOKIE_NAME, token, {
       ...baseCookieOptions,
       maxAge: SESSION_COOKIE_MAX_AGE_SECONDS * 1000,
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("Failed to set session cookie", err);
+    // This should never fail silently  session auth depends on it
+    console.error("[auth] Failed to set session cookie", err);
     throw err;
   }
 }
 
 export function clearSessionCookie(res: Response) {
-  res.cookie(SESSION_COOKIE_NAME, "", {
-    ...baseCookieOptions,
-    maxAge: 0,
-  });
+  try {
+    res.cookie(SESSION_COOKIE_NAME, "", {
+      ...baseCookieOptions,
+      maxAge: 0,
+    });
+  } catch (err) {
+     
+    console.error("[auth] Failed to clear session cookie", err);
+    throw err;
+  }
 }
 
 export function readSessionToken(req: Request): string | null {

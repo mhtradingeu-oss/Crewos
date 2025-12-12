@@ -9,9 +9,9 @@ import { issueCsrfCookie } from "../../core/security/csrf.js";
 export async function registerHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = req.body as AuthInput;
-    const result = await authService.register(payload);
-    issueSessionCookie(res, result.token);
-    return respondWithSuccess(res, result.session, 201);
+    const { session, jwt } = await authService.register(payload);
+    issueSessionCookie(res, jwt);
+    return respondWithSuccess(res, session, 201);
   } catch (err) {
     return next(err);
   }
@@ -20,9 +20,9 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = req.body as AuthInput;
-    const result = await authService.login(payload);
-    issueSessionCookie(res, result.token);
-    return respondWithSuccess(res, result.session);
+    const { session, jwt } = await authService.login(payload);
+    issueSessionCookie(res, jwt);
+    return respondWithSuccess(res, session);
   } catch (err) {
     return next(err);
   }
@@ -33,12 +33,12 @@ export async function meHandler(req: AuthenticatedRequest, res: Response, next: 
     if (!req.user?.id) {
       return next(unauthorized());
     }
-    const session = await authService.me(req.user.id);
-    if (!session) {
+    const sessionResult = await authService.me(req.user.id);
+    if (!sessionResult) {
       return next(unauthorized());
     }
-    issueSessionCookie(res, session.token);
-    return respondWithSuccess(res, session.session);
+    issueSessionCookie(res, sessionResult.jwt);
+    return respondWithSuccess(res, sessionResult.session);
   } catch (err) {
     return next(err);
   }

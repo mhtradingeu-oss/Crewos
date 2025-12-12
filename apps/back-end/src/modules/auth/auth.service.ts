@@ -13,7 +13,7 @@ import type { AuthSessionResponse, PlanFeatures, PlanTier } from "@mh-os/shared"
 import type { Prisma } from "@prisma/client";
 
 export type AuthInput = { email: string; password: string };
-export type AuthSessionResult = { session: AuthSessionResponse; token: string };
+export type AuthSessionResult = { session: AuthSessionResponse; jwt: string };
 
 const DEFAULT_PLAN_KEY = "free" as const;
 const DEFAULT_PERSONA = "RETAILER_DEALER" as const;
@@ -100,7 +100,7 @@ async function buildSession(userId: string): Promise<AuthSessionResult | null> {
   };
 
   return {
-    token: signToken(payload),
+    jwt: signToken(payload),
     session,
   };
 }
