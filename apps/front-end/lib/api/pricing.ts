@@ -10,7 +10,7 @@ import type {
   CreatePricingInputDto,
   UpdatePricingInputDto,
 } from "@mh-os/shared";
-import { api } from "./client";
+import { client } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export type PricingDto = PricingRecordDto;

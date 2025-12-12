@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { client } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export interface SalesRepSummaryDto {
@@ -103,12 +103,12 @@ export interface SalesRepsListFilters {
 }
 
 export async function listSalesReps(params?: SalesRepsListFilters) {
-  const { data } = await api.get<PaginatedResponse<SalesRepSummaryDto>>("/sales-reps", { params });
+  const { data } = await client.get<PaginatedResponse<SalesRepSummaryDto>>("/sales-reps", { params });
   return data;
 }
 
 export async function getSalesRep(id: string) {
-  const { data } = await api.get<SalesRepDto>(`/sales-reps/${id}`);
+  const { data } = await client.get<SalesRepDto>(`/sales-reps/${id}`);
   return data;
 }
 
@@ -116,31 +116,31 @@ export async function getSalesRepLeads(
   id: string,
   params?: { status?: string; page?: number; pageSize?: number },
 ) {
-  const { data } = await api.get<PaginatedResponse<SalesLeadDto>>(`/sales-reps/${id}/leads`, {
+  const { data } = await client.get<PaginatedResponse<SalesLeadDto>>(`/sales-reps/${id}/leads`, {
     params,
   });
   return data;
 }
 
 export async function createSalesRepLead(id: string, payload: SalesLeadPayload) {
-  const { data } = await api.post<SalesLeadDto>(`/sales-reps/${id}/leads`, payload);
+  const { data } = await client.post<SalesLeadDto>(`/sales-reps/${id}/leads`, payload);
   return data;
 }
 
 export async function getSalesRepVisits(id: string, params?: { page?: number; pageSize?: number }) {
-  const { data } = await api.get<PaginatedResponse<SalesVisitDto>>(`/sales-reps/${id}/visits`, {
+  const { data } = await client.get<PaginatedResponse<SalesVisitDto>>(`/sales-reps/${id}/visits`, {
     params,
   });
   return data;
 }
 
 export async function createSalesRepVisit(id: string, payload: SalesVisitPayload) {
-  const { data } = await api.post<SalesVisitDto>(`/sales-reps/${id}/visits`, payload);
+  const { data } = await client.post<SalesVisitDto>(`/sales-reps/${id}/visits`, payload);
   return data;
 }
 
 export async function getSalesRepKpis(id: string) {
-  const { data } = await api.get<SalesRepKpiDto>(`/sales-reps/${id}/kpis`);
+  const { data } = await client.get<SalesRepKpiDto>(`/sales-reps/${id}/kpis`);
   return data;
 }
 
@@ -148,7 +148,7 @@ export async function getSalesRepAiPlan(
   id: string,
   payload?: { brandId?: string; scope?: string; notes?: string },
 ) {
-  const { data } = await api.post<SalesRepAiPlanDto>(
+  const { data } = await client.post<SalesRepAiPlanDto>(
     `/sales-reps/${id}/ai/prioritize`,
     payload ?? {},
   );

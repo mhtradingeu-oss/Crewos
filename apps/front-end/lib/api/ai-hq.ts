@@ -39,6 +39,7 @@ export async function rejectAutonomyTask(taskId: string, reason?: string) {
   return data;
 }
 
+
 export async function runAutonomyCycle(payload?: {
   brandId?: string;
   tenantId?: string;
@@ -46,18 +47,20 @@ export async function runAutonomyCycle(payload?: {
   dryRun?: boolean;
   includeEmbeddings?: boolean;
 }) {
-  const { data } = await api.post(`/ai/autonomy/run-cycle`, payload ?? {});
-  return data;
+  const response = await client.post(`/ai/autonomy/run-cycle`, payload ?? {});
+  return response.data;
 }
+
 
 export async function getAutonomyConfig() {
-  const { data } = await api.get(`/ai/autonomy/config`);
-  return data as { globalAutonomyEnabled: boolean; defaultAutonomyLevelPerAgent?: string };
+  const response = await client.get(`/ai/autonomy/config`);
+  return response.data as { globalAutonomyEnabled: boolean; defaultAutonomyLevelPerAgent?: string };
 }
 
+
 export async function updateAutonomyConfig(payload: { globalAutonomyEnabled?: boolean }) {
-  const { data } = await api.post(`/ai/autonomy/config`, payload);
-  return data as { globalAutonomyEnabled: boolean };
+  const response = await api.post(`/ai/autonomy/config`, payload);
+  return response.data;
 }
 
 export type AgentConfigOverride = {
@@ -70,15 +73,18 @@ export type AgentConfigOverride = {
 
 export async function listAgentConfigs(params?: { brandId?: string }) {
   const { data } = await api.get(`/ai/agents/config`, { params });
+    const { data } = await client.get(`/ai/agents/config`, { params });
   return data as any[];
 }
 
 export async function getAgentConfig(agentId: string, params?: { brandId?: string }) {
   const { data } = await api.get(`/ai/agents/config/${agentId}`, { params });
+    const { data } = await client.get(`/ai/agents/config/${agentId}`, { params });
   return data as any;
 }
 
 export async function updateAgentConfig(agentId: string, payload: AgentConfigOverride) {
   const { data } = await api.post(`/ai/agents/config/${agentId}`, payload);
+    const { data } = await client.post(`/ai/agents/config/${agentId}`, payload);
   return data as any;
 }

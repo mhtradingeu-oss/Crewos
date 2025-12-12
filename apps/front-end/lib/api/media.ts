@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { client } from "./client";
 
 type ApiEnvelope<T> = { success?: boolean; data: T };
 
@@ -54,22 +54,22 @@ export type MediaAsset = {
 };
 
 export async function listImageEngines() {
-  const { data } = await api.get<ApiEnvelope<MediaEngine[]>>("/media/engines/images");
+  const { data } = await client.get<ApiEnvelope<MediaEngine[]>>("/media/engines/images");
   return data.data;
 }
 
 export async function listVideoEngines() {
-  const { data } = await api.get<ApiEnvelope<MediaEngine[]>>("/media/engines/videos");
+  const { data } = await client.get<ApiEnvelope<MediaEngine[]>>("/media/engines/videos");
   return data.data;
 }
 
 export async function generateImage(payload: ImageGeneratePayload) {
-  const { data } = await api.post<ApiEnvelope<any>>("/media/generate/image", payload);
+  const { data } = await client.post<ApiEnvelope<any>>("/media/generate/image", payload);
   return data.data;
 }
 
 export async function generateVideo(payload: VideoGeneratePayload) {
-  const { data } = await api.post<ApiEnvelope<any>>("/media/generate/video", payload);
+  const { data } = await client.post<ApiEnvelope<any>>("/media/generate/video", payload);
   return data.data;
 }
 
@@ -79,12 +79,12 @@ export async function generateMedia(payload: MediaGeneratePayload): Promise<Medi
   const body: Record<string, unknown> = { ...rest };
 
   if (type === "image" && resolution) {
-    const [w, h] = resolution.split("x").map((value) => Number(value));
+    const [w, h] = resolution.split("x").map((value: string) => Number(value));
     if (Number.isFinite(w)) body.width = w;
     if (Number.isFinite(h)) body.height = h;
   }
 
-  const { data } = await api.post<ApiEnvelope<any>>(endpoint, body);
+  const { data } = await client.post<ApiEnvelope<any>>(endpoint, body);
   const asset = data.data ?? {};
   return {
     url: asset.url,

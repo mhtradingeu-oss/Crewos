@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { client } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export interface CampaignDto {
@@ -19,25 +19,25 @@ export async function listCampaigns(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { data } = await api.get<PaginatedResponse<CampaignDto>>("/marketing", { params });
+  const { data } = await client.get<PaginatedResponse<CampaignDto>>("/marketing", { params });
   return data;
 }
 
 export async function createCampaign(payload: Partial<CampaignDto>) {
-  const { data } = await api.post<CampaignDto>("/marketing", payload);
+  const { data } = await client.post<CampaignDto>("/marketing", payload);
   return data;
 }
 
 export async function updateCampaign(id: string, payload: Partial<CampaignDto>) {
-  const { data } = await api.put<CampaignDto>(`/marketing/${id}`, payload);
+  const { data } = await client.put<CampaignDto>(`/marketing/${id}`, payload);
   return data;
 }
 
 export async function getCampaign(id: string) {
-  const { data } = await api.get<CampaignDto>(`/marketing/${id}`);
+  const { data } = await client.get<CampaignDto>(`/marketing/${id}`);
   return data;
 }
 
 export async function deleteCampaign(id: string) {
-  await api.delete(`/marketing/${id}`);
+  await client.delete(`/marketing/${id}`);
 }

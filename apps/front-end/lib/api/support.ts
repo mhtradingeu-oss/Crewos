@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { client } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export interface SupportTicketDto {
@@ -27,16 +27,16 @@ export async function listSupportTickets(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { data } = await api.get<PaginatedResponse<SupportTicketDto>>("/support/tickets", { params });
+  const { data } = await client.get<PaginatedResponse<SupportTicketDto>>("/support/tickets", { params });
   return data;
 }
 
 export async function getSupportTicket(id: string) {
-  const { data } = await api.get<SupportTicketDto>(`/support/tickets/${id}`);
+  const { data } = await client.get<SupportTicketDto>(`/support/tickets/${id}`);
   return data;
 }
 
 export async function getSupportAiSummary(id: string) {
-  const { data } = await api.get<SupportAiSummaryDto>(`/support/tickets/${id}/ai`);
+  const { data } = await client.get<SupportAiSummaryDto>(`/support/tickets/${id}/ai`);
   return data;
 }
