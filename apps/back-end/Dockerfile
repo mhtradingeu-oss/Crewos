@@ -11,19 +11,13 @@ RUN npm config set fetch-retries 5 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm config set progress false
 
-# Root manifests
 COPY package.json package-lock.json tsconfig.base.json turbo.json ./
-
-# Shared package manifests (for deterministic workspace install)
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/shared/tsconfig.json ./packages/shared/
-
-# Backend manifests + prisma schema
 COPY apps/back-end/package.json ./apps/back-end/
 COPY apps/back-end/tsconfig.json ./apps/back-end/
 COPY apps/back-end/prisma ./apps/back-end/prisma/
 
-# Install all workspaces once
 RUN --mount=type=cache,target=/root/.npm \
   npm ci --legacy-peer-deps --no-audit --progress=false
 
@@ -40,15 +34,12 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 COPY --from=deps /app /app
 COPY . .
 
-# Build shared package before backend
 RUN npm run build --workspace=@mh-os/shared
 RUN test -d "/app/packages/shared/dist" \
   || (echo '❌ @mh-os/shared build missing inside Docker image' && exit 1)
 
-# Build backend (tsc)
 RUN npm run build --workspace=mh-os-superapp-backend
 
-# Remove devDependencies for lean runtime
 RUN npm prune --omit=dev
 
 
