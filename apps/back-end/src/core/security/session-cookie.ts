@@ -11,10 +11,16 @@ const baseCookieOptions = {
 };
 
 export function issueSessionCookie(res: Response, token: string) {
-  res.cookie(SESSION_COOKIE_NAME, token, {
-    ...baseCookieOptions,
-    maxAge: SESSION_COOKIE_MAX_AGE_SECONDS * 1000,
-  });
+  try {
+    res.cookie(SESSION_COOKIE_NAME, token, {
+      ...baseCookieOptions,
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS * 1000,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to set session cookie", err);
+    throw err;
+  }
 }
 
 export function clearSessionCookie(res: Response) {

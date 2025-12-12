@@ -21,15 +21,30 @@ const csrfCookieOptions = {
 
 export function issueCsrfCookie(res: Response) {
   const token = randomBytes(32).toString("hex");
-  res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions);
+  try {
+    res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to set CSRF cookie", err);
+    throw err;
+  }
 }
 
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction) {
+
+  // Explicitly skip CSRF for GET /api/v1/auth/csrf (public bootstrap endpoint)
+  const path = normalizePath(req);
+  if (
+    req.method.toUpperCase() === "GET" &&
+    path === "/api/v1/auth/csrf"
+  ) {
+    return next();
+  }
+
   if (!CSRF_REQUIRED_METHODS.has(req.method.toUpperCase())) {
     return next();
   }
 
-  const path = normalizePath(req);
   if (isAuthPath(path) && !AUTH_ROUTES_REQUIRING_CSRF.has(path)) {
     return next();
   }
