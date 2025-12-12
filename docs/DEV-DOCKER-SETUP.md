@@ -9,7 +9,7 @@ This document explains how to launch the backend + database baseline for MH-OS S
    cp .env.sample .env
    cp apps/back-end/.env.example apps/back-end/.env
    ```
-   Adjust the values inside `.env` and `apps/back-end/.env` if you need custom credentials.
+   Use `.env` for infrastructure defaults (ports, Postgres credentials injected into Docker) and keep application secrets + `DATABASE_URL` in `apps/back-end/.env`.
 
 ## Step-by-step commands
 1. Build the images:
@@ -39,7 +39,7 @@ This document explains how to launch the backend + database baseline for MH-OS S
 - Repeat the command whenever your schema changes.
 
 ## Troubleshooting
-- **PostgreSQL connection errors**: Ensure `.env` defines `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` consistently with `apps/back-end/.env`.
+- **PostgreSQL connection errors**: Confirm `.env` contains the `POSTGRES_*` values used by Docker and that `apps/back-end/.env` references matching credentials (or update both files together).
 - **Port conflicts**: The backend binds to `${BACKEND_PORT:-4000}` and the frontend to `${FRONTEND_PORT:-3000}`; stop other services or adjust the port values in `.env`.
 - **Missing env values inside containers**: Confirm you copied `.env.sample` to `.env` and that Docker Compose is run from the monorepo root.
 

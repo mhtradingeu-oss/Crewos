@@ -4,5 +4,5 @@ The core plan is captured in `archive_old/archive_old/08_backend_init_plan.md`. 
 
 ## Local Docker environment
 - The backend service loads `apps/back-end/.env` for local runs. Copy `apps/back-end/.env.example` to `apps/back-end/.env` and update `DATABASE_URL`, `JWT_SECRET`, and other values before you start Docker Compose.
-- When Docker Compose runs the backend, it injects `DATABASE_URL` (pointing at the `db` service) plus `REDIS_URL`/`PORT` from the root `.env`.
+- When Docker Compose runs the backend, it reads both `.env` (infra defaults) and `apps/back-end/.env` (application secrets). `DATABASE_URL` is overridden inside the compose file to point at the `db` service, while the rest of the backend secrets come from `apps/back-end/.env`.
 - Refer to `docs/DEV-DOCKER-SETUP.md` for the exact commands (build, start services, run migrations) needed after the initial setup.

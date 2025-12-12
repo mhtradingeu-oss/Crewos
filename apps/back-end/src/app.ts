@@ -115,22 +115,35 @@ export function createApp() {
 }
 
 function buildCorsOptions(): CorsOptions {
-  const parsedEnv = (env.ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
-  const fallbackDevOrigins = ["http://localhost:3000"];
-  const allowed = parsedEnv.length ? parsedEnv : fallbackDevOrigins;
-  const allowAll = allowed.includes("*");
-  if (process.env.NODE_ENV === "production" && !allowAll && parsedEnv.length === 0) {
+  // أثناء التطوير نسمح لجميع الأورجينز
+  if (process.env.NODE_ENV !== "production") {
+    return {
+      origin: "*",
+      credentials: false,
+    };
+  }
+
+  // في الإنتاج فقط نستخدم اللائحة المسموحة
+  const parsedEnv = (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  if (parsedEnv.length === 0) {
     throw new Error("ALLOWED_ORIGINS must be configured in production");
   }
+
   return {
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowAll || allowed.includes(origin)) return callback(null, true);
+      if (!origin || parsedEnv.includes(origin)) {
+        return callback(null, true);
+      }
       return callback(new Error("CORS origin denied"));
     },
     credentials: true,
   };
 }
+
 
 function addSecurityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader("X-Content-Type-Options", "nosniff");

@@ -16,8 +16,8 @@
    3. Inside `apps/front-end`: `npm install`.
 
 4. **Environment files**
-   1. Copy `cp .env.sample .env` (if `.env` does not already exist) and adjust any secrets.
-   2. Copy `cp apps/back-end/.env.example apps/back-end/.env` and ensure `DATABASE_URL` points to the Docker `db` host (`db:5432`).
+   1. Copy `cp .env.sample .env` (if `.env` does not already exist) and adjust infra values such as ports or Postgres credentials used by Docker.
+   2. Copy `cp apps/back-end/.env.example apps/back-end/.env` and set `DATABASE_URL`, `JWT_SECRET`, and admin credentials for your local backend runs (defaults point to the Postgres container via `localhost`).
 
 5. **Docker & database**
    1. Follow `docs/DEV-DOCKER-SETUP.md` for full details.
