@@ -13,6 +13,7 @@ import type { AuthSessionResponse, PlanFeatures, PlanTier } from "@mh-os/shared"
 import type { Prisma } from "@prisma/client";
 
 export type AuthInput = { email: string; password: string };
+export type AuthSessionResult = { session: AuthSessionResponse; token: string };
 
 const DEFAULT_PLAN_KEY = "free" as const;
 const DEFAULT_PERSONA = "RETAILER_DEALER" as const;
@@ -60,7 +61,7 @@ const loginSelect = {
   password: true,
 } satisfies Prisma.UserSelect & { password: true };
 
-async function buildSession(userId: string): Promise<AuthSessionResponse | null> {
+async function buildSession(userId: string): Promise<AuthSessionResult | null> {
   const record = await prisma.user.findUnique({ where: { id: userId }, select: userSelect });
   if (!record) {
     return null;
@@ -78,8 +79,7 @@ async function buildSession(userId: string): Promise<AuthSessionResponse | null>
   const planInfo = buildPlanInfo(record.tenant?.plan);
   const brandsAvailable = await fetchTenantBrands(record.tenantId);
 
-  return {
-    token: signToken(payload),
+  const session: AuthSessionResponse = {
     user: {
       id: record.id,
       email: record.email,
@@ -98,9 +98,14 @@ async function buildSession(userId: string): Promise<AuthSessionResponse | null>
     plan: planInfo,
     brandsAvailable,
   };
+
+  return {
+    token: signToken(payload),
+    session,
+  };
 }
 
-async function register(input: AuthInput): Promise<AuthSessionResponse> {
+async function register(input: AuthInput): Promise<AuthSessionResult> {
   const existing = await prisma.user.findUnique({ where: { email: input.email }, select: { id: true } });
   if (existing) {
     throw badRequest("Email already in use");
@@ -162,18 +167,18 @@ async function register(input: AuthInput): Promise<AuthSessionResponse> {
     },
   });
 
-  const session = await buildSession(user.id);
-  if (!session) {
+  const sessionResult = await buildSession(user.id);
+  if (!sessionResult) {
     throw unauthorized("Unable to build session");
   }
   await emitAuthSessionCreated(
-    buildAuthEventPayload(session.user),
-    buildAuthEventContext(session.user),
+    buildAuthEventPayload(sessionResult.session.user),
+    buildAuthEventContext(sessionResult.session.user),
   );
-  return session;
+  return sessionResult;
 }
 
-async function login(input: AuthInput): Promise<AuthSessionResponse> {
+async function login(input: AuthInput): Promise<AuthSessionResult> {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
     select: loginSelect,
@@ -188,26 +193,26 @@ async function login(input: AuthInput): Promise<AuthSessionResponse> {
     throw unauthorized("Invalid credentials");
   }
 
-  const session = await buildSession(user.id);
-  if (!session) {
+  const sessionResult = await buildSession(user.id);
+  if (!sessionResult) {
     throw unauthorized("Invalid credentials");
   }
   await emitAuthSessionCreated(
-    buildAuthEventPayload(session.user),
-    buildAuthEventContext(session.user),
+    buildAuthEventPayload(sessionResult.session.user),
+    buildAuthEventContext(sessionResult.session.user),
   );
-  return session;
+  return sessionResult;
 }
 
-async function me(userId: string): Promise<AuthSessionResponse | null> {
-  const session = await buildSession(userId);
-  if (session) {
+async function me(userId: string): Promise<AuthSessionResult | null> {
+  const sessionResult = await buildSession(userId);
+  if (sessionResult) {
     await emitAuthSessionRefreshed(
-      buildAuthEventPayload(session.user),
-      buildAuthEventContext(session.user),
+      buildAuthEventPayload(sessionResult.session.user),
+      buildAuthEventContext(sessionResult.session.user),
     );
   }
-  return session;
+  return sessionResult;
 }
 
 async function requestPasswordReset(email: string): Promise<void> {

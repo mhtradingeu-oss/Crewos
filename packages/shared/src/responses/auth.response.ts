@@ -52,7 +52,6 @@ export interface AuthSessionUser {
 }
 
 export interface AuthSessionResponse {
-  token: string;
   user: AuthSessionUser;
   tenant: TenantInfo | null;
   brand: BrandInfo | null;

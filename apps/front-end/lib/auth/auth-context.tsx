@@ -2,8 +2,7 @@
 
 import { ReactNode, createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, onUnauthorized, updateToken } from "@/lib/api/client";
-import { clearToken, getToken, setToken } from "@/lib/auth/token";
+import { api, onUnauthorized } from "@/lib/api/client";
 import { AuthSessionResponse, type LoginDto, type RegisterDto } from "@mh-os/shared";
 
 type SessionUser = AuthSessionResponse["user"];
@@ -17,7 +16,6 @@ interface AuthContextValue {
   status: AuthStatus;
   isLoading: boolean;
   isAuthenticated: boolean;
-  token: string | null;
   login: (params: LoginDto) => Promise<AuthSessionResponse>;
   register: (params: RegisterDto) => Promise<AuthSessionResponse>;
   logout: () => void;
@@ -34,7 +32,6 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSessionResponse | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
-  const [token, setTokenState] = useState<string | null>(null);
   const router = useRouter();
 
   const refresh = useCallback(async () => {
@@ -42,25 +39,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       const { data } = await api.get<AuthSessionResponse>("/auth/me");
       setSession(data);
-      setTokenState(getToken());
       setStatus("authenticated");
       return data;
     } catch (err) {
       setSession(null);
-      clearToken();
-      setTokenState(null);
       setStatus("unauthenticated");
       return null;
     }
   }, []);
 
   useEffect(() => {
-    const storedToken = getToken();
-    setTokenState(storedToken);
-    if (!storedToken) {
-      setStatus("unauthenticated");
-      return;
-    }
     void refresh();
   }, [refresh]);
 
@@ -68,9 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setStatus("loading");
       const { data } = await api.post<AuthSessionResponse>("/auth/login", { email, password });
-      updateToken(data.token);
-      setToken(data.token);
-      setTokenState(data.token);
       setSession(data);
       setStatus("authenticated");
       router.push("/dashboard");
@@ -85,9 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setStatus("loading");
       const { data } = await api.post<AuthSessionResponse>("/auth/register", { email, password });
-      updateToken(data.token);
-      setToken(data.token);
-      setTokenState(data.token);
       setSession(data);
       setStatus("authenticated");
       router.push("/dashboard");
@@ -99,8 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    clearToken();
-    setTokenState(null);
+    void api.post("/auth/logout").catch(() => {});
     setSession(null);
     setStatus("unauthenticated");
     router.push("/auth/login");
@@ -138,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     onUnauthorized(() => {
       setSession(null);
-      setTokenState(null);
       setStatus("unauthenticated");
     });
   }, []);
@@ -159,7 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status,
         isLoading,
         isAuthenticated,
-        token,
         login,
         register,
         logout,

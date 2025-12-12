@@ -1,5 +1,4 @@
 import axios from "axios";
-import { clearToken, getToken, setToken } from "@/lib/auth/token";
 
 const browserApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:41000/api/v1";
 const serverApiUrl =
@@ -14,15 +13,12 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 let unauthorizedHandler: (() => void) | null = null;
 
 api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
   if (shouldDebugLog) {
     const fullUrl = `${config.baseURL ?? ""}${config.url ?? ""}`;
     const payload = config.data ?? config.params ?? null;
@@ -56,7 +52,6 @@ api.interceptors.response.use(
       error.message ??
       "Request failed";
     if (error.response?.status === 401) {
-      clearToken();
       if (unauthorizedHandler) unauthorizedHandler();
       if (typeof window !== "undefined" && window.location.pathname !== "/auth/login") {
         window.location.href = "/auth/login";
@@ -71,10 +66,6 @@ api.interceptors.response.use(
     return Promise.reject(new Error(message));
   },
 );
-
-export function updateToken(token: string) {
-  setToken(token);
-}
 
 export function onUnauthorized(handler: () => void) {
   unauthorizedHandler = handler;

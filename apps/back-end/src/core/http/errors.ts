@@ -27,3 +27,7 @@ export function forbidden(message = "Forbidden") {
 export function notFound(message = "Not Found") {
   return new ApiError(404, message);
 }
+
+export function csrfInvalid(message = "CSRF token invalid") {
+  return new ApiError(403, message, undefined, "CSRF_INVALID");
+}

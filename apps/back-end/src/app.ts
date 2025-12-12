@@ -44,10 +44,13 @@ import { planHistoryRouter } from "./modules/plan-history/index.js";
 import { authenticateRequest } from "./core/security/auth-middleware.js";
 import { responseFormatter } from "./core/http/middleware/response-formatter.js";
 import { attachPlanContext, requireFeature } from "./core/http/middleware/plan-gating.js";
+import { csrfProtectionMiddleware } from "./core/security/csrf.js";
+import { cookieParser } from "./core/http/middleware/cookie-parser.js";
 
 export function createApp() {
   const app = express();
   const corsOptions = buildCorsOptions();
+  app.use(cookieParser());
   app.use(cors(corsOptions));
   app.use(addSecurityHeaders);
   app.use(express.json({ limit: "1mb" }));
@@ -64,6 +67,7 @@ export function createApp() {
   });
 
   // These routers correspond to the officially indexed docs under docs/MASTER_INDEX.md .
+  app.use(csrfProtectionMiddleware);
   app.use("/api/v1/auth", authRateLimiter, authRouter);
   app.use(authenticateRequest);
   app.use(attachPlanContext);
@@ -118,8 +122,8 @@ function buildCorsOptions(): CorsOptions {
   // أثناء التطوير نسمح لجميع الأورجينز
   if (process.env.NODE_ENV !== "production") {
     return {
-      origin: "*",
-      credentials: false,
+      origin: true,
+      credentials: true,
     };
   }
 
