@@ -24,7 +24,7 @@ export function issueCsrfCookie(res: Response) {
   try {
     res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions);
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error("Failed to set CSRF cookie", err);
     throw err;
   }

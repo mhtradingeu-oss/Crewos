@@ -11,12 +11,14 @@ import {
   requestPasswordResetHandler,
   csrfTokenHandler,
 } from "./auth.controller.js";
+import { createStrictAuthRateLimiter } from "../../core/http/rate-limit.js";
 
 const router = Router();
+const strictLimiter = createStrictAuthRateLimiter();
 
 router.get("/csrf", csrfTokenHandler);
-router.post("/register", validateBody(registerSchema), registerHandler);
-router.post("/login", validateBody(loginSchema), loginHandler);
+router.post("/register", strictLimiter, validateBody(registerSchema), registerHandler);
+router.post("/login", strictLimiter, validateBody(loginSchema), loginHandler);
 router.post("/logout", logoutHandler);
 router.post("/password/forgot", validateBody(forgotPasswordSchema), requestPasswordResetHandler);
 router.get("/me", authenticateRequest, requirePermission("auth:me"), meHandler);

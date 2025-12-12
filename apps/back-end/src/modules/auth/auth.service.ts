@@ -108,7 +108,8 @@ async function buildSession(userId: string): Promise<AuthSessionResult | null> {
 async function register(input: AuthInput): Promise<AuthSessionResult> {
   const existing = await prisma.user.findUnique({ where: { email: input.email }, select: { id: true } });
   if (existing) {
-    throw badRequest("Email already in use");
+    // Generic error, do not reveal if email exists
+    throw unauthorized("Invalid credentials");
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -184,6 +185,7 @@ async function login(input: AuthInput): Promise<AuthSessionResult> {
     select: loginSelect,
   });
 
+  // Always generic error
   if (!user || !user.password) {
     throw unauthorized("Invalid credentials");
   }
@@ -227,24 +229,23 @@ async function requestPasswordReset(email: string): Promise<void> {
     },
   });
 
-  if (!user) {
-    return;
+  if (user) {
+    await emitAuthPasswordResetRequested(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId ?? undefined,
+        brandId: user.brandId ?? undefined,
+      },
+      {
+        actorUserId: user.id,
+        brandId: user.brandId ?? undefined,
+        source: "api",
+      },
+    );
   }
-
-  await emitAuthPasswordResetRequested(
-    {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId ?? undefined,
-      brandId: user.brandId ?? undefined,
-    },
-    {
-      actorUserId: user.id,
-      brandId: user.brandId ?? undefined,
-      source: "api",
-    },
-  );
+  // Always return success, never reveal user existence
 }
 
 function resolveRoles(rawRoles: Prisma.JsonValue | null, baseRole: string): string[] {

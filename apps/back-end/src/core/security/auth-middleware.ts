@@ -3,6 +3,7 @@ import { verifyToken } from "./jwt.js";
 import type { AuthenticatedRequest } from "../http/http-types.js";
 import { unauthorized, forbidden } from "../http/errors.js";
 import { readSessionToken } from "./session-cookie.js";
+import { emitSecurityEvent, getRequestMeta } from "./security-events.js";
 
 const PUBLIC_PATH_PREFIXES = [
   "/api/v1/auth/login",
@@ -23,11 +24,23 @@ export function authenticateRequest(
 
   const token = readSessionToken(req);
   if (!token) {
+    emitSecurityEvent({
+      type: "SESSION_INVALID",
+      reason: "missing",
+      ...getRequestMeta(req),
+      path: req.path,
+    });
     return next(unauthorized());
   }
 
   const payload = verifyToken(token);
   if (!payload) {
+    emitSecurityEvent({
+      type: "SESSION_INVALID",
+      reason: "invalid",
+      ...getRequestMeta(req),
+      path: req.path,
+    });
     return next(unauthorized());
   }
 

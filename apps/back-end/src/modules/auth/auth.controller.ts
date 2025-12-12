@@ -5,13 +5,29 @@ import { authService, type AuthInput } from "./auth.service.js";
 import type { AuthenticatedRequest } from "../../core/security/rbac.js";
 import { clearSessionCookie, issueSessionCookie } from "../../core/security/session-cookie.js";
 import { issueCsrfCookie } from "../../core/security/csrf.js";
+import { emitSecurityEvent, hashEmail, getRequestMeta } from "../../core/security/security-events.js";
 
 export async function registerHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = req.body as AuthInput;
-    const { session, jwt } = await authService.register(payload);
-    issueSessionCookie(res, jwt);
-    return respondWithSuccess(res, session, 201);
+    try {
+      const { session, jwt } = await authService.register(payload);
+      issueSessionCookie(res, jwt);
+      emitSecurityEvent({
+        type: "AUTH_LOGIN_SUCCESS",
+        userId: session.user.id,
+        tenantId: session.user.tenantId,
+        ...getRequestMeta(req),
+      });
+      return respondWithSuccess(res, session, 201);
+    } catch (err: any) {
+      emitSecurityEvent({
+        type: "AUTH_LOGIN_FAILED",
+        emailHash: hashEmail(payload.email),
+        ...getRequestMeta(req),
+      });
+      return next(err);
+    }
   } catch (err) {
     return next(err);
   }
@@ -20,9 +36,24 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = req.body as AuthInput;
-    const { session, jwt } = await authService.login(payload);
-    issueSessionCookie(res, jwt);
-    return respondWithSuccess(res, session);
+    try {
+      const { session, jwt } = await authService.login(payload);
+      issueSessionCookie(res, jwt);
+      emitSecurityEvent({
+        type: "AUTH_LOGIN_SUCCESS",
+        userId: session.user.id,
+        tenantId: session.user.tenantId,
+        ...getRequestMeta(req),
+      });
+      return respondWithSuccess(res, session);
+    } catch (err: any) {
+      emitSecurityEvent({
+        type: "AUTH_LOGIN_FAILED",
+        emailHash: hashEmail(payload.email),
+        ...getRequestMeta(req),
+      });
+      return next(err);
+    }
   } catch (err) {
     return next(err);
   }
@@ -38,6 +69,12 @@ export async function meHandler(req: AuthenticatedRequest, res: Response, next: 
       return next(unauthorized());
     }
     issueSessionCookie(res, sessionResult.jwt);
+    emitSecurityEvent({
+      type: "AUTH_ME_REFRESH",
+      userId: sessionResult.session.user.id,
+      tenantId: sessionResult.session.user.tenantId,
+      ...getRequestMeta(req),
+    });
     return respondWithSuccess(res, sessionResult.session);
   } catch (err) {
     return next(err);
@@ -46,7 +83,18 @@ export async function meHandler(req: AuthenticatedRequest, res: Response, next: 
 
 export async function logoutHandler(_req: Request, res: Response, next: NextFunction) {
   try {
+    // _req may not be authenticated, but try to emit event if possible
+    const userId = (_req as any)?.user?.id;
+    const tenantId = (_req as any)?.user?.tenantId;
     clearSessionCookie(res);
+    if (userId) {
+      emitSecurityEvent({
+        type: "AUTH_LOGOUT",
+        userId,
+        tenantId,
+        ...getRequestMeta(_req),
+      });
+    }
     return respondWithSuccess(res, { loggedOut: true });
   } catch (err) {
     return next(err);
