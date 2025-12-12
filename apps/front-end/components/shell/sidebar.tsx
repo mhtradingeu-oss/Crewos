@@ -96,14 +96,14 @@ export function Sidebar() {
         <p className="text-xs text-slate-500">Enterprise navigation</p>
       </div>
       <div className="flex-1 space-y-8 overflow-y-auto pr-2">
-        {navGroups.map((group) => (
+        {navGroups.map((group: typeof navGroups[number]) => (
           <section key={group.title} className="space-y-3">
             <div>
               <p className="text-[0.625rem] uppercase tracking-[0.3em] text-slate-500">{group.title}</p>
               <p className="text-xs text-slate-500">{group.description}</p>
             </div>
             <div className="space-y-1">
-              {group.items.map((item) => {
+              {group.items.map((item: typeof group.items[number]) => {
                 const active = matchesRoute(pathname, item);
                 return (
                   <Link

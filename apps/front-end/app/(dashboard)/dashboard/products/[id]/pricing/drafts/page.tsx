@@ -129,7 +129,7 @@ export default function PricingDraftsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.data ?? []).map((draft) => (
+                {(data?.data ?? []).map((draft: any) => (
                   <TableRow key={draft.id}>
                     <TableCell>{draft.channel}</TableCell>
                     <TableCell>{draft.oldNet ?? "-"}</TableCell>

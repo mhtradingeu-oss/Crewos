@@ -183,7 +183,7 @@ export default function NotificationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(data?.data ?? []).map((item) => (
+                    {(data?.data ?? []).map((item: any) => (
                       <TableRow
                         key={item.id}
                         className={cn(item.status !== "read" && "bg-accent/40")}

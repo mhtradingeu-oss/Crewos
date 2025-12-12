@@ -68,7 +68,7 @@ export default function OnboardingStep3PlanPage() {
           <CardContent className="space-y-2">
             <p className="text-sm font-semibold text-foreground">Included focus areas</p>
             <div className="flex flex-wrap gap-2">
-              {planSuggestion.focus.map((item) => (
+              {planSuggestion.focus.map((item: string) => (
                 <span key={item} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                   {item}
                 </span>
@@ -78,7 +78,7 @@ export default function OnboardingStep3PlanPage() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Modules unlocked</p>
                 <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {features.map((feature) => (
+                  {features.map((feature: string) => (
                     <li key={feature}>{feature}</li>
                   ))}
                 </ul>

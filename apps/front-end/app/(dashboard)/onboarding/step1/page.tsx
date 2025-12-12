@@ -46,7 +46,7 @@ export default function OnboardingStep1Page() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {PERSONAS.map((item) => {
+        {PERSONAS.map((item: typeof PERSONAS[number]) => {
           const active = persona === item.value;
           return (
             <Card

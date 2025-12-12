@@ -30,7 +30,7 @@ export default function OnboardingStep4ModulesPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {modules.map((feature) => (
+        {modules.map((feature: string) => (
           <Card key={feature}>
             <CardHeader>
               <CardTitle className="text-lg">{feature}</CardTitle>

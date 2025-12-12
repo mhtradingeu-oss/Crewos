@@ -32,7 +32,7 @@ export function Topbar({}: TopbarProps) {
             onChange={(event) => setBrand(event.target.value)}
             className="min-w-[9rem] bg-transparent text-sm font-semibold uppercase text-white"
           >
-            {BRAND_OPTIONS.map((option) => (
+            {BRAND_OPTIONS.map((option: typeof BRAND_OPTIONS[number]) => (
               <option key={option.value} value={option.value} className="bg-slate-950 text-white">
                 {option.label}
               </option>

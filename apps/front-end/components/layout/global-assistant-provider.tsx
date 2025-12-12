@@ -207,7 +207,7 @@ export function GlobalAssistantProvider({ children }: { children: React.ReactNod
             <span className="absolute right-3 top-2.5 text-[11px] text-muted-foreground">Ctrl/Cmd + K</span>
           </div>
           <div className="max-h-80 space-y-2 overflow-y-auto">
-            {filteredCommands.map((cmd) => (
+            {filteredCommands.map((cmd: typeof filteredCommands[number]) => (
               <button
                 key={cmd.id}
                 onClick={() => {

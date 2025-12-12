@@ -71,7 +71,7 @@ export default function PricingLogsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.data ?? []).map((log) => (
+                {(data?.data ?? []).map((log: any) => (
                   <TableRow key={log.id}>
                     <TableCell>{log.channel ?? "-"}</TableCell>
                     <TableCell>{log.oldNet ?? "-"}</TableCell>

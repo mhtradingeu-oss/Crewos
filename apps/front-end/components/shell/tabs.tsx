@@ -30,7 +30,7 @@ export function Tabs({ tabs, defaultValue, onChange, className }: TabsProps) {
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-card/70 p-1">
-        {tabs.map((tab) => {
+        {tabs.map((tab: typeof tabs[number]) => {
           const isActive = tab.value === value;
           return (
             <button

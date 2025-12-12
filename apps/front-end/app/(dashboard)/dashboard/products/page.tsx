@@ -108,7 +108,7 @@ export default function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.data.map((product) => (
+              {data?.data.map((product: import('@/lib/api/product').ProductDto) => (
                 <TableRow key={product.id}>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{product.sku ?? "-"}</TableCell>

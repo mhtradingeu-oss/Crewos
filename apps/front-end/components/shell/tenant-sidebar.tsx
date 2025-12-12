@@ -125,11 +125,11 @@ export function TenantSidebar() {
         <p className="text-xs text-muted-foreground">Unified shell</p>
       </div>
       <div className="flex-1 space-y-6 overflow-y-auto pr-1">
-        {navSections.map((section) => (
+        {navSections.map((section: typeof navSections[number]) => (
           <div key={section.title} className="space-y-2">
             <p className="text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground">{section.title}</p>
             <div className="space-y-1">
-              {section.items.filter(canView).map((item) => {
+              {section.items.filter(canView).map((item: typeof section.items[number]) => {
                 const active = matchesRoute(pathname, item);
                 return (
                   <Link

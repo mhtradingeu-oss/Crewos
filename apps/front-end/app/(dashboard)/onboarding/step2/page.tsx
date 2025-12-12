@@ -27,7 +27,7 @@ export default function OnboardingStep2GoalsPage() {
 
   const toggle = (goal: OnboardingGoal | string) => {
     const next = goals.includes(goal as OnboardingGoal)
-      ? goals.filter((g) => g !== goal)
+      ? goals.filter((g: string) => g !== goal)
       : [...goals, goal as OnboardingGoal];
     setGoals(next as OnboardingGoal[]);
   };
@@ -57,7 +57,7 @@ export default function OnboardingStep2GoalsPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {GOALS.map((goal) => {
+        {GOALS.map((goal: typeof GOALS[number]) => {
           const active = goals.includes(goal.value as OnboardingGoal);
           return (
             <Card

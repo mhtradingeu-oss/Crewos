@@ -40,7 +40,7 @@ export default function SalesRepsPage() {
   const reps = useMemo(() => {
     const list = data?.data ?? [];
     if (!search && !status) return list;
-    return list.filter((rep) => {
+    return list.filter((rep: any) => {
       const matchesSearch =
         search === "" ||
         rep.code?.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,7 +51,7 @@ export default function SalesRepsPage() {
   }, [data, search, status]);
 
   const territoryCount = useMemo(
-    () => (data?.data ?? []).reduce((total, rep) => total + rep.territoryCount, 0),
+    () => (data?.data ?? []).reduce((total: number, rep: any) => total + rep.territoryCount, 0),
     [data],
   );
 
@@ -110,7 +110,7 @@ export default function SalesRepsPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
           <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-            {statusFilterOptions.map((option) => (
+            {statusFilterOptions.map((option: typeof statusFilterOptions[number]) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -150,7 +150,7 @@ export default function SalesRepsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reps.map((rep) => (
+                {reps.map((rep: any) => (
                   <TableRow key={rep.id}>
                     <TableCell>
                       <div className="font-semibold">{rep.code ?? "–"}</div>

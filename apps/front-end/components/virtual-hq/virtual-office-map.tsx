@@ -19,7 +19,7 @@ export function VirtualOfficeMap({ zones }: { zones: OfficeZone[] }) {
       </CardHeader>
       <CardContent>
         <div className="grid h-full min-h-[320px] grid-cols-6 gap-3 md:grid-cols-6 sm:grid-cols-4">
-          {zones.map((zone) => (
+          {zones.map((zone: typeof zones[number]) => (
             <div
               key={zone.id}
               className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm transition hover:-translate-y-1 hover:border-primary/70 hover:shadow-primary/20"

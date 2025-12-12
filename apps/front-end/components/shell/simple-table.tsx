@@ -21,15 +21,15 @@ export function SimpleTable({ columns, rows, className }: SimpleTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            {columns.map((column, idx) => (
+            {columns.map((column: typeof columns[number], idx: number) => (
               <TableHead key={typeof column === "string" ? column : idx}>{column}</TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row, rowIndex) => (
+          {rows.map((row: typeof rows[number], rowIndex: number) => (
             <TableRow key={rowIndex}>
-              {row.map((cell, cellIndex) => (
+              {row.map((cell: typeof row[number], cellIndex: number) => (
                 <TableCell key={`${rowIndex}-${cellIndex}`}>{cell}</TableCell>
               ))}
             </TableRow>

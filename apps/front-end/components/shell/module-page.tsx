@@ -62,7 +62,7 @@ export function ModulePageLayout({
         <div className="space-y-3 pt-1">{controlStrip}</div>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {kpis.map((kpi) => (
+        {kpis.map((kpi: typeof kpis[number]) => (
           <StatCard
             key={kpi.title}
             title={kpi.title}

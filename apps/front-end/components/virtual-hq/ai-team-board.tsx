@@ -11,7 +11,7 @@ export function AITeamBoard({ agents, onChat }: { agents: Agent[]; onChat?: (age
         <p className="text-sm text-muted-foreground">Crew status, scope, and quick actions.</p>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2">
-        {agents.map((agent) => (
+        {agents.map((agent: typeof agents[number]) => (
           <AgentCard
             key={agent.name}
             {...agent}

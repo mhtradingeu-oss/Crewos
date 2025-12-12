@@ -35,7 +35,7 @@ export function PageHeader({
       <div className="space-y-1">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {breadcrumbs.map((crumb, idx) => (
+            {breadcrumbs.map((crumb: typeof breadcrumbs[number], idx: number) => (
               <span key={crumb.label} className="flex items-center gap-2">
                 {crumb.href ? (
                   <Link href={crumb.href} className="hover:text-foreground">

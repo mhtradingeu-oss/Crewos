@@ -54,7 +54,7 @@ export default function OnboardingStep5ConfirmPage() {
             <p>{planSuggestion?.planName ?? "Pending"}</p>
             <p className="text-xs text-muted-foreground">{planSuggestion?.rationale}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {planSuggestion?.focus.map((item) => (
+              {planSuggestion?.focus.map((item: string) => (
                 <span key={item} className="rounded-full bg-primary/10 px-3 py-1 text-xxs font-semibold uppercase tracking-[0.2em] text-primary">
                   {item}
                 </span>
