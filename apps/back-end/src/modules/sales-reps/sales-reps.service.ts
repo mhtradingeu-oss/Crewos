@@ -452,6 +452,27 @@ type CreateSalesOrderInput = {
 };
 
 export async function createSalesOrderWithPricingAndInventory(input: CreateSalesOrderInput) {
+  // 0. Idempotency guard: check for duplicate order in last 60s
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - 60 * 1000);
+  const duplicate = await prisma.salesOrder.findFirst({
+    where: {
+      repId: input.repId,
+      brandId: input.brandId ?? undefined,
+      status: { not: "CANCELLED" },
+      createdAt: { gte: windowStart },
+      items: {
+        some: {
+          productId: input.productId,
+          quantity: input.quantity,
+        },
+      },
+    },
+  });
+  if (duplicate) {
+    throw badRequest("Duplicate order detected: similar order already exists within 60 seconds");
+  }
+
   // 1. Fetch latest pricing snapshot
   const pricing = await pricingServiceCore.getPricingById(input.productId);
   if (!pricing) throw notFound("Pricing not found for product");
@@ -461,6 +482,10 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
   if (!inventoryItem) throw notFound("Inventory item not found for product");
   if (inventoryItem.quantity < input.quantity) throw badRequest("Insufficient stock");
 
+  // استخدم تقريب آمن للمبالغ المالية (2 منازل عشرية)
+  const rawAmount = Number(pricing.price) * input.quantity;
+  const amount = Math.round(rawAmount * 100) / 100;
+
   // 3. Transaction: create order, adjust inventory, create invoice, revenue record
   const result = await prisma.$transaction(async (tx) => {
     // 3.1. Adjust inventory (decrement)
@@ -469,7 +494,7 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
       brandId: input.brandId,
       delta: -input.quantity,
       reason: `Order placed by sales rep ${input.repId}`,
-    });
+    }, tx);
 
     // 3.2. Create order
     const order = await tx.salesOrder.create({
@@ -489,7 +514,7 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
       data: {
         brandId: input.brandId!,
         customerId: undefined, // Extend as needed
-        amount: pricing.price * input.quantity,
+        amount,
         currency: pricing.currency ?? "EUR",
         status: "draft",
         issuedAt: new Date(),
@@ -501,7 +526,7 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
       data: {
         brandId: input.brandId ?? null,
         productId: input.productId ?? null,
-        amount: pricing.price * input.quantity,
+        amount,
         currency: pricing.currency ?? "EUR",
         periodStart: new Date(),
         periodEnd: null,

@@ -179,18 +179,19 @@ export const inventoryService = {
     return toInventoryItemDTO(created);
   },
 
-  async createInventoryAdjustment(input: CreateInventoryAdjustmentInput): Promise<InventoryAdjustmentResult> {
+  async createInventoryAdjustment(input: CreateInventoryAdjustmentInput, tx = prisma): Promise<InventoryAdjustmentResult> {
     const inventoryItem = await ensureInventoryItem(input.inventoryItemId, input.brandId);
     const previousQuantity = Number(inventoryItem.quantity ?? 0);
     const newQuantity = previousQuantity + Number(input.delta ?? 0);
 
-    const [updatedItem, transaction, adjustment] = await prisma.$transaction([
-      prisma.inventoryItem.update({
+    // استخدم tx بدلاً من prisma.$transaction
+    const [updatedItem, transaction, adjustment] = await Promise.all([
+      tx.inventoryItem.update({
         where: { id: inventoryItem.id },
         data: { quantity: newQuantity },
         select: inventorySelect,
       }),
-      prisma.inventoryTransaction.create({
+      tx.inventoryTransaction.create({
         data: {
           brandId: inventoryItem.brandId ?? null,
           warehouseId: inventoryItem.warehouseId,
@@ -201,7 +202,7 @@ export const inventoryService = {
         },
         select: transactionSelect,
       }),
-      prisma.stockAdjustment.create({
+      tx.stockAdjustment.create({
         data: {
           brandId: inventoryItem.brandId ?? null,
           productId: inventoryItem.productId,

@@ -1,3 +1,10 @@
+export const createSalesOrderSchema = z.object({
+  repId: z.string({ required_error: 'repId is required' }),
+  productId: z.string({ required_error: 'productId is required' }),
+  quantity: z.number().int().positive({ message: 'quantity must be a positive integer' }),
+  brandId: z.string().optional(),
+  warehouseId: z.string({ required_error: 'warehouseId is required' }),
+});
 import { z } from "zod";
 
 export const listSalesRepsSchema = z.object({
