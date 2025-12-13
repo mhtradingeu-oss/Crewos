@@ -438,3 +438,78 @@ class SalesRepsService {
 }
 
 export const sales_repsService = new SalesRepsService();
+
+// PHASE B: Core Revenue Flow — Create Order with Pricing Snapshot and Inventory Adjustment
+import { inventoryService } from "../inventory/inventory.service.js";
+import { pricingServiceCore } from "../pricing/pricing.service.js";
+
+type CreateSalesOrderInput = {
+  repId: string;
+  productId: string;
+  quantity: number;
+  warehouseId: string;
+  brandId?: string;
+};
+
+export async function createSalesOrderWithPricingAndInventory(input: CreateSalesOrderInput) {
+  // 1. Fetch latest pricing snapshot
+  const pricing = await pricingServiceCore.getPricingById(input.productId);
+  if (!pricing) throw notFound("Pricing not found for product");
+
+  // 2. Check and adjust inventory atomically
+  const inventoryItem = await inventoryService.getInventoryItem(input.productId, input.brandId);
+  if (!inventoryItem) throw notFound("Inventory item not found for product");
+  if (inventoryItem.quantity < input.quantity) throw badRequest("Insufficient stock");
+
+  // 3. Transaction: create order, adjust inventory, create invoice, revenue record
+  const result = await prisma.$transaction(async (tx) => {
+    // 3.1. Adjust inventory (decrement)
+    await inventoryService.createInventoryAdjustment({
+      inventoryItemId: inventoryItem.id,
+      brandId: input.brandId,
+      delta: -input.quantity,
+      reason: `Order placed by sales rep ${input.repId}`,
+    });
+
+    // 3.2. Create order
+    const order = await tx.salesOrder.create({
+      data: {
+        repId: input.repId,
+        productId: input.productId,
+        brandId: input.brandId ?? null,
+        quantity: input.quantity,
+        warehouseId: input.warehouseId,
+        pricingSnapshotJson: JSON.stringify(pricing),
+        status: "PLACED",
+      },
+    });
+
+    // 3.3. Create FinanceInvoice (core revenue flow)
+    const invoice = await tx.financeInvoice.create({
+      data: {
+        brandId: input.brandId!,
+        customerId: undefined, // Extend as needed
+        amount: pricing.price * input.quantity,
+        currency: pricing.currency ?? "EUR",
+        status: "draft",
+        issuedAt: new Date(),
+      },
+    });
+
+    // 3.4. Create RevenueRecord
+    const revenueRecord = await tx.revenueRecord.create({
+      data: {
+        brandId: input.brandId ?? null,
+        productId: input.productId ?? null,
+        amount: pricing.price * input.quantity,
+        currency: pricing.currency ?? "EUR",
+        periodStart: new Date(),
+        periodEnd: null,
+      },
+    });
+
+    return { order, pricingSnapshot: pricing, invoice, revenueRecord };
+  });
+
+  return result;
+}

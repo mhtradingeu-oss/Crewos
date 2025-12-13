@@ -22,7 +22,7 @@
     "seed:brand:hairoticmen": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/modules/brand/hairoticmen.seed.ts",
     "seed:core": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/core.seed.ts",
     "seed:tenants": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/tenants.seed.ts",
-    "seed:all": "npm run seed:core && npm run seed:tenants"
+    "seed:all": "npm run seed:core && npm run seed:tenants",
   },
   "dependencies": {
     "@mh-os/shared": "file:../../packages/shared",
