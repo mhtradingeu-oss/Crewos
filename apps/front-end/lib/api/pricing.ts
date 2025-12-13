@@ -1,34 +1,24 @@
+
+// DTO types are imported directly from @mh-os/shared
+
 import type {
   PricingRecordDto,
+  PricingDraftDto,
   PricingDraftCreateDto,
+  CompetitorPriceDto,
   CompetitorPriceCreateDto,
   PricingLogEntryDto,
-  PricingSuggestionOutputDto,
   PricingSuggestionInputDto,
+  PricingSuggestionOutputDto,
   PricingPlanInputDto,
   PricingPlanOutputDto,
   CreatePricingInputDto,
   UpdatePricingInputDto,
 } from "@mh-os/shared";
-import { client } from "./client";
+import { api } from "./client";
 import type { PaginatedResponse } from "./types";
 
-export type PricingDto = PricingRecordDto;
-export type PricingDraftDto = PricingDraftCreateDto & {
-  id: string;
-  productId: string;
-  status?: string;
-  statusReason?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-export type CompetitorPriceDto = CompetitorPriceCreateDto & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-  productId: string;
-};
-export type PricingLogDto = PricingLogEntryDto;
+// DTO types are now re-exported from ../types/pricing
 
 export async function listPricing(params?: {
   productId?: string;
@@ -36,22 +26,22 @@ export async function listPricing(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { data } = await api.get<PaginatedResponse<PricingDto>>("/pricing", { params });
+  const { data } = await api.get<PaginatedResponse<PricingRecordDto>>("/pricing", { params });
   return data;
 }
 
 export async function getPricing(id: string) {
-  const { data } = await api.get<PricingDto>(`/pricing/${id}`);
+  const { data } = await api.get<PricingRecordDto>(`/pricing/${id}`);
   return data;
 }
 
 export async function createPricing(payload: CreatePricingInputDto) {
-  const { data } = await api.post<PricingDto>("/pricing", payload);
+  const { data } = await api.post<PricingRecordDto>("/pricing", payload);
   return data;
 }
 
 export async function updatePricing(id: string, payload: UpdatePricingInputDto) {
-  const { data } = await api.put<PricingDto>(`/pricing/${id}`, payload);
+  const { data } = await api.put<PricingRecordDto>(`/pricing/${id}`, payload);
   return data;
 }
 
@@ -61,7 +51,7 @@ export async function removePricing(id: string) {
 }
 
 export async function getPricingByProduct(productId: string) {
-  const { data } = await api.get<PaginatedResponse<PricingDto>>("/pricing", {
+  const { data } = await api.get<PaginatedResponse<PricingRecordDto>>("/pricing", {
     params: { productId, page: 1, pageSize: 1 },
   });
   return data.data[0] ?? null;
@@ -71,7 +61,7 @@ export async function listDrafts(productId: string) {
   const { data } = await api.get<PaginatedResponse<PricingDraftDto>>(
     `/pricing/product/${productId}/drafts`,
   );
-  return data;
+  return data.data;
 }
 
 export async function createDraft(productId: string, payload: PricingDraftCreateDto) {
@@ -83,7 +73,7 @@ export async function listCompetitors(productId: string) {
   const { data } = await api.get<PaginatedResponse<CompetitorPriceDto>>(
     `/pricing/product/${productId}/competitors`,
   );
-  return data;
+  return data.data;
 }
 
 export async function addCompetitor(productId: string, payload: CompetitorPriceCreateDto) {
@@ -95,23 +85,23 @@ export async function addCompetitor(productId: string, payload: CompetitorPriceC
 }
 
 export async function listLogs(productId: string) {
-  const { data } = await api.get<PaginatedResponse<PricingLogDto>>(
+  const { data } = await api.get<PaginatedResponse<PricingLogEntryDto>>(
     `/pricing/product/${productId}/logs`,
   );
-  return data;
+  return data.data;
 }
 
-export type PricingAISuggestionDto = PricingSuggestionOutputDto;
+// PricingSuggestionOutputDto is now imported from @mh-os/shared
 
 export async function getAIPricingSuggestion(
   productId: string,
   input?: PricingSuggestionInputDto,
-): Promise<PricingAISuggestionDto> {
-  const { data } = await api.post<PricingAISuggestionDto>(
+): Promise<PricingSuggestionOutputDto> {
+  const { data } = await api.post<PricingSuggestionOutputDto>(
     `/pricing/product/${productId}/ai/suggest`,
     input ?? {},
   );
-  const payload = data as PricingAISuggestionDto & { suggestionJson?: PricingAISuggestionDto };
+  const payload = data as PricingSuggestionOutputDto & { suggestionJson?: PricingSuggestionOutputDto };
   return payload.suggestionJson ?? payload;
 }
 

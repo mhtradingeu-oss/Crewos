@@ -1,4 +1,4 @@
-import { client } from "./client";
+import { api } from "./client";
 import type {
   BrandCreatedResponse,
   BrandDefinitionDTO,
@@ -18,38 +18,35 @@ import type {
   OnboardingStartDto,
 } from "@mh-os/shared";
 
+
 /**
  * Placeholder API clients that call the onboarding backend endpoints.
  */
-export async function fetchExistingProducts() {
-  const { data } = await client.get<ProductEntry[]>("/products");
-  return data;
-}
 
 export async function fetchBrandProducts(brandId: string) {
-  const { data } = await client.get<ProductEntry[]>(`/products/brand/${brandId}`);
+  const { data } = await api.get<ProductEntry[]>(`/products/brand/${brandId}`);
   return data;
 }
 
 export async function createBrand(payload: BrandDefinitionDTO) {
-  const { data } = await client.post<BrandCreatedResponse>("/brand", payload);
+  const { data } = await api.post<BrandCreatedResponse>("/brand", payload);
   return data;
 }
 
 export async function createProducts(brandId: string, products: ProductDTO[]) {
-  const { data } = await client.post<ProductCreatedResponse[]>(`/brand/${brandId}/products`, {
+  const { data } = await api.post<ProductCreatedResponse[]>(`/brand/${brandId}/products`, {
     products,
   });
   return data;
 }
 
 export async function previewPricing(payload: PricingSetupDTO) {
-  const { data } = await client.post("/pricing/preview", payload);
+  const { data } = await api.post("/pricing/preview", payload);
   return data;
 }
 
 export async function createPricingDrafts(brandId: string, pricing: ProductPricingDTO[]) {
-  const { data } = await client.post(`/pricing/drafts`, {
+  const { data } = await api.post(`/pricing/drafts`, {
     brandId,
     pricing,
   });
@@ -57,7 +54,7 @@ export async function createPricingDrafts(brandId: string, pricing: ProductPrici
 }
 
 export async function createMarketingPlan(brandId: string, plan: MarketingPlanDTO) {
-  const { data } = await client.post(`/marketing/content-plan`, {
+  const { data } = await api.post(`/marketing/content-plan`, {
     brandId,
     plan,
   });
@@ -66,12 +63,12 @@ export async function createMarketingPlan(brandId: string, plan: MarketingPlanDT
 
 // New F2 onboarding endpoints
 export async function getOnboardingStart() {
-  const { data } = await client.get<OnboardingStartDto>("/onboarding/start");
+  const { data } = await api.get<OnboardingStartDto>("/onboarding/start");
   return data as OnboardingStartResponse;
 }
 
 export async function postOnboardingPersona(payload: OnboardingPersonaDto) {
-  await client.post("/onboarding/persona", payload);
+  await api.post("/onboarding/persona", payload);
   return payload;
 }
 

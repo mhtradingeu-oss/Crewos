@@ -47,13 +47,13 @@ export async function runAutonomyCycle(payload?: {
   dryRun?: boolean;
   includeEmbeddings?: boolean;
 }) {
-  const response = await client.post(`/ai/autonomy/run-cycle`, payload ?? {});
+  const response = await api.post(`/ai/autonomy/run-cycle`, payload ?? {});
   return response.data;
 }
 
 
 export async function getAutonomyConfig() {
-  const response = await client.get(`/ai/autonomy/config`);
+  const response = await api.get(`/ai/autonomy/config`);
   return response.data as { globalAutonomyEnabled: boolean; defaultAutonomyLevelPerAgent?: string };
 }
 
@@ -73,18 +73,15 @@ export type AgentConfigOverride = {
 
 export async function listAgentConfigs(params?: { brandId?: string }) {
   const { data } = await api.get(`/ai/agents/config`, { params });
-    const { data } = await client.get(`/ai/agents/config`, { params });
   return data as any[];
 }
 
 export async function getAgentConfig(agentId: string, params?: { brandId?: string }) {
   const { data } = await api.get(`/ai/agents/config/${agentId}`, { params });
-    const { data } = await client.get(`/ai/agents/config/${agentId}`, { params });
   return data as any;
 }
 
 export async function updateAgentConfig(agentId: string, payload: AgentConfigOverride) {
   const { data } = await api.post(`/ai/agents/config/${agentId}`, payload);
-    const { data } = await client.post(`/ai/agents/config/${agentId}`, payload);
   return data as any;
 }

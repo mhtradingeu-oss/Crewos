@@ -1,4 +1,4 @@
-import { client } from "@/lib/api/client";
+import { api } from "@/lib/api/client";
 
 export type PlatformOpsHealthResponse = {
   api: {

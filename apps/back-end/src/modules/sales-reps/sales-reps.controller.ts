@@ -1,3 +1,12 @@
+// إضافة دالة تحكم للراوت الجديد
+export async function createSalesOrderWithPricingAndInventory(req, res, next) {
+  try {
+    const result = await createSalesOrderWithPricingAndInventory(req.body);
+    respondWithSuccess(res, result, 201);
+  } catch (err) {
+    next(err);
+  }
+}
 import type { NextFunction, Request, Response } from "express";
 import { badRequest } from "../../core/http/errors.js";
 import { requireParam } from "../../core/http/params.js";

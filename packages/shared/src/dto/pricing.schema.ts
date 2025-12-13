@@ -1,8 +1,37 @@
+
 import { z } from "zod";
 
 const isoDateString = z.union([z.string(), z.date()]);
-
 const money = z.coerce.number().nonnegative();
+
+// Full draft DTO with id for frontend display
+export const pricingDraftSchema = z.object({
+  id: z.string(),
+  brandId: z.string().trim().min(1).optional(),
+  channel: z.string().trim().min(1),
+  oldNet: money,
+  newNet: money,
+  status: z.string().trim().min(1).optional(),
+  statusReason: z.string().trim().min(1).optional(),
+  createdById: z.string().trim().min(1).optional(),
+  approvedById: z.string().trim().min(1).optional(),
+  createdAt: isoDateString.optional(),
+});
+export type PricingDraftDto = z.infer<typeof pricingDraftSchema>;
+
+// Full competitor price DTO with id for frontend display
+export const competitorPriceSchema = z.object({
+  id: z.string(),
+  brandId: z.string().trim().min(1).optional(),
+  competitor: z.string().trim().min(1),
+  marketplace: z.string().trim().min(1).optional(),
+  country: z.string().trim().min(1).optional(),
+  priceNet: money,
+  priceGross: money,
+  currency: z.string().trim().length(3).optional(),
+  collectedAt: isoDateString.optional(),
+});
+export type CompetitorPriceDto = z.infer<typeof competitorPriceSchema>;
 
 export const pricingListQuerySchema = z.object({
   productId: z.string().trim().min(1).optional(),

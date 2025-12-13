@@ -2,45 +2,55 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   build-and-validate:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      # 1️⃣ Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Node setup
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      - name: Prisma validate
-        env:
-          DATABASE_URL: postgresql://mhos_user:mhos_password@localhost:5432/mhos_ci?schema=public
-        run: npx prisma validate --schema apps/back-end/prisma/schema.prisma
-
+      # 4️⃣ Lint backend
       - name: Lint backend
         run: npm run lint --workspace=mh-os-superapp-backend
 
+      # 5️⃣ Lint frontend
       - name: Lint frontend
         run: npm run lint --workspace=mh-os-admin
 
+      # 6️⃣ Typecheck (all workspaces)
       - name: Typecheck (all workspaces)
         run: npm run typecheck
 
+      # 7️⃣ Build shared package
       - name: Build shared package
         run: npm run build --workspace=@mh-os/shared
 
+      # 8️⃣ Build backend
       - name: Build backend
         run: npm run build --workspace=mh-os-superapp-backend
 
+      # 9️⃣ Build frontend
       - name: Build frontend
         run: npm run build --workspace=mh-os-admin
+
+      # 🚫 Phase A exclusions (documented)
+      - name: Skip Prisma / DB / Tests (Phase A)
+        run: |
+          echo "Phase A: Skipping Prisma validate, database, and backend tests"

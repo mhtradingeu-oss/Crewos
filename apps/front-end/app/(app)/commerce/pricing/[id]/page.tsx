@@ -21,12 +21,17 @@ import {
   approveDraft,
   rejectDraft,
   aiPlan,
-  type PricingAISuggestionDto,
-  type PricingLogDto,
 } from "@/lib/api/pricing";
+import type {
+  PricingSuggestionOutputDto,
+  PricingLogEntryDto,
+  PricingDraftDto,
+  CompetitorPriceDto,
+  PricingRecordDto,
+} from "@mh-os/shared";
 import { apiErrorMessage } from "@/lib/api/client";
 
-const fallbackSuggestion: PricingAISuggestionDto = {
+const fallbackSuggestion: PricingSuggestionOutputDto = {
   suggestedPrice: 42,
   reasoning: "Suggested uplift based on competitor parity and inventory health.",
   riskLevel: "LOW",
@@ -43,28 +48,28 @@ export default function PricingDetailPage() {
   const [askOpen, setAskOpen] = useState(false);
   const [planOutput, setPlanOutput] = useState<unknown | null>(null);
 
-  const pricingQuery = useQuery({
+  const pricingQuery = useQuery<PricingRecordDto | null>({
     queryKey: ["pricing", params.id],
     queryFn: () => getPricing(params.id),
   });
 
-  const aiSuggestionQuery = useQuery({
+  const aiSuggestionQuery = useQuery<PricingSuggestionOutputDto | null>({
     queryKey: ["pricing", params.id, "ai"],
     queryFn: () => getAIPricingSuggestion(params.id),
     staleTime: 60 * 1000,
   });
 
-  const logsQuery = useQuery({
+  const logsQuery = useQuery<PricingLogEntryDto[] | null>({
     queryKey: ["pricing", params.id, "logs"],
     queryFn: () => listLogs(params.id),
   });
 
-  const draftsQuery = useQuery({
+  const draftsQuery = useQuery<PricingDraftDto[] | null>({
     queryKey: ["pricing", params.id, "drafts"],
     queryFn: () => listDrafts(params.id),
   });
 
-  const competitorsQuery = useQuery({
+  const competitorsQuery = useQuery<CompetitorPriceDto[] | null>({
     queryKey: ["pricing", params.id, "competitors"],
     queryFn: () => listCompetitors(params.id),
   });
@@ -91,14 +96,14 @@ export default function PricingDetailPage() {
   });
 
   const timeline = useMemo(() => {
-    const events: PricingLogDto[] = logsQuery.data?.data ?? [];
-    if (!events.length) return [];
+    const events: PricingLogEntryDto[] = logsQuery.data ?? [];
+    if (!Array.isArray(events) || !events.length) return [];
     const formatMoney = (value: number | null | undefined) =>
       value === null || value === undefined ? "-" : `$${value.toFixed(2)}`;
     return [
       {
         day: "Recent",
-        events: events.map((log) => ({
+        events: events.map((log: PricingLogEntryDto) => ({
           id: log.id,
           title: log.summary ?? "Price change",
           subtitle: `${log.channel ?? ""} ${formatMoney(log.oldNet)} → ${formatMoney(log.newNet)}`.trim(),
@@ -205,9 +210,9 @@ export default function PricingDetailPage() {
           </div>
           <div className="mt-4 space-y-2 rounded-lg border border-border/60 bg-card/60 p-4">
             <p className="text-sm font-semibold">Drafts</p>
-            {draftsQuery.data?.data?.length ? (
+            {Array.isArray(draftsQuery.data) && draftsQuery.data.length ? (
               <div className="space-y-2 text-sm">
-                {draftsQuery.data.data.map((draft) => (
+                {draftsQuery.data.map((draft: PricingDraftDto) => (
                   <div key={draft.id} className="flex flex-wrap items-center justify-between rounded-md border border-border/50 px-3 py-2">
                     <div className="flex flex-col">
                       <span className="font-medium">{draft.channel}</span>
@@ -247,9 +252,9 @@ export default function PricingDetailPage() {
           </div>
           <div className="mt-4 space-y-2 rounded-lg border border-border/60 bg-card/60 p-4">
             <p className="text-sm font-semibold">Competitors</p>
-            {competitorsQuery.data?.data?.length ? (
+            {Array.isArray(competitorsQuery.data) && competitorsQuery.data.length ? (
               <div className="space-y-2 text-sm">
-                {competitorsQuery.data.data.map((item) => (
+                {competitorsQuery.data.map((item: CompetitorPriceDto) => (
                   <div key={item.id} className="flex flex-wrap items-center justify-between rounded-md border border-border/50 px-3 py-2">
                     <div>
                       <span className="font-medium">{item.competitor}</span>

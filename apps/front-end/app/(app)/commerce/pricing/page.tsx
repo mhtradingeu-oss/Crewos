@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import { listPricing, type PricingDto } from "@/lib/api/pricing";
+import { listPricing } from "@/lib/api/pricing";
+import type { PricingDto } from "@/lib/types/pricing";
 import { apiErrorMessage } from "@/lib/api/client";
 
 const fallbackRows: PricingDto[] = [
@@ -56,16 +57,16 @@ const fallbackRows: PricingDto[] = [
 export default function CommercePricingPage() {
   const [askOpen, setAskOpen] = useState(false);
 
-  const pricingQuery = useQuery({
+  const pricingQuery = useQuery<{ data: PricingDto[]; total: number } | null>({
     queryKey: ["pricing", "list"],
     queryFn: () => listPricing({ page: 1, pageSize: 15 }),
   });
 
   const tableRows = useMemo(() => {
-    const rows = pricingQuery.data?.data ?? fallbackRows;
+    const rows: PricingDto[] = pricingQuery.data?.data ?? fallbackRows;
     const formatMoney = (value?: number | null, currency?: string | null) =>
       value === null || value === undefined ? "-" : `${currency ?? ""} ${value.toFixed(2)}`;
-    return rows.map((price) => [
+    return rows.map((price: PricingDto) => [
       <Link key={price.id} href={`/commerce/pricing/${price.id}`} className="font-medium underline-offset-4 hover:underline">
         {price.productId}
       </Link>,

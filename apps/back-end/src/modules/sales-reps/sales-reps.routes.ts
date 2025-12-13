@@ -1,3 +1,18 @@
+import { createSalesOrderSchema } from "./sales-reps.validators.js";
+// إضافة راوت خاص لإنشاء الطلبات مع التحقق
+router.post(
+  "/order",
+  requirePermission("sales-rep:manage"),
+  validateBody(createSalesOrderSchema),
+  async (req, res, next) => {
+    try {
+      const result = await controller.createSalesOrderWithPricingAndInventory(req, res, next);
+      return result;
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 import { Router } from "express";
 import * as controller from "./sales-reps.controller.js";
 import { requirePermission } from "../../core/security/rbac.js";
