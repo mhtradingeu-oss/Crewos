@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client } from '../client';
+import { api } from '../client';
 
 // Types (best effort, update as backend/types evolve)
 export interface InventoryItem {
@@ -52,7 +52,7 @@ export function useInventories(params?: {
   return useQuery({
     queryKey: ['inventories', params],
     queryFn: async () => {
-      const { data } = await client.get<InventoryListResponse>('/api/v1/inventory', { params });
+      const { data } = await api.get<InventoryListResponse>('/api/v1/inventory', { params });
       return data;
     },
     keepPreviousData: true,
@@ -65,7 +65,7 @@ export function useInventory(id?: string) {
     queryKey: ['inventory', id],
     queryFn: async () => {
       if (!id) throw new Error('No inventory id');
-      const { data } = await client.get<InventoryItem>(`/api/v1/inventory/${id}`);
+      const { data } = await api.get<InventoryItem>(`/api/v1/inventory/${id}`);
       return data;
     },
     enabled: !!id,
@@ -77,7 +77,7 @@ export function useInventoryInsights() {
   return useQuery({
     queryKey: ['inventory-insights'],
     queryFn: async () => {
-      const { data } = await client.get<InventoryInsights>('/api/v1/inventory/insights');
+      const { data } = await api.get<InventoryInsights>('/api/v1/inventory/insights');
       return data;
     },
   });
@@ -88,7 +88,7 @@ export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateInventoryItemInput) => {
-      const { data } = await client.post<InventoryItem>('/api/v1/inventory', input);
+      const { data } = await api.post<InventoryItem>('/api/v1/inventory', input);
       return data;
     },
     onSuccess: () => {
@@ -103,7 +103,7 @@ export function useCreateInventoryAdjustment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateInventoryAdjustmentInput) => {
-      const { data } = await client.post('/api/v1/inventory/adjustments', input);
+      const { data } = await api.post('/api/v1/inventory/adjustments', input);
       return data;
     },
     onSuccess: () => {

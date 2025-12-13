@@ -1,4 +1,4 @@
-import { client } from "./client";
+import { api } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export interface FinanceDto {
@@ -20,6 +20,6 @@ export async function listFinance(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { data } = await client.get<PaginatedResponse<FinanceDto>>("/finance", { params });
+  const { data } = await api.get<PaginatedResponse<FinanceDto>>("/finance", { params });
   return data;
 }

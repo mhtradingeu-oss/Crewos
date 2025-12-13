@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { client } from '../client';
+import { api } from '../client';
 
 // Types
 export interface Product {
@@ -46,7 +46,7 @@ export function useProducts(params: ProductListParams) {
   return useQuery<ProductListResponse, Error>({
     queryKey: productKeys.list(params),
     queryFn: async () => {
-      const { data } = await client.get<ProductListResponse>('/api/v1/product', { params });
+      const { data } = await api.get<ProductListResponse>('/api/v1/product', { params });
       return data;
     },
     keepPreviousData: true,
@@ -57,7 +57,7 @@ export function useProduct(id: string) {
   return useQuery<Product, Error>({
     queryKey: productKeys.detail(id),
     queryFn: async () => {
-      const { data } = await client.get<Product>(`/api/v1/product/${id}`);
+      const { data } = await api.get<Product>(`/api/v1/product/${id}`);
       return data;
     },
     enabled: !!id,

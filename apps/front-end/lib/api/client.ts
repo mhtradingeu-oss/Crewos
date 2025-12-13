@@ -1,4 +1,5 @@
-import axios from "axios";
+
+import axios, { AxiosInstance } from "axios";
 
 const browserApiUrl =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:41000/api/v1";
@@ -13,25 +14,34 @@ const baseURL =
 
 const shouldDebugLog = process.env.NODE_ENV !== "production";
 
-const client = axios.create({
-  baseURL,
+
+// Defensive: ensure baseURL is always a string
+const safeBaseURL = typeof baseURL === "string" ? baseURL : "";
+
+/**
+ * Canonical API client instance for all HTTP requests.
+ * Always import as { apiClient } from this file for consistency.
+ */
+const apiClient: AxiosInstance = axios.create({
+  baseURL: safeBaseURL,
   headers: {
     "Content-Type": "application/json",
   },
   withCredentials: true,
 });
 
+
 let unauthorizedHandler: (() => void) | null = null;
 
 /* =========================
    REQUEST INTERCEPTOR
 ========================= */
-client.interceptors.request.use((config) => {
+apiClient.interceptors.request.use((config) => {
   if (shouldDebugLog) {
-    const fullUrl = `${config.baseURL ?? ""}${config.url ?? ""}`;
-    const payload = config.data ?? config.params ?? null;
+    const fullUrl = `${config?.baseURL ?? ""}${config?.url ?? ""}`;
+    const payload = config?.data ?? config?.params ?? null;
     console.info(
-      `[api request] ${config.method?.toUpperCase() ?? "GET"} ${fullUrl}`,
+      `[api request] ${config?.method?.toUpperCase() ?? "GET"} ${fullUrl}`,
       payload,
     );
   }
@@ -41,11 +51,11 @@ client.interceptors.request.use((config) => {
 /* =========================
    RESPONSE INTERCEPTOR
 ========================= */
-client.interceptors.response.use(
+apiClient.interceptors.response.use(
   (response) => {
     if (shouldDebugLog) {
-      const fullUrl = `${response.config.baseURL ?? ""}${response.config.url ?? ""}`;
-      console.info(`[api response] ${response.status} ${fullUrl}`);
+      const fullUrl = `${response?.config?.baseURL ?? ""}${response?.config?.url ?? ""}`;
+      console.info(`[api response] ${response?.status ?? ""} ${fullUrl}`);
     }
 
     const payload = response?.data;
@@ -54,7 +64,7 @@ client.interceptors.response.use(
     if (
       payload &&
       typeof payload === "object" &&
-      "data" in (payload as Record<string, unknown>)
+      Object.prototype.hasOwnProperty.call(payload, "data")
     ) {
       return {
         ...response,
@@ -65,27 +75,28 @@ client.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Defensive: always check for nested properties
     const message =
-      error.response?.data?.message ??
-      error.response?.data?.error ??
-      error.message ??
+      error?.response?.data?.message ??
+      error?.response?.data?.error ??
+      error?.message ??
       "Request failed";
 
-    if (error.response?.status === 401) {
+    if (error?.response?.status === 401) {
       if (unauthorizedHandler) unauthorizedHandler();
 
       if (
         typeof window !== "undefined" &&
-        window.location.pathname !== "/auth/login"
+        window.location?.pathname !== "/auth/login"
       ) {
         window.location.href = "/auth/login";
       }
     }
 
     if (shouldDebugLog) {
-      const fullUrl = `${error.config?.baseURL ?? ""}${error.config?.url ?? ""}`;
+      const fullUrl = `${error?.config?.baseURL ?? ""}${error?.config?.url ?? ""}`;
       console.warn(
-        `[api error] ${error.response?.status ?? "ERR"} ${fullUrl} :: ${message}`,
+        `[api error] ${error?.response?.status ?? "ERR"} ${fullUrl} :: ${message}`,
       );
     }
 
@@ -93,12 +104,16 @@ client.interceptors.response.use(
   },
 );
 
+
 /* =========================
-   HELPERS
+  HELPERS
 ========================= */
+
+
 export function onUnauthorized(handler: () => void) {
-  unauthorizedHandler = handler;
+  unauthorizedHandler = typeof handler === "function" ? handler : null;
 }
+
 
 export function apiErrorMessage(err: unknown): string {
   const maybeAxios = err as {
@@ -107,9 +122,9 @@ export function apiErrorMessage(err: unknown): string {
     message?: string;
   };
 
-  if (maybeAxios?.isAxiosError && maybeAxios.response) {
-    const data = maybeAxios.response.data ?? {};
-    const msg = data.message ?? data.error ?? maybeAxios.message;
+  if (maybeAxios?.isAxiosError && maybeAxios?.response) {
+    const data = maybeAxios?.response?.data ?? {};
+    const msg = data?.message ?? data?.error ?? maybeAxios?.message;
     if (typeof msg === "string") return msg;
     if (msg && typeof msg === "object") return JSON.stringify(msg);
   }
@@ -121,12 +136,13 @@ export function apiErrorMessage(err: unknown): string {
   return "Unexpected error";
 }
 
+
 /* =========================
-   EXPORTS (IMPORTANT)
+  EXPORTS (IMPORTANT)
 ========================= */
 
-// canonical
-export { client };
+// Canonical export: always import as { apiClient }
+export { apiClient };
 
-// backward compatibility (DO NOT REMOVE)
-export const api = client;
+// Backward compatibility (DO NOT REMOVE): legacy 'api' alias
+export const api = apiClient;
