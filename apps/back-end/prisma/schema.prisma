@@ -267,6 +267,7 @@ model Brand {
   automationEvents            AutomationEvent[]
   automationLogs              AutomationLog[]
   automationRules             AutomationRule[]
+  automationRuns              AutomationRun[]
   automationWorkflows         AutomationWorkflow[]
   aiConfig                    BrandAIConfig?
   categories                  BrandCategory[]
@@ -2616,6 +2617,14 @@ model AutomationEvent {
   brand             Brand?   @relation(fields: [brandId], references: [id])
 }
 
+enum AutomationRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
 model AutomationRule {
   id                  String                   @id @default(cuid())
   brandId             String?
@@ -2636,7 +2645,25 @@ model AutomationRule {
   lastRunAt           DateTime?
   lastRunStatus       String?
   executionLogs       AutomationExecutionLog[]
+  automationRuns      AutomationRun[]
   brand               Brand?                   @relation(fields: [brandId], references: [id])
+}
+
+model AutomationRun {
+  id           String             @id @default(cuid())
+  ruleId       String
+  brandId      String?
+  eventName    String
+  status       AutomationRunStatus @default(PENDING)
+  payloadJson  Json?
+  metaJson     Json?
+  traceJson    Json?
+  errorMessage String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  rule  AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  brand Brand?         @relation(fields: [brandId], references: [id])
 }
 
 model AutomationExecutionLog {

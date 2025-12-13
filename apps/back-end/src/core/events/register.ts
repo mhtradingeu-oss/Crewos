@@ -11,6 +11,7 @@ import { MarketingEvents } from "../../modules/marketing/marketing.events.js";
 import { registerDomainEventSubscribers } from "./domain-subscribers.js";
 import { BrandEvents } from "../../modules/brand/brand.events.js";
 import { SecurityGovernanceEvents } from "../../modules/security-governance/security-governance.events.js";
+import { registerAutomationEngineSubscriber } from "../automation/engine/subscriber.js";
 
 let initialized = false;
 let domainGuardsRegistered = false;
@@ -93,6 +94,7 @@ export function initEventHub() {
   if (initialized) return;
   registerActivityLogSubscriber();
   registerAutomationEventHandlers();
+  registerAutomationEngineSubscriber();
   registerNotificationSubscribers();
   registerPricingAutomationSubscriber();
   registerDomainEventSubscribers();
