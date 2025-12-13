@@ -18,6 +18,7 @@ export enum PricingEvents {
   LOG_RECORDED = "pricing.log.recorded",
   AI_SUGGESTED = "pricing.ai.suggested",
   AI_PLAN_GENERATED = "pricing.ai.plan.generated",
+  SNAPSHOT_ACCESSED = "pricing.snapshot.accessed",
 }
 
 export async function emitPricingCreated(payload: PricingEventPayload, context?: EventContext) {
@@ -77,4 +78,11 @@ export async function emitPricingAISuggested(payload: PricingEventPayload, conte
 
 export async function emitPricingPlanGenerated(payload: PricingEventPayload, context?: EventContext) {
   await publish(PricingEvents.AI_PLAN_GENERATED, payload, context);
+}
+
+export async function emitPricingSnapshotAccessed(
+  payload: PricingEventPayload,
+  context?: EventContext,
+) {
+  await publish(PricingEvents.SNAPSHOT_ACCESSED, payload, context);
 }

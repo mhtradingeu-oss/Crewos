@@ -5,6 +5,7 @@ import { authenticateRequest } from "./auth-middleware.js";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../prisma.js";
 import { forbidden, unauthorized } from "../http/errors.js";
+import { logger } from "../logger.js";
 
 export type { AuthenticatedRequest } from "../http/http-types.js";
 export { authenticateRequest };
@@ -112,6 +113,9 @@ export function requirePermission(permission: string | string[]) {
       }
       // SUPER_ADMIN has explicit bypass for RBAC checks; all other roles require explicit permissions.
       if (req.user.role === "SUPER_ADMIN") {
+        logger.info(
+          `[rbac] SUPER_ADMIN bypass for ${req.user.id ?? "unknown"} on ${req.method} ${req.originalUrl}`,
+        );
         return next();
       }
       const userPermissions = await getUserPermissions(req.user.id);

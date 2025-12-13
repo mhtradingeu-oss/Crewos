@@ -37,6 +37,7 @@ function registerDomainEventGuards() {
     PricingEvents.LOG_RECORDED,
     PricingEvents.AI_SUGGESTED,
     PricingEvents.AI_PLAN_GENERATED,
+    PricingEvents.SNAPSHOT_ACCESSED,
   ].forEach((eventName) => subscribe(eventName, ensurePayload(eventName)));
 
   [

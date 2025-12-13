@@ -1,18 +1,3 @@
-import { createSalesOrderSchema } from "./sales-reps.validators.js";
-// إضافة راوت خاص لإنشاء الطلبات مع التحقق
-router.post(
-  "/order",
-  requirePermission("sales-rep:manage"),
-  validateBody(createSalesOrderSchema),
-  async (req, res, next) => {
-    try {
-      const result = await controller.createSalesOrderWithPricingAndInventory(req, res, next);
-      return result;
-    } catch (err) {
-      next(err);
-    }
-  }
-);
 import { Router } from "express";
 import * as controller from "./sales-reps.controller.js";
 import { requirePermission } from "../../core/security/rbac.js";
@@ -24,8 +9,17 @@ import {
   salesRepAiPlanSchema,
   updateSalesRepsSchema,
 } from "./sales-reps.validators.js";
+import { createSalesOrderSchema } from "./sales-reps.validators.js";
 
 const router = Router();
+
+// Special route: place sales order with pricing + inventory guard
+router.post(
+  "/order",
+  requirePermission("sales-rep:manage"),
+  validateBody(createSalesOrderSchema),
+  controller.createSalesOrderWithPricingAndInventory,
+);
 
 router.get("/", requirePermission("sales-rep:read"), controller.list);
 router.get("/:id", requirePermission("sales-rep:read"), controller.getById);

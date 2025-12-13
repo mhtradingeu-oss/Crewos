@@ -24,6 +24,7 @@ export interface LeadRecord {
   dealCount?: number;
   createdAt: Date;
   updatedAt: Date;
+  customerId?: string;
 }
 
 export interface CrmLeadEventPayload {
@@ -33,6 +34,47 @@ export interface CrmLeadEventPayload {
   ownerId?: string | null;
   sourceId?: string | null;
   score?: number | null;
+}
+
+export interface CrmContactEventPayload {
+  leadId: string;
+  brandId?: string;
+  ownerId?: string | null;
+  notes?: string | null;
+}
+
+export interface CrmCustomerEventPayload {
+  leadId: string;
+  brandId?: string;
+  ownerId?: string | null;
+  customerId: string;
+  orderId?: string | null;
+  revenueRecordId?: string | null;
+  notes?: string | null;
+}
+
+export interface CrmCustomerRecord {
+  id: string;
+  leadId: string;
+  brandId?: string | null;
+  personId?: string | null;
+  companyId?: string | null;
+  firstOrderId?: string | null;
+  firstRevenueRecordId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ConvertLeadToContactInput {
+  ownerId?: string;
+  notes?: string;
+}
+
+export interface ConvertLeadToCustomerInput {
+  ownerId?: string;
+  orderId?: string;
+  revenueRecordId?: string;
+  notes?: string;
 }
 
 export interface CrmLeadScoredEventPayload {

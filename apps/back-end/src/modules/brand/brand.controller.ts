@@ -169,3 +169,16 @@ export async function upsertAiConfig(req: AuthenticatedRequest, res: Response, n
     next(err);
   }
 }
+
+export async function getCurrentBrand(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const brandId = req.user?.brandId;
+    if (!brandId) {
+      return respondWithSuccess(res, { hasBrand: false });
+    }
+    const brand = await brandService.getById(brandId, buildContext(req));
+    respondWithSuccess(res, { hasBrand: true, brand });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -2,6 +2,7 @@ import { prisma } from "../core/prisma.js";
 import { hashPassword } from "../core/security/password.js";
 import type { PlanKey } from "../core/plans.js";
 import { seedHairoticmen } from "../modules/brand/hairoticmen.seed.js";
+import { seedAutomationRules } from "./automation.seed.js";
 import type { Plan } from "@prisma/client";
 
 type SeedUserInput = {
@@ -239,6 +240,8 @@ export async function seedTenantsAndBrands() {
       brandId: demoBrand.id,
     });
   }
+
+  await seedAutomationRules();
 
   console.log("✅ Tenant and brand seeds completed");
 }

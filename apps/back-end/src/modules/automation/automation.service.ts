@@ -7,8 +7,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../../core/prisma.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
-import type { EventEnvelope } from "../../core/events/event-bus.js";
-import { publish } from "../../core/events/event-bus.js";
+import { publish, type EventContext, type EventEnvelope } from "../../core/events/event-bus.js";
+import { publishActivity } from "../../core/activity/activity.js";
 import { notificationService } from "../notification/notification.service.js";
 import { pricingService, type PricingActionContext } from "../pricing/pricing.service.js";
 import type {
@@ -155,24 +155,29 @@ class AutomationService {
     for (const rule of rules) {
       const config = this.parseJson(rule.triggerConfigJson) ?? {};
       if (this.shouldRunNow(config, now)) {
-        await this.executeRule(rule, undefined, now);
+        await this.executeRule(rule, undefined, now, {
+          source: "system",
+          module: "automation",
+          brandId: rule.brandId ?? undefined,
+        });
       }
     }
   }
 
-  async runRule(ruleId: string) {
+  async runRule(ruleId: string, contextOverride?: EventContext) {
     const rule = await this.db.automationRule.findUnique({
       where: { id: ruleId },
       select: ruleSelect,
     });
     if (!rule) throw notFound("Automation rule not found");
-    await this.executeRule(rule, undefined, new Date());
+    await this.executeRule(rule, undefined, new Date(), contextOverride);
   }
 
   private async executeRule(
     ruleRow: Prisma.AutomationRuleGetPayload<{ select: typeof ruleSelect }>,
     event?: EventEnvelope,
     now: Date = new Date(),
+    contextOverride?: EventContext,
   ) {
     const rule = this.mapRule(ruleRow);
     if (!rule.isActive) return;
@@ -187,9 +192,17 @@ class AutomationService {
       return;
     if (!this.evaluateConditions(conditions, event?.payload)) return;
 
+    const activityContext: EventContext | undefined = event?.context ?? contextOverride;
+    const activityContextWithBrand: EventContext = {
+      ...activityContext,
+      brandId: activityContext?.brandId ?? rule.brandId ?? undefined,
+      module: "automation",
+      source: activityContext?.source ?? "automation",
+    };
+
     let actionResults: ActionExecutionResult[] = [];
     try {
-      actionResults = await this.runActions(rule.actions, event);
+      actionResults = await this.runActions(rule.actions, event, rule);
       await this.db.automationExecutionLog.create({
         data: {
           ruleId: rule.id,
@@ -198,6 +211,7 @@ class AutomationService {
           resultJson: JSON.stringify({ message: "Actions executed", actions: actionResults }),
         },
       });
+      await this.recordRunDetails(rule, event, "success", actionResults, activityContextWithBrand, now);
       await this.db.automationRule.update({
         where: { id: rule.id },
         data: { lastRunAt: now, lastRunStatus: "success" },
@@ -217,11 +231,63 @@ class AutomationService {
           }),
         },
       });
+      await this.recordRunDetails(
+        rule,
+        event,
+        "failure",
+        actionResults,
+        activityContextWithBrand,
+        now,
+        err,
+      );
       await this.db.automationRule.update({
         where: { id: rule.id },
         data: { lastRunAt: now, lastRunStatus: "failure" },
       });
+      throw err;
     }
+  }
+
+  private async recordRunDetails(
+    rule: AutomationRuleRecord,
+    event: EventEnvelope | undefined,
+    status: "success" | "failure",
+    actions: ActionExecutionResult[],
+    context?: EventContext,
+    now?: Date,
+    error?: unknown,
+  ) {
+    const brandId = context?.brandId ?? rule.brandId ?? undefined;
+    const log = await this.db.automationLog.create({
+      data: {
+        brandId: brandId ?? null,
+        eventName: event?.name ?? null,
+        ruleId: rule.id,
+        workflowId: null,
+        result: status,
+        detailsJson: JSON.stringify({
+          runAt: now?.toISOString() ?? new Date().toISOString(),
+          eventPayload: event?.payload ?? null,
+          actions,
+          error: error instanceof Error ? error.message : error ?? null,
+        }),
+      },
+    });
+
+    await publishActivity(
+      "automation",
+      "run",
+      {
+        entityType: "automation-rule",
+        entityId: rule.id,
+        metadata: {
+          automationLogId: log.id,
+          status,
+          eventName: event?.name ?? null,
+        },
+      },
+      context,
+    );
   }
 
   private evaluateConditions(
@@ -263,32 +329,45 @@ class AutomationService {
     return true;
   }
 
-  private async runActions(actions: ActionConfig[], event?: EventEnvelope): Promise<ActionExecutionResult[]> {
+  private async runActions(
+    actions: ActionConfig[],
+    event?: EventEnvelope,
+    rule?: AutomationRuleRecord,
+  ): Promise<ActionExecutionResult[]> {
     const executed: ActionExecutionResult[] = [];
     for (const action of actions) {
       const result: ActionExecutionResult = { action: action.type };
+      const params = this.resolveDynamicParams(action.params ?? {}, event, rule);
       try {
         if (action.type === "notification") {
+          const notificationBrandId = this.resolveActionBrandId(params, event);
+          const payloadData =
+            params.data && typeof params.data === "object" && params.data !== null
+              ? (params.data as Record<string, unknown>)
+              : {};
           await notificationService.createNotification({
-            userId: action.params?.userId as string | undefined,
-            brandId: this.resolveActionBrandId(action, event),
-            type: (action.params?.type as string | undefined) ?? "automation",
-            title: (action.params?.title as string | undefined) ?? "Automation triggered",
+            userId: typeof params.userId === "string" && params.userId ? params.userId : undefined,
+            brandId: notificationBrandId,
+            type: (params.type as string | undefined) ?? "automation",
+            title: (params.title as string | undefined) ?? "Automation triggered",
             message:
-              (action.params?.message as string | undefined) ??
+              (params.message as string | undefined) ??
               `Rule executed${event ? ` on ${event.name}` : ""}`,
-            data: { event: event?.payload ?? null },
+            data: {
+              event: event?.payload ?? null,
+              ...payloadData,
+            },
           });
           result.details = { type: "notification" };
         } else if (action.type === "log") {
-          console.log("[automation log]", action.params ?? {}, event?.name);
+          console.log("[automation log]", params, event?.name);
           result.details = { message: "logged" };
         } else if (action.type === "crm.createTask") {
-          result.details = await this.createCrmTask(action, event);
+          result.details = await this.createCrmTask(params, event);
         } else if (action.type === "inventory.createRefillRequest") {
-          result.details = await this.createRefillRequest(action, event);
+          result.details = await this.createRefillRequest(params, event);
         } else if (action.type === "pricing.flagDraftForApproval") {
-          result.details = await this.flagPricingDraft(action, event);
+          result.details = await this.flagPricingDraft(params, event);
         } else {
           result.details = { message: "unsupported action" };
         }
@@ -302,13 +381,12 @@ class AutomationService {
     return executed;
   }
 
-  private async createCrmTask(action: ActionConfig, event?: EventEnvelope) {
-    const params = action.params ?? {};
+  private async createCrmTask(params: Record<string, unknown>, event?: EventEnvelope) {
     const title = (params.title as string | undefined) ?? "Automated CRM task";
     const dueDate = this.parseDateParam(params.dueDate);
     const task = await this.db.cRMTask.create({
       data: {
-        brandId: this.resolveActionBrandId(action, event) ?? undefined,
+        brandId: this.resolveActionBrandId(params, event) ?? undefined,
         title,
         dueDate,
         status: (params.status as string | undefined) ?? "OPEN",
@@ -324,14 +402,12 @@ class AutomationService {
     return { taskId: task.id, status: task.status ?? "OPEN" };
   }
 
-  private async createRefillRequest(action: ActionConfig, event?: EventEnvelope) {
-    const params = action.params ?? {};
+  private async createRefillRequest(params: Record<string, unknown>, event?: EventEnvelope) {
     const standId = params.standId as string | undefined;
     if (!standId) {
       throw badRequest("standId is required for refill requests");
     }
-    const resolvedBrandId = this.resolveActionBrandId(action, event) ??
-      (typeof params.brandId === "string" ? params.brandId : undefined);
+    const resolvedBrandId = this.resolveActionBrandId(params, event);
     const order = await this.db.standRefillOrder.create({
       data: {
         brandId: resolvedBrandId ?? null,
@@ -363,8 +439,7 @@ class AutomationService {
     return { orderId: order.id, itemsCreated: items.length };
   }
 
-  private async flagPricingDraft(action: ActionConfig, event?: EventEnvelope) {
-    const params = action.params ?? {};
+  private async flagPricingDraft(params: Record<string, unknown>, event?: EventEnvelope) {
     const draftId =
       (params.draftId as string | undefined) ??
       ((event?.payload as { draftId?: string })?.draftId ?? undefined);
@@ -375,8 +450,7 @@ class AutomationService {
     if (!draft) {
       throw notFound("Pricing draft not found");
     }
-    const brandId =
-      this.resolveActionBrandId(action, event) ?? draft.brandId ?? undefined;
+    const brandId = this.resolveActionBrandId(params, event) ?? draft.brandId ?? undefined;
     const context: PricingActionContext = {
       brandId,
       actorUserId: (event?.context?.actorUserId as string | undefined) ?? undefined,
@@ -385,10 +459,79 @@ class AutomationService {
     return { draftId: updated.id, status: updated.status };
   }
 
-  private resolveActionBrandId(action: ActionConfig, event?: EventEnvelope) {
+  private resolveActionBrandId(params: Record<string, unknown>, event?: EventEnvelope) {
     const eventBrandId = typeof event?.context?.brandId === "string" ? event.context.brandId : undefined;
-    const actionBrandId = typeof action.params?.brandId === "string" ? action.params.brandId : undefined;
-    return eventBrandId ?? actionBrandId;
+    const payloadBrandId =
+      typeof (event?.payload as Record<string, unknown>)?.brandId === "string"
+        ? (event?.payload as Record<string, unknown>).brandId as string
+        : undefined;
+    const actionBrandId = typeof params.brandId === "string" ? params.brandId : undefined;
+    return eventBrandId ?? payloadBrandId ?? actionBrandId;
+  }
+
+  private resolveDynamicParams(
+    params: Record<string, unknown>,
+    event?: EventEnvelope,
+    rule?: AutomationRuleRecord,
+  ): Record<string, unknown> {
+    const resolved: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(params)) {
+      const resolvedValue = this.resolveParamValue(value, event, rule);
+      if (resolvedValue !== undefined) {
+        resolved[key] = resolvedValue;
+      }
+    }
+    return resolved;
+  }
+
+  private resolveParamValue(value: unknown, event?: EventEnvelope, rule?: AutomationRuleRecord): unknown {
+    if (typeof value === "string") {
+      return this.interpolateTemplate(value, event, rule);
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.resolveParamValue(item, event, rule));
+    }
+    if (value && typeof value === "object" && !(value instanceof Date)) {
+      return this.resolveDynamicParams(value as Record<string, unknown>, event, rule);
+    }
+    return value;
+  }
+
+  private interpolateTemplate(
+    value: string,
+    event?: EventEnvelope,
+    rule?: AutomationRuleRecord,
+  ): string | undefined {
+    const templateRegex = /\{\{\s*([^.{}\s]+)\.([^{}]+)\s*\}\}/g;
+    let matched = false;
+    const replaced = value.replace(templateRegex, (match, scope, path) => {
+      matched = true;
+      const resolved = this.resolveScopeValue(scope, path, event, rule);
+      return resolved ?? "";
+    });
+    if (!matched) return value;
+    const trimmed = replaced.trim();
+    return trimmed === "" ? undefined : replaced;
+  }
+
+  private resolveScopeValue(
+    scope: string,
+    path: string,
+    event?: EventEnvelope,
+    rule?: AutomationRuleRecord,
+  ): string | undefined {
+    let target: Record<string, unknown> | undefined;
+    if (scope === "payload") {
+      target = (event?.payload as Record<string, unknown>) ?? {};
+    } else if (scope === "context") {
+      target = event?.context ?? {};
+    } else if (scope === "rule" && rule) {
+      target = (rule as unknown) as Record<string, unknown>;
+    }
+    if (!target) return undefined;
+    const resolved = this.resolvePath(target, path);
+    if (resolved === undefined || resolved === null) return undefined;
+    return String(resolved);
   }
 
   private parseDateParam(value?: unknown) {

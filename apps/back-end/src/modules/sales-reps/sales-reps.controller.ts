@@ -1,17 +1,11 @@
-// إضافة دالة تحكم للراوت الجديد
-export async function createSalesOrderWithPricingAndInventory(req, res, next) {
-  try {
-    const result = await createSalesOrderWithPricingAndInventory(req.body);
-    respondWithSuccess(res, result, 201);
-  } catch (err) {
-    next(err);
-  }
-}
 import type { NextFunction, Request, Response } from "express";
 import { badRequest } from "../../core/http/errors.js";
 import { requireParam } from "../../core/http/params.js";
 import { parsePagination } from "../../core/http/pagination.js";
-import { sales_repsService } from "./sales-reps.service.js";
+import {
+  createSalesOrderWithPricingAndInventory as createSalesOrderWithPricingAndInventoryService,
+  sales_repsService,
+} from "./sales-reps.service.js";
 import {
   listSalesLeadsSchema,
   listSalesRepsSchema,
@@ -19,6 +13,19 @@ import {
   salesRepAiPlanSchema,
 } from "./sales-reps.validators.js";
 import { respondWithSuccess } from "../../core/http/respond.js";
+
+export async function createSalesOrderWithPricingAndInventory(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await createSalesOrderWithPricingAndInventoryService(req.body);
+    respondWithSuccess(res, result, 201);
+  } catch (err) {
+    next(err);
+  }
+}
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   const validated = listSalesRepsSchema.safeParse(req.query);

@@ -3,7 +3,13 @@ import { badRequest } from "../../core/http/errors.js";
 import { requireParam } from "../../core/http/params.js";
 import { respondWithSuccess } from "../../core/http/respond.js";
 import { marketingService, marketingAIService } from "./marketing.service.js";
-import { createMarketingSchema, marketingIdeaSchema, updateMarketingSchema } from "./marketing.validators.js";
+import {
+  campaignAttributionSchema,
+  campaignInteractionSchema,
+  createMarketingSchema,
+  marketingIdeaSchema,
+  updateMarketingSchema,
+} from "./marketing.validators.js";
 import { resolveScopedBrandId } from "../../core/security/multitenant.js";
 import type { AuthenticatedRequest } from "../../core/security/rbac.js";
 import { parsePagination } from "../../core/http/pagination.js";
@@ -172,6 +178,36 @@ export async function previewTargets(req: AuthenticatedRequest, res: Response, n
     const actionContext = buildMarketingContext(req);
     const preview = await marketingService.previewCampaignTargets(campaignId, actionContext, limit);
     respondWithSuccess(res, preview);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function linkLeadToCampaign(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const parsed = campaignAttributionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(badRequest("Validation error", parsed.error.flatten()));
+    }
+    const campaignId = requireParam(req.params.id, "id");
+    const actionContext = buildMarketingContext(req);
+    const result = await marketingService.linkLeadToCampaign(campaignId, parsed.data, actionContext);
+    respondWithSuccess(res, result, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function recordCampaignInteraction(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const parsed = campaignInteractionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(badRequest("Validation error", parsed.error.flatten()));
+    }
+    const campaignId = requireParam(req.params.id, "id");
+    const actionContext = buildMarketingContext(req);
+    const result = await marketingService.recordCampaignInteraction(campaignId, parsed.data, actionContext);
+    respondWithSuccess(res, result, 201);
   } catch (err) {
     next(err);
   }

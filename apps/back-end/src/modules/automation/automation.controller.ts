@@ -132,19 +132,13 @@ export async function runScheduled(_req: AuthenticatedRequest, res: Response, ne
 export async function runNow(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const id = requireParam(req.params.id, "id");
-    await automationService.runRule(id);
-    await publishActivity(
-      "automation",
-      "run",
-      { entityType: "automation-rule", entityId: id },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: req.user?.brandId,
-        source: "api",
-      },
-    );
+    await automationService.runRule(id, {
+      actorUserId: req.user?.id,
+      role: req.user?.role,
+      tenantId: req.user?.tenantId,
+      brandId: req.user?.brandId,
+      source: "api",
+    });
     respondWithSuccess(res, { id, status: "executed" });
   } catch (err) {
     next(err);

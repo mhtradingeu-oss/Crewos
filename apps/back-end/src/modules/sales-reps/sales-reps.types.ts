@@ -153,3 +153,14 @@ export interface SalesActivityEventPayload {
   customerId?: string;
   summary: string;
 }
+
+export interface SalesOrderEventPayload {
+  orderId: string;
+  brandId?: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  invoiceId?: string;
+  revenueRecordId?: string;
+}

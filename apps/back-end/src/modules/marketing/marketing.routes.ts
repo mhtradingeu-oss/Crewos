@@ -2,7 +2,13 @@ import { Router } from "express";
 import * as controller from "./marketing.controller.js";
 import { requirePermission } from "../../core/security/rbac.js";
 import { validateBody } from "../../core/http/middleware/validate.js";
-import { createMarketingSchema, marketingIdeaSchema, updateMarketingSchema } from "./marketing.validators.js";
+import {
+  campaignAttributionSchema,
+  campaignInteractionSchema,
+  createMarketingSchema,
+  marketingIdeaSchema,
+  updateMarketingSchema,
+} from "./marketing.validators.js";
 import { requireFeature } from "../../core/http/middleware/plan-gating.js";
 
 const router = Router();
@@ -23,6 +29,18 @@ router.put(
   controller.update,
 );
 router.delete("/:id", requirePermission("marketing:delete"), controller.remove);
+router.post(
+  "/:id/attribution",
+  requirePermission("marketing:update"),
+  validateBody(campaignAttributionSchema),
+  controller.linkLeadToCampaign,
+);
+router.post(
+  "/:id/interactions",
+  requirePermission("marketing:update"),
+  validateBody(campaignInteractionSchema),
+  controller.recordCampaignInteraction,
+);
 router.post(
   "/ai/generate",
   requirePermission(["ai:marketing", "marketing:update"]),

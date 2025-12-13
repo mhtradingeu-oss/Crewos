@@ -1,5 +1,9 @@
 import { publish, type EventContext } from "../../core/events/event-bus.js";
-import type { MarketingCampaignEventPayload } from "./marketing.types.js";
+import type {
+  CampaignAttributionEventPayload,
+  CampaignInteractionEventPayload,
+  MarketingCampaignEventPayload,
+} from "./marketing.types.js";
 
 export enum MarketingEvents {
   CREATED = "marketing.campaign.created",
@@ -7,6 +11,8 @@ export enum MarketingEvents {
   DELETED = "marketing.campaign.deleted",
   STARTED = "marketing.campaign.started",
   STOPPED = "marketing.campaign.stopped",
+  ATTRIBUTION_CREATED = "marketing.campaign.attribution.created",
+  INTERACTION_LOGGED = "marketing.campaign.interaction.logged",
 }
 
 export async function emitMarketingCreated(
@@ -42,4 +48,18 @@ export async function emitMarketingCampaignStopped(
   context?: EventContext,
 ) {
   await publish(MarketingEvents.STOPPED, payload, context);
+}
+
+export async function emitMarketingCampaignAttribution(
+  payload: CampaignAttributionEventPayload,
+  context?: EventContext,
+) {
+  await publish(MarketingEvents.ATTRIBUTION_CREATED, payload, context);
+}
+
+export async function emitMarketingCampaignInteractionLogged(
+  payload: CampaignInteractionEventPayload,
+  context?: EventContext,
+) {
+  await publish(MarketingEvents.INTERACTION_LOGGED, payload, context);
 }
