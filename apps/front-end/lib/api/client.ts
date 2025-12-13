@@ -1,13 +1,16 @@
+import axios, {
+  AxiosHeaders,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from "axios";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, methodRequiresCsrf } from "./csrf";
 
-import axios, { AxiosInstance } from "axios";
-
-const browserApiUrl =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:41000/api/v1";
+const browserApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 const serverApiUrl =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:41000/api/v1";
+  "http://localhost:4000/api/v1";
 
 const baseURL =
   typeof window === "undefined" ? serverApiUrl : browserApiUrl;
@@ -17,6 +20,68 @@ const shouldDebugLog = process.env.NODE_ENV !== "production";
 
 // Defensive: ensure baseURL is always a string
 const safeBaseURL = typeof baseURL === "string" ? baseURL : "";
+
+let csrfRefreshPromise: Promise<void> | null = null;
+
+function readBrowserCookie(cookieName: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const match = document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${cookieName}=`));
+  if (!match) {
+    return null;
+  }
+  return decodeURIComponent(match.slice(cookieName.length + 1));
+}
+
+async function ensureCsrfCookie() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (readBrowserCookie(CSRF_COOKIE_NAME)) {
+    return;
+  }
+  if (!csrfRefreshPromise) {
+    // Refresh the CSRF token cookie once per session before mutating requests.
+    csrfRefreshPromise = globalThis
+      .fetch("/api/v1/auth/csrf", { method: "GET", credentials: "include" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Unable to refresh CSRF token");
+        }
+      })
+      .finally(() => {
+        csrfRefreshPromise = null;
+      });
+  }
+  await csrfRefreshPromise;
+}
+
+async function attachCsrfHeader(
+  config: InternalAxiosRequestConfig,
+): Promise<InternalAxiosRequestConfig> {
+  if (!methodRequiresCsrf(config.method)) {
+    return config;
+  }
+  // Add the freshly-minted CSRF token header so the backend accepts state changes.
+  await ensureCsrfCookie();
+  const token = readBrowserCookie(CSRF_COOKIE_NAME);
+  if (!token) {
+    return config;
+  }
+  let headers: AxiosHeaders;
+  if (config.headers instanceof AxiosHeaders) {
+    headers = config.headers;
+  } else {
+    headers = new AxiosHeaders(config.headers ?? {});
+    config.headers = headers;
+  }
+  headers.set(CSRF_HEADER_NAME, token);
+  return config;
+}
 
 /**
  * Canonical API client instance for all HTTP requests.
@@ -36,7 +101,7 @@ let unauthorizedHandler: (() => void) | null = null;
 /* =========================
    REQUEST INTERCEPTOR
 ========================= */
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use(async (config) => {
   if (shouldDebugLog) {
     const fullUrl = `${config?.baseURL ?? ""}${config?.url ?? ""}`;
     const payload = config?.data ?? config?.params ?? null;
@@ -45,7 +110,7 @@ apiClient.interceptors.request.use((config) => {
       payload,
     );
   }
-  return config;
+  return attachCsrfHeader(config);
 });
 
 /* =========================

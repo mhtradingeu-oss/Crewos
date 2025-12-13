@@ -4,6 +4,7 @@ import { ReactNode, createContext, useCallback, useContext, useEffect, useState 
 import { useRouter } from "next/navigation";
 import { api, onUnauthorized } from "@/lib/api/client";
 import { AuthSessionResponse, type LoginDto, type RegisterDto } from "@mh-os/shared";
+import { getDashboardRouteForRole } from "@/lib/auth/routes";
 
 type SessionUser = AuthSessionResponse["user"];
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await api.post<AuthSessionResponse>("/auth/login", { email, password });
       setSession(data);
       setStatus("authenticated");
-      router.push("/dashboard");
+      router.push(getDashboardRouteForRole(data.user?.role));
       return data;
     } catch (err) {
       setStatus("unauthenticated");
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await api.post<AuthSessionResponse>("/auth/register", { email, password });
       setSession(data);
       setStatus("authenticated");
-      router.push("/dashboard");
+      router.push(getDashboardRouteForRole(data.user?.role));
       return data;
     } catch (err) {
       setStatus("unauthenticated");
