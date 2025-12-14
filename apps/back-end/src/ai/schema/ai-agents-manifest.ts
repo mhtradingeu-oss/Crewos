@@ -32,6 +32,8 @@ export type AgentBudgetProfile = {
 export type AIAgentDefinition = {
   name: string;
   scope: string;
+  role?: string; // يميز الدور داخل الدومين
+  priority?: number; // ترتيب التوجيه
   model?: string;
   description: string;
   capabilities: string[];
@@ -2251,7 +2253,44 @@ export const AI_AGENTS_MANIFEST: AIAgentDefinition[] = [...BASE_AI_AGENTS_MANIFE
 function validateManifestIntegrity(manifest: AIAgentDefinition[]) {
   const warnings: string[] = [];
   const seenNames = new Set<string>();
-  const seenScopes = new Set<string>();
+  const seenNames = new Set<string>();
+  const seenScopeRole = new Set<string>();
+  const scopePrimaryCount: Record<string, number> = {};
+  const warnings: string[] = [];
+  for (const agent of manifest) {
+    // منع تكرار name
+    if (seenNames.has(agent.name)) {
+      warnings.push(`Duplicate agent name detected: ${agent.name}`);
+    } else {
+      seenNames.add(agent.name);
+    }
+    // منع تكرار (scope+role) إذا كان role معرفًا
+    if (agent.role) {
+      const key = `${agent.scope}::${agent.role}`;
+      if (seenScopeRole.has(key)) {
+        warnings.push(`Duplicate agent scope+role detected: ${key}`);
+      } else {
+        seenScopeRole.add(key);
+      }
+    }
+    // عدّ عدد الـ primary لكل scope (هنا نفترض priority=1 هو primary)
+    if (agent.priority === 1) {
+      scopePrimaryCount[agent.scope] = (scopePrimaryCount[agent.scope] || 0) + 1;
+    }
+  }
+  // تحذير إذا لا يوجد primary أو يوجد أكثر من واحد لنفس scope
+  for (const [scope, count] of Object.entries(scopePrimaryCount)) {
+    if (count === 0) {
+      warnings.push(`No primary agent (priority=1) for scope: ${scope}`);
+    } else if (count > 1) {
+      warnings.push(`Multiple primary agents (priority=1) for scope: ${scope}`);
+    }
+  }
+  if (warnings.length > 0) {
+    logger.warn(`[AI][manifest] integrity warnings`, { warnings });
+  }
+  return warnings;
+}
 
   for (const agent of manifest) {
     if (seenNames.has(agent.name)) {

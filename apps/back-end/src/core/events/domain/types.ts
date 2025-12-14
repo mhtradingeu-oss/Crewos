@@ -3,13 +3,20 @@
 export function defineDomainEvent<T extends DomainEventName>() {
   return {} as unknown as DomainEvent<T>;
 }
+
 import type { SecurityEvent } from "../../security/security-events.js";
+
+// إضافة دعم لحدث auth.login.success
+import type { AuthLoginSuccessPayload } from "./examples/auth-login-success.event.js";
 
 type SecurityPayloadMap = {
   [Event in SecurityEvent as Event["type"]]: Omit<Event, "type">;
 };
 
-export type DomainEventPayloadMap = SecurityPayloadMap;
+export type DomainEventPayloadMap =
+  SecurityPayloadMap & {
+    "auth.login.success": AuthLoginSuccessPayload;
+  };
 export type DomainEventName = keyof DomainEventPayloadMap;
 
 export interface DomainEventMeta {

@@ -9,22 +9,30 @@ export type AuthLoginSuccessPayload = {
   role?: string;
 };
 
-export const AuthLoginSuccessDefinition = defineDomainEvent<
-  "auth.login.success",
-  AuthLoginSuccessPayload
->("auth.login.success");
 
-export type AuthLoginSuccessEvent = ReturnType<typeof AuthLoginSuccessDefinition.create>;
+// تعريف ثابت للحدث فقط (لا يوجد .create)
+export const AuthLoginSuccessDefinition = {
+  type: "auth.login.success" as const,
+};
+
+import type { DomainEvent } from "../types.js";
+export type AuthLoginSuccessEvent = DomainEvent<"auth.login.success">;
+
 
 export function emitAuthLoginSuccess(
   payload: AuthLoginSuccessPayload,
-  meta?: Parameters<typeof AuthLoginSuccessDefinition.create>[1],
+  meta?: Record<string, unknown>,
 ) {
-  const event = AuthLoginSuccessDefinition.create(payload, meta);
-  domainEventBus.emit(event);
+  const event: AuthLoginSuccessEvent = {
+    id: crypto.randomUUID(),
+    type: "auth.login.success",
+    payload,
+    meta,
+    occurredAt: new Date(),
+  };
+  domainEventBus.emit(event.type, event);
   return event;
 }
 
-export function onAuthLoginSuccess(handler: DomainEventHandler<AuthLoginSuccessEvent>) {
-  return domainEventBus.subscribe(AuthLoginSuccessDefinition, handler);
-}
+
+

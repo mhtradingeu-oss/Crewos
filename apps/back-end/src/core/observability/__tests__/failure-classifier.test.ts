@@ -1,4 +1,4 @@
-import { classifyFailure, FailureCategory } from '../failure-classifier';
+import { classifyFailure, FailureCategory } from '../failure-classifier.js';
 
 describe('classifyFailure', () => {
   it('classifies EXT_ errorCode as RETRYABLE_EXTERNAL', () => {

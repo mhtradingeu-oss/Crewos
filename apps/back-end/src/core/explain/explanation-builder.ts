@@ -1,5 +1,5 @@
 
-import type { ExplainResponse, ExplainOutcome, ExplainEvidence } from "../../../modules/automation/automation.explain.types";
+import type { ExplainResponse, ExplainOutcome, ExplainEvidence } from "../../../modules/automation/index.js";
 
 // Pure builder for ExplainResponse
 export function buildExplainResponse({

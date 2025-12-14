@@ -1,4 +1,4 @@
-import { computeLatencyMetrics, computeSuccessRate } from '../metrics';
+import { computeLatencyMetrics, computeSuccessRate } from '../metrics.js';
 
 describe('computeLatencyMetrics', () => {
   it('returns zeros for empty input', () => {

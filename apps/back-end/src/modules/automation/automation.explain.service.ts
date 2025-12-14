@@ -13,7 +13,7 @@ export async function explainRuleVersion({ brandId, ruleVersionId, timeRange }: 
 	if (!ruleVersion || ruleVersion.rule.brandId !== brandId) return null;
 
 	// 2. Get metrics (Phase 7.1 helper)
-	const metrics = await getRuleVersionMetrics({ ruleVersionId: { ruleVersionId, brandId, from: timeRange?.from, to: timeRange?.to } });
+	const metrics = await getRuleVersionMetrics({ ruleVersionId, brandId, from: timeRange?.from, to: timeRange?.to });
 	// Defensive: if metrics null, use deterministic defaults
 	const totalRuns = metrics?.totalRuns ?? 0;
 	const runSuccessRate = metrics?.runSuccessRate ?? 0;

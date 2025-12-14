@@ -40,30 +40,14 @@ export async function create(req: AuthenticatedRequest, res: Response, next: Nex
     }
     // PolicyGate: pre-save validation
     const policyViolations = automationService.policyGatePreSave({
-      ...parsed.data,
+      ruleVersion: parsed.data,
       userRole: req.user?.role,
     });
     if (policyViolations.length) {
       return res.status(400).json({ code: "policy_gate_failed", message: "PolicyGate failed", details: policyViolations });
     }
-    const item = await automationService.create({ ...parsed.data, createdById: req.user?.id });
-    await publishActivity(
-      "automation",
-      "created",
-      {
-        entityType: "automation-rule",
-        entityId: item.id,
-        metadata: { name: item.name, brandId: item.brandId },
-      },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: (item as { brandId?: string }).brandId ?? req.user?.brandId,
-        source: "api",
-      },
-    );
-    respondWithSuccess(res, item, 201);
+    await automationService.create({ ...parsed.data, createdById: req.user?.id });
+    respondWithSuccess(res, { status: "created" }, 201);
   } catch (err) {
     next(err);
   }
@@ -80,32 +64,16 @@ export async function update(req: AuthenticatedRequest, res: Response, next: Nex
       const activationViolations = automationService.activationGatePreActivate({
         ruleVersion: parsed.data,
         policyStatus: "ok", // TODO: wire real policy status if available
-        userRole: req.user?.role,
+        permissions: [],
       });
     if (activationViolations.length) {
       return res.status(400).json({ code: "activation_gate_failed", message: "ActivationGate failed", details: activationViolations });
     }
-    const item = await automationService.update(id, {
+    await automationService.update(id, {
       ...parsed.data,
       createdById: req.user?.id,
     });
-    await publishActivity(
-      "automation",
-      "updated",
-      {
-        entityType: "automation-rule",
-        entityId: item.id,
-        metadata: { name: item.name, brandId: item.brandId },
-      },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: (item as { brandId?: string }).brandId ?? req.user?.brandId,
-        source: "api",
-      },
-    );
-    respondWithSuccess(res, item);
+    respondWithSuccess(res, { status: "updated" });
   } catch (err) {
     next(err);
   }

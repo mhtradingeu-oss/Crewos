@@ -1,3 +1,67 @@
+// دالة metrics حسب ruleVersion (مطلوبة من explain.service)
+export async function getRuleVersionMetrics({ ruleVersionId, brandId, from, to }: { ruleVersionId: string; brandId: string; from?: Date; to?: Date }): Promise<RuleVersionMetrics | null> {
+	const runs = await prisma.automationRun.findMany({
+		where: {
+			ruleVersionId,
+			...(brandId ? { ruleVersion: { rule: { brandId } } } : {}),
+			...(from && to ? { createdAt: { gte: from, lte: to } } : {}),
+		},
+		select: {
+			id: true,
+			status: true,
+			startedAt: true,
+			finishedAt: true,
+			actionRuns: {
+				select: {
+					id: true,
+					status: true,
+					startedAt: true,
+					finishedAt: true,
+					actionType: true,
+					actionIndex: true,
+					errorJson: true,
+					resultJson: true,
+				},
+			},
+		},
+	});
+	if (!runs.length) return null;
+	const totalRuns = runs.length;
+	const totalActionRuns = runs.reduce((sum, r) => sum + r.actionRuns.length, 0);
+	const runSuccesses = runs.filter(r => r.status === "SUCCESS").length;
+	const actionRuns = runs.flatMap(r => r.actionRuns);
+	const actionSuccesses = actionRuns.filter(a => a.status === "SUCCESS").length;
+	const runLatencies = runs.filter(r => r.startedAt && r.finishedAt).map(r => new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime());
+	const actionLatencies = actionRuns.filter(a => a.startedAt && a.finishedAt).map(a => new Date(a.finishedAt!).getTime() - new Date(a.startedAt!).getTime());
+	const latency = computeLatencyMetrics([...runLatencies, ...actionLatencies]);
+	const failureCounts: Record<string, number> = {};
+	for (const a of actionRuns) {
+		if (a.status !== "SUCCESS") {
+			let errorCode = undefined;
+			let errorMessage = undefined;
+			let runnerType = undefined;
+			let gateResult = undefined;
+			if (a.errorJson && isPlainObject(a.errorJson)) {
+				const err = a.errorJson as Record<string, unknown>;
+				errorCode = (err["code"] ?? err["errorCode"]) as string | undefined;
+				errorMessage = (err["message"] ?? err["errorMessage"]) as string | undefined;
+				runnerType = err["runnerType"] as string | undefined;
+				gateResult = err["gateResult"] as string | undefined;
+			}
+			const cat = classifyFailure({ errorCode, errorMessage, runnerType, gateResult });
+			failureCounts[cat] = (failureCounts[cat] || 0) + 1;
+		}
+	}
+	return {
+		ruleVersionId,
+		totalRuns,
+		totalActionRuns,
+		runSuccessRate: computeSuccessRate(runSuccesses, totalRuns),
+		actionSuccessRate: computeSuccessRate(actionSuccesses, totalActionRuns),
+		latency,
+		failureCounts,
+	};
+}
 // Utility to check for plain object
 function isPlainObject(val: unknown): val is Record<string, unknown> {
 	return !!val && typeof val === "object" && !Array.isArray(val);

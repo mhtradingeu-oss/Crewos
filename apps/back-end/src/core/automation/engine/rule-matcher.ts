@@ -11,6 +11,7 @@ export interface AutomationRuleMatch {
   conditionConfig?: { all?: ConditionConfig[]; any?: ConditionConfig[] };
   actions?: ActionConfig[];
   ruleVersionId: string;
+  triggerEvent: string; // أضفنا هذا الحقل لتوافق مع الفلترة
 }
 
 
@@ -55,7 +56,7 @@ export async function loadMatchingRulesForEvent(event: DomainEvent): Promise<Aut
     name: row.rule.name,
     description: row.rule.description ?? undefined,
     brandId: row.rule.brandId ?? undefined,
-    // triggerEvent removed (Phase 6)
+    triggerEvent: row.triggerEvent, // إضافة triggerEvent من صف ruleVersion
     conditionConfig: parseConditionConfig(row.conditionConfigJson),
     actions: parseActions(row.actionsConfigJson),
     ruleVersionId: row.id,

@@ -1,5 +1,5 @@
 
-import type { ExplainOutcome } from "../../../modules/automation/automation.explain.types";
+import type { ExplainOutcome } from "../../../modules/automation/index.js";
 
 // Pure deterministic outcome resolver for ruleVersion
 export function resolveRuleVersionOutcome(metrics: { totalRuns: number; runSuccessRate: number; actionSuccessRate: number }, failures: Record<string, number>): ExplainOutcome {

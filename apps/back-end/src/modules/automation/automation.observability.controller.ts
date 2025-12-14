@@ -30,12 +30,10 @@ export async function getRuleVersionMetrics(req: Request, res: Response) {
 	if (to) toDate = new Date(to as string);
 	try {
 		const data = await service.getRuleVersionMetrics({
-			ruleVersionId: {
-				ruleVersionId: params.ruleVersionId,
-				brandId,
-				from: fromDate,
-				to: toDate,
-			}
+			ruleVersionId: params.ruleVersionId,
+			brandId,
+			from: fromDate,
+			to: toDate,
 		});
 		if (!data) {
 			res.status(404).json({ error: 'Not found' });
@@ -45,7 +43,6 @@ export async function getRuleVersionMetrics(req: Request, res: Response) {
 	} catch (err) {
 		res.status(500).json({ error: 'Internal error' });
 	}
-	res.json(data);
 }
 
 export async function getFailureBreakdown(req: Request, res: Response) {
