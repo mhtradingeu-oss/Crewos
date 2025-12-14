@@ -50,6 +50,7 @@ enum AutomationRunStatus {
   SUCCESS
   FAILED
   PARTIAL
+  SKIPPED
 }
 
 enum AutomationActionRunStatus {
@@ -61,6 +62,13 @@ enum AutomationActionRunStatus {
   RETRYING
 }
 
+enum AutomationRuleLifecycleState {
+  DRAFT
+  REVIEW
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
 model User {
   id                       String                    @id @default(cuid())
   email                    String                    @unique
@@ -284,7 +292,6 @@ model Brand {
   automationEvents            AutomationEvent[]
   automationLogs              AutomationLog[]
   automationRules             AutomationRule[]
-  automationRuns              AutomationRun[]
   automationWorkflows         AutomationWorkflow[]
   aiConfig                    BrandAIConfig?
   categories                  BrandCategory[]
@@ -2634,54 +2641,45 @@ model AutomationEvent {
   brand             Brand?   @relation(fields: [brandId], references: [id])
 }
 
-enum AutomationRunStatus {
-  PENDING
-  RUNNING
-  SUCCESS
-  FAILED
-  SKIPPED
-}
-
 model AutomationRule {
   id                  String                   @id @default(cuid())
   brandId             String?
   name                String
-  triggerEvent        String?
-  conditionsJson      String?
-  actionsJson         String?
+  description         String?
+  state               AutomationRuleLifecycleState @default(DRAFT)
   enabled             Boolean                  @default(true)
+  triggerEvent        String?
+  triggerType         String?
+  actionsJson         Json?
+  conditionsJson      Json?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
-  description         String?
-  triggerType         String                   @default("event")
-  triggerConfigJson   String?
-  conditionConfigJson String?
-  actionsConfigJson   String?
   createdById         String?
   updatedById         String?
   lastRunAt           DateTime?
   lastRunStatus       String?
-  executionLogs       AutomationExecutionLog[]
-  automationRuns      AutomationRun[]
   brand               Brand?                   @relation(fields: [brandId], references: [id])
+  versions            AutomationRuleVersion[]
   automationRuns      AutomationRun[]
+  executionLogs       AutomationExecutionLog[]
+  auditLogs           AutomationAuditLog[]
 }
 
-model AutomationRun {
-  id           String             @id @default(cuid())
-  ruleId       String
-  brandId      String?
-  eventName    String
-  status       AutomationRunStatus @default(PENDING)
-  payloadJson  Json?
-  metaJson     Json?
-  traceJson    Json?
-  errorMessage String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+model AutomationRuleVersion {
+  id                  String                   @id @default(cuid())
+  ruleId              String
+  versionNumber       Int
+  triggerEvent        String
+  conditionConfigJson Json
+  actionsConfigJson   Json
+  metaSnapshotJson    Json?
+  createdAt           DateTime                 @default(now())
+  createdById         String?
+  state               AutomationRuleLifecycleState @default(DRAFT)
+  rule                AutomationRule           @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  runs                AutomationRun[]
 
-  rule  AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  brand Brand?         @relation(fields: [brandId], references: [id])
+  @@unique([ruleId, versionNumber])
 }
 
 model AutomationExecutionLog {
@@ -2706,23 +2704,47 @@ model AutomationWorkflow {
   brand     Brand?   @relation(fields: [brandId], references: [id])
 }
 
-model AutomationRun {
-  id          String              @id @default(cuid())
-  ruleId      String
-  eventName   String
-  eventId     String?
-  status      AutomationRunStatus @default(PENDING)
-  startedAt   DateTime?
-  finishedAt  DateTime?
-  summaryJson Json?
-  errorJson   Json?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+model AutomationAuditLog {
+  id                String   @id @default(cuid())
+  ruleId            String
+  ruleVersionId     String?
+  actorId           String?
+  actionType        String
+  beforeStateJson   Json?
+  afterStateJson    Json?
+  policySnapshotJson Json?
+  violationsJson    Json?
+  reason            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  rule              AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+}
 
-  rule       AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  actionRuns AutomationActionRun[]
+model AutomationRun {
+  id                String              @id @default(cuid())
+  ruleId            String
+  ruleVersionId     String
+  eventName         String
+  eventId           String?
+  status            AutomationRunStatus @default(PENDING)
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  summaryJson       Json?
+  errorJson         Json?
+  triggerEventJson  Json?
+  conditionsJson    Json?
+  actionsJson       Json?
+  ruleMetaJson      Json?
+  dedupKey          String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  rule              AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleVersion       AutomationRuleVersion @relation(fields: [ruleVersionId], references: [id], onDelete: Cascade)
+  actionRuns        AutomationActionRun[]
 
   @@index([ruleId])
+  @@index([ruleVersionId])
   @@index([eventId])
 }
 
@@ -2740,6 +2762,7 @@ model AutomationActionRun {
   errorJson        Json?
   startedAt        DateTime?
   finishedAt       DateTime?
+  summary          String?
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 

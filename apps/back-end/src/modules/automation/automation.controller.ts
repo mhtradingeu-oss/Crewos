@@ -36,7 +36,17 @@ export async function create(req: AuthenticatedRequest, res: Response, next: Nex
   try {
     const parsed = createAutomationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(badRequest("Validation error", parsed.error.flatten()));
+      return res.status(400).json({ code: "validation_error", message: "Validation error", details: parsed.error.flatten() });
+    }
+    // PolicyGate: pre-save validation
+    const policyViolations = automationService.policyGatePreSave({
+      actionsConfigJson: parsed.data.actionsConfigJson,
+      triggerEvent: parsed.data.triggerEvent,
+      userRole: req.user?.role,
+      permissions: req.user?.permissions || [],
+    });
+    if (policyViolations.length) {
+      return res.status(400).json({ code: "policy_gate_failed", message: "PolicyGate failed", details: policyViolations });
     }
     const item = await automationService.create({ ...parsed.data, createdById: req.user?.id });
     await publishActivity(
@@ -65,9 +75,18 @@ export async function update(req: AuthenticatedRequest, res: Response, next: Nex
   try {
     const parsed = updateAutomationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(badRequest("Validation error", parsed.error.flatten()));
+      return res.status(400).json({ code: "validation_error", message: "Validation error", details: parsed.error.flatten() });
     }
     const id = requireParam(req.params.id, "id");
+    // ActivationGate: pre-activate validation (simulate, as update may trigger activation)
+    const activationViolations = automationService.activationGatePreActivate({
+      ruleVersion: parsed.data,
+      policyStatus: "ok", // TODO: wire real policy status if available
+      permissions: req.user?.permissions || [],
+    });
+    if (activationViolations.length) {
+      return res.status(400).json({ code: "activation_gate_failed", message: "ActivationGate failed", details: activationViolations });
+    }
     const item = await automationService.update(id, {
       ...parsed.data,
       createdById: req.user?.id,
