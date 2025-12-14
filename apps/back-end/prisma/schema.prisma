@@ -44,6 +44,23 @@ enum AISafetyEventType {
   RED_TEAM
 }
 
+enum AutomationRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum AutomationActionRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+  RETRYING
+}
+
 model User {
   id                       String                    @id @default(cuid())
   email                    String                    @unique
@@ -2647,6 +2664,7 @@ model AutomationRule {
   executionLogs       AutomationExecutionLog[]
   automationRuns      AutomationRun[]
   brand               Brand?                   @relation(fields: [brandId], references: [id])
+  automationRuns      AutomationRun[]
 }
 
 model AutomationRun {
@@ -2686,6 +2704,48 @@ model AutomationWorkflow {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   brand     Brand?   @relation(fields: [brandId], references: [id])
+}
+
+model AutomationRun {
+  id          String              @id @default(cuid())
+  ruleId      String
+  eventName   String
+  eventId     String?
+  status      AutomationRunStatus @default(PENDING)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  summaryJson Json?
+  errorJson   Json?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  rule       AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  actionRuns AutomationActionRun[]
+
+  @@index([ruleId])
+  @@index([eventId])
+}
+
+model AutomationActionRun {
+  id               String                    @id @default(cuid())
+  runId            String
+  actionIndex      Int
+  actionType       String
+  status           AutomationActionRunStatus @default(PENDING)
+  attemptCount     Int                       @default(0)
+  nextAttemptAt    DateTime?
+  dedupKey         String                    @unique
+  actionConfigJson Json
+  resultJson       Json?
+  errorJson        Json?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  run AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
 }
 
 model AutomationLog {

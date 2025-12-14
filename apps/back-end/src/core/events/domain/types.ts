@@ -1,53 +1,36 @@
-export type DomainEventMeta = {
-  actorUserId?: string;
-  brandId?: string;
-  tenantId?: string;
-  requestId?: string;
-  source?: "api" | "system" | "ai" | string;
+import type { SecurityEvent } from "../../security/security-events.js";
+
+type SecurityPayloadMap = {
+  [Event in SecurityEvent as Event["type"]]: Omit<Event, "type">;
+};
+
+export type DomainEventPayloadMap = SecurityPayloadMap;
+export type DomainEventName = keyof DomainEventPayloadMap;
+
+export interface DomainEventMeta {
+  brandId?: string | null;
+  tenantId?: string | null;
+  actorUserId?: string | null;
   module?: string;
-  severity?: "info" | "warning" | "critical";
+  source?: string;
+  requestId?: string;
   [key: string]: unknown;
-};
-
-export type DomainEvent<TPayload = unknown, TMeta extends DomainEventMeta = DomainEventMeta> = {
-  name: string;
-  payload: TPayload;
-  meta?: TMeta;
-  occurredAt: Date;
-};
-
-export type DomainEventHandler<E extends DomainEvent = DomainEvent> = (event: E) => Promise<void> | void;
-
-export type DomainEventDescriptor<
-  Name extends string,
-  Payload,
-  Meta extends DomainEventMeta = DomainEventMeta,
-> = {
-  readonly name: Name;
-  create(payload: Payload, meta?: Meta): DomainEvent<Payload, Meta> & { name: Name };
-  match(event: DomainEvent): event is DomainEvent<Payload, Meta> & { name: Name };
-};
-
-export type DescriptorEvent<Desc extends DomainEventDescriptor<string, unknown>> = ReturnType<Desc["create"]>;
-
-/** Helper used to describe domain events in a strongly-typed way. */
-export function defineDomainEvent<
-  Name extends string,
-  Payload,
-  Meta extends DomainEventMeta = DomainEventMeta,
->(name: Name): DomainEventDescriptor<Name, Payload, Meta> {
-  return {
-    name,
-    create(payload: Payload, meta?: Meta) {
-      return {
-        name,
-        payload,
-        meta,
-        occurredAt: new Date(),
-      } as DomainEvent<Payload, Meta> & { name: Name };
-    },
-    match(event: DomainEvent): event is DomainEvent<Payload, Meta> & { name: Name } {
-      return event.name === name;
-    },
-  };
 }
+
+export interface DomainEvent<T extends DomainEventName = DomainEventName> {
+  id: string;
+  type: T;
+  payload: DomainEventPayloadMap[T];
+  meta?: DomainEventMeta;
+  occurredAt: Date;
+}
+
+export type DomainEventHandler<T extends DomainEventName = DomainEventName> = (
+  event: DomainEvent<T>,
+) => Promise<void> | void;
+
+export type DomainEventPublishPayload<T extends DomainEventName = DomainEventName> = {
+  type: T;
+  payload: DomainEventPayloadMap[T];
+  meta?: DomainEventMeta;
+};

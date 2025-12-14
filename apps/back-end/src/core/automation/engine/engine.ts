@@ -1,72 +1,75 @@
-import { automationRunRepository } from "./run-repository.js";
-import type { AutomationRuleMatch } from "./rule-matcher.js";
-import { evaluateConditionGroup } from "./condition-evaluator.js";
-import { findMatchingRules } from "./rule-matcher.js";
 import type { DomainEvent } from "../../events/domain/types.js";
-import type { AutomationRunStatus } from "@prisma/client";
+import { loadMatchingRulesForEvent } from "./rule-matcher.js";
+import { evaluateConditions } from "./condition-evaluator.js";
+import { executeAutomationActions, type AutomationRunSummary } from "../executor/executor.js";
 
-export type AutomationRunResult = {
+export interface AutomationRunOutcome {
   ruleId: string;
-  runId: string;
-  status: AutomationRunStatus;
-  reason?: string;
+  ruleName?: string;
+  status: AutomationRunSummary["status"];
+  conditionsMatched: boolean;
+  runId?: string;
+  actions?: AutomationRunSummary["actions"];
   error?: string;
-};
-
-export class AutomationEngine {
-  constructor(private readonly runs = automationRunRepository) {}
-
-  async run(event: DomainEvent): Promise<AutomationRunResult[]> {
-    const rules = await findMatchingRules(event);
-    const outcomes: AutomationRunResult[] = [];
-
-    for (const rule of rules) {
-      const run = await this.runs.create({
-        ruleId: rule.id,
-        brandId: rule.brandId,
-        eventName: event.name,
-        payload: event.payload,
-        meta: event.meta,
-      });
-
-      const result = await this.executeRule(rule, event, run.id);
-      outcomes.push(result);
-    }
-
-    return outcomes;
-  }
-
-  private async executeRule(rule: AutomationRuleMatch, event: DomainEvent, runId: string) {
-    try {
-      await this.runs.updateStatus(runId, "RUNNING");
-      const evaluation = evaluateConditionGroup(rule.conditionConfig, event);
-      if (!evaluation.matches) {
-        await this.runs.updateStatus(runId, "SKIPPED", { trace: evaluation.reasons });
-        return {
-          ruleId: rule.id,
-          runId,
-          status: "SKIPPED" as AutomationRunStatus,
-          reason: "conditions did not match",
-        };
-      }
-
-      await this.runs.updateStatus(runId, "SUCCESS", { trace: evaluation.reasons });
-      return {
-        ruleId: rule.id,
-        runId,
-        status: "SUCCESS" as AutomationRunStatus,
-        reason: "conditions matched; actions pending",
-      };
-    } catch (error) {
-      await this.runs.updateStatus(runId, "FAILED", { error, trace: (error as Error).stack });
-      return {
-        ruleId: rule.id,
-        runId,
-        status: "FAILED" as AutomationRunStatus,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
 }
 
-export const automationEngine = new AutomationEngine();
+export async function runAutomationEngine(event: DomainEvent): Promise<AutomationRunOutcome[]> {
+  const rules = await loadMatchingRulesForEvent(event);
+  if (!rules.length) {
+    console.info(`[automation][engine] no rules matched for ${event.type}`);
+    return [];
+  }
+
+  const evaluationContext = buildEvaluationContext(event);
+  const outcomes: AutomationRunOutcome[] = [];
+
+  for (const rule of rules) {
+    let conditionsMatched = false;
+    try {
+      conditionsMatched = evaluateConditions(rule.conditionConfig, evaluationContext);
+      console.info(
+        `[automation][engine] rule ${rule.id} conditions ${conditionsMatched ? "passed" : "filtered"}`,
+      );
+    } catch (err) {
+      console.error(`[automation][engine] rule ${rule.id} condition evaluation failed`, err);
+      continue;
+    }
+
+    if (!conditionsMatched) {
+      continue;
+    }
+
+    try {
+      const runSummary = await executeAutomationActions({ rule, event });
+      console.info(
+        `[automation][engine] run completed for rule ${rule.id} status ${runSummary.status}`,
+      );
+      outcomes.push({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        status: runSummary.status,
+        conditionsMatched,
+        actions: runSummary.actions,
+        runId: runSummary.runId,
+        error: runSummary.error,
+      });
+    } catch (err) {
+      console.error(`[automation][engine] executor failed for rule ${rule.id}`, err);
+    }
+  }
+
+  return outcomes;
+}
+
+function buildEvaluationContext(event: DomainEvent): Record<string, unknown> {
+  const payload = toRecord(event.payload);
+  const meta = event.meta ?? {};
+  return { ...payload, ...meta, payload, meta };
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return { value };
+}

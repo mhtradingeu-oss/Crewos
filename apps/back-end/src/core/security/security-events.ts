@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { Request } from "express";
+import { publishDomainEvent } from "../events/domain/bus.js";
 
 export type SecurityEvent =
   | { type: "AUTH_LOGIN_SUCCESS"; userId: string; tenantId?: string; ip: string; ua: string; time: string }
@@ -17,6 +18,22 @@ function redact(event: SecurityEvent): SecurityEvent {
 
 export function emitSecurityEvent(event: SecurityEvent) {
   const sanitized = redact(event);
+  const tenantId = (sanitized as { tenantId?: string }).tenantId ?? null;
+  const ip = (sanitized as { ip?: string }).ip ?? null;
+  const ua = (sanitized as { ua?: string }).ua ?? null;
+
+  publishDomainEvent({
+    type: sanitized.type,
+    payload: sanitized,
+    meta: {
+      tenantId,
+      module: "security",
+      source: "security",
+      ip,
+      ua,
+      time: sanitized.time,
+    },
+  });
 
   if (process.env.SECURITY_EVENTS_WEBHOOK_URL) {
     fetch(process.env.SECURITY_EVENTS_WEBHOOK_URL, {

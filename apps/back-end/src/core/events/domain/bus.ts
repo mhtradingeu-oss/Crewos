@@ -1,62 +1,41 @@
 import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
 import type {
   DomainEvent,
-  DomainEventDescriptor,
   DomainEventHandler,
-  DescriptorEvent,
+  DomainEventName,
+  DomainEventPublishPayload,
 } from "./types.js";
 
-const ALL_EVENTS = "*";
+const bus = new EventEmitter();
+const ALL_DOMAIN_EVENTS = Symbol("ALL_DOMAIN_EVENTS");
 
-/**
- * Lightweight, in-process event bus that keeps handlers typed to their events.
- * Handlers should treat emitted events as facts and avoid side effects like direct DB writes.
- */
-export class DomainEventBus {
-  private readonly emitter = new EventEmitter();
-
-  emit<E extends DomainEvent>(event: E): void {
-    this.emitter.emit(event.name, event);
-    this.emitter.emit(ALL_EVENTS, event);
-  }
-
-  subscribe<Desc extends DomainEventDescriptor<string, unknown>>(
-    descriptor: Desc,
-    handler: DomainEventHandler<DescriptorEvent<Desc>>,
-  ): () => void;
-  subscribe<Name extends string>(
-    eventName: Name,
-    handler: DomainEventHandler<DomainEvent & { name: Name }>,
-  ): () => void;
-  subscribe(
-    eventNameOrDescriptor: string | DomainEventDescriptor<string, unknown>,
-    handler: DomainEventHandler,
-  ): () => void {
-    const eventName =
-      typeof eventNameOrDescriptor === "string" ? eventNameOrDescriptor : eventNameOrDescriptor.name;
-
-    const listener = (event: DomainEvent) => {
-      if (
-        typeof eventNameOrDescriptor !== "string" &&
-        !eventNameOrDescriptor.match(event)
-      ) {
-        return;
-      }
-      void handler(event as DomainEvent);
-    };
-
-    this.emitter.on(eventName, listener);
-    return () => {
-      this.emitter.off(eventName, listener);
-    };
-  }
-
-  subscribeToAll(handler: DomainEventHandler): () => void {
-    this.emitter.on(ALL_EVENTS, handler);
-    return () => {
-      this.emitter.off(ALL_EVENTS, handler);
-    };
-  }
+function createDomainEvent<T extends DomainEventName>(payload: DomainEventPublishPayload<T>): DomainEvent<T> {
+  return {
+    id: randomUUID(),
+    occurredAt: new Date(),
+    ...payload,
+  };
 }
 
-export const domainEventBus = new DomainEventBus();
+export function publishDomainEvent<T extends DomainEventName>(payload: DomainEventPublishPayload<T>): DomainEvent<T> {
+  const event = createDomainEvent(payload);
+  bus.emit(event.type, event);
+  bus.emit(ALL_DOMAIN_EVENTS, event);
+  return event;
+}
+
+export function subscribeToDomainEvent<T extends DomainEventName>(
+  eventName: T,
+  handler: DomainEventHandler<T>,
+): void {
+  bus.on(eventName, (event: DomainEvent<T>) => {
+    void handler(event);
+  });
+}
+
+export function subscribeToAllDomainEvents(handler: DomainEventHandler<DomainEventName>): void {
+  bus.on(ALL_DOMAIN_EVENTS, (event: DomainEvent) => {
+    void handler(event);
+  });
+}

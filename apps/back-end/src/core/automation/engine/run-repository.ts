@@ -1,47 +1,116 @@
-import type { AutomationRunStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { AutomationActionRunStatus, AutomationRunStatus } from "@prisma/client";
 import { prisma } from "../../prisma.js";
-import type { DomainEvent } from "../../events/domain/types.js";
 
-export type AutomationRunCreateInput = {
+export interface AutomationRunCreationArgs {
   ruleId: string;
   eventName: string;
-  brandId?: string | null;
-  payload?: unknown;
-  meta?: unknown;
-};
-
-export type AutomationRunUpdateInput = {
-  trace?: unknown;
-  error?: unknown;
-};
-
-export class AutomationRunRepository {
-  async create(params: AutomationRunCreateInput) {
-    return prisma.automationRun.create({
-      data: {
-        ruleId: params.ruleId,
-        brandId: params.brandId ?? null,
-        eventName: params.eventName,
-        payloadJson: params.payload ?? null,
-        metaJson: params.meta ?? null,
-      },
-    });
-  }
-
-  async updateStatus(
-    runId: string,
-    status: AutomationRunStatus,
-    options?: AutomationRunUpdateInput,
-  ) {
-    return prisma.automationRun.update({
-      where: { id: runId },
-      data: {
-        status,
-        traceJson: options?.trace ?? undefined,
-        errorMessage: options?.error ? String(options.error) : undefined,
-      },
-    });
-  }
+  eventId?: string | null;
 }
 
-export const automationRunRepository = new AutomationRunRepository();
+export async function createAutomationRun(args: AutomationRunCreationArgs) {
+  return prisma.automationRun.create({
+    data: {
+      ruleId: args.ruleId,
+      eventName: args.eventName,
+      eventId: args.eventId ?? null,
+      status: "PENDING",
+    },
+  });
+}
+
+export async function markRunRunning(runId: string) {
+  await prisma.automationRun.update({
+    where: { id: runId },
+    data: { status: "RUNNING", startedAt: new Date() },
+  });
+}
+
+export async function finalizeAutomationRun(params: {
+  runId: string;
+  status: AutomationRunStatus;
+  summary: unknown;
+  error?: unknown;
+}) {
+  await prisma.automationRun.update({
+    where: { id: params.runId },
+    data: {
+      status: params.status,
+      finishedAt: new Date(),
+      summaryJson: jsonOrNull(params.summary),
+      errorJson: jsonOrNull(params.error),
+    },
+  });
+}
+
+export async function createActionRun(params: {
+  runId: string;
+  actionIndex: number;
+  actionType: string;
+  dedupKey: string;
+  actionConfig: unknown;
+}) {
+  return prisma.automationActionRun.create({
+    data: {
+      runId: params.runId,
+      actionIndex: params.actionIndex,
+      actionType: params.actionType,
+      dedupKey: params.dedupKey,
+      actionConfigJson: jsonOrNull(params.actionConfig),
+    },
+  });
+}
+
+export async function updateActionRun(
+  actionRunId: string,
+  data: {
+    status?: AutomationActionRunStatus;
+    actionIndex?: number;
+    actionType?: string;
+    dedupKey?: string;
+    runId?: string;
+    attemptCount?: number;
+    nextAttemptAt?: Date | null;
+    result?: unknown;
+    error?: unknown;
+    startedAt?: Date | null;
+    finishedAt?: Date | null;
+    actionConfig?: unknown;
+  },
+) {
+  return prisma.automationActionRun.update({
+    where: { id: actionRunId },
+    data: {
+      ...(typeof data.actionIndex === "number" ? { actionIndex: data.actionIndex } : {}),
+      ...(typeof data.actionType === "string" ? { actionType: data.actionType } : {}),
+      ...(typeof data.dedupKey === "string" ? { dedupKey: data.dedupKey } : {}),
+      ...(typeof data.runId === "string" ? { runId: data.runId } : {}),
+      ...(data.status ? { status: data.status } : {}),
+      ...(typeof data.attemptCount === "number" ? { attemptCount: data.attemptCount } : {}),
+      nextAttemptAt: data.nextAttemptAt ?? null,
+      resultJson: jsonOrNull(data.result),
+      errorJson: jsonOrNull(data.error),
+      startedAt: data.startedAt ?? null,
+      finishedAt: data.finishedAt ?? null,
+      ...(data.actionConfig ? { actionConfigJson: data.actionConfig } : {}),
+    },
+  });
+}
+
+function jsonOrNull(value: unknown): Prisma.InputJsonValue {
+  if (value === undefined) {
+    return Prisma.JsonNull as unknown as Prisma.InputJsonValue;
+  }
+  return value as Prisma.InputJsonValue;
+}
+
+export async function findActionRunByDedupKey(dedupKey: string) {
+  return prisma.automationActionRun.findUnique({ where: { dedupKey } });
+}
+
+export async function updateRuleLastRun(ruleId: string, status: AutomationRunStatus) {
+  await prisma.automationRule.update({
+    where: { id: ruleId },
+    data: { lastRunAt: new Date(), lastRunStatus: status },
+  });
+}

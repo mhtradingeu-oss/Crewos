@@ -1,5 +1,6 @@
 import { registerActivityLogSubscriber } from "../../modules/activity-log/activity-log.subscriber.js";
 import { registerAutomationEventHandlers } from "../../modules/automation/automation.subscriber.js";
+import { registerAutomationEngineSubscriber } from "../automation/engine/subscriber.js";
 import { registerNotificationSubscribers } from "../../modules/notification/notification.subscriber.js";
 import { subscribe } from "./event-bus.js";
 import { PricingEvents } from "../../modules/pricing/pricing.events.js";
