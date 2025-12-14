@@ -28,6 +28,8 @@ import { knowledge_baseRouter } from "./modules/knowledge-base/index.js";
 import { security_governanceRouter } from "./modules/security-governance/index.js";
 import { adminRouter } from "./modules/admin/index.js";
 import { ai_brainRouter } from "./modules/ai-brain/index.js";
+import { aiCrewRouter, advisorySessionRouter } from "./ai/crew/index.js";
+import { executionIntentRouter } from "./ai/execution-intent/index.js";
 import { social_intelligenceRouter } from "./modules/social-intelligence/index.js";
 import { influencer_osRouter } from "./modules/influencer-os/index.js";
 import { operationsRouter } from "./modules/operations/index.js";
@@ -74,6 +76,10 @@ export function createApp() {
   app.use("/api/v1/ai/safety", aiRateLimiter, aiSafetyRouter);
   app.use("/api/v1/ai/monitoring", aiRateLimiter, aiMonitoringRouter);
   app.use("/api/v1/ai", aiRateLimiter, requireFeature("advancedAutonomy"), ai_brainRouter);
+  // AI Crew Advisory (advisory-only, safe)
+  app.use("/api/ai/crew", aiRateLimiter, aiCrewRouter);
+  // AI Crew Advisory Session Composition (advisory-only, safe)
+  app.use("/api/v1/ai/crew/advisory", aiRateLimiter, advisorySessionRouter);
   app.use("/api/v1/media", aiRateLimiter, requireFeature("mediaStudio"), mediaStudioRouter);
   app.use(
     "/api/v1/white-label-configurator",
