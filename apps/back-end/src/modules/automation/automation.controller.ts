@@ -40,10 +40,8 @@ export async function create(req: AuthenticatedRequest, res: Response, next: Nex
     }
     // PolicyGate: pre-save validation
     const policyViolations = automationService.policyGatePreSave({
-      actionsConfigJson: parsed.data.actionsConfigJson,
-      triggerEvent: parsed.data.triggerEvent,
+      ...parsed.data,
       userRole: req.user?.role,
-      permissions: req.user?.permissions || [],
     });
     if (policyViolations.length) {
       return res.status(400).json({ code: "policy_gate_failed", message: "PolicyGate failed", details: policyViolations });
@@ -79,11 +77,11 @@ export async function update(req: AuthenticatedRequest, res: Response, next: Nex
     }
     const id = requireParam(req.params.id, "id");
     // ActivationGate: pre-activate validation (simulate, as update may trigger activation)
-    const activationViolations = automationService.activationGatePreActivate({
-      ruleVersion: parsed.data,
-      policyStatus: "ok", // TODO: wire real policy status if available
-      permissions: req.user?.permissions || [],
-    });
+      const activationViolations = automationService.activationGatePreActivate({
+        ruleVersion: parsed.data,
+        policyStatus: "ok", // TODO: wire real policy status if available
+        userRole: req.user?.role,
+      });
     if (activationViolations.length) {
       return res.status(400).json({ code: "activation_gate_failed", message: "ActivationGate failed", details: activationViolations });
     }

@@ -1,12 +1,13 @@
 
 
 import { z } from "zod";
+
 import {
   AutomationRuleBaseSchema,
   AutomationRuleVersionSchema,
   AutomationRunSchema,
   AutomationActionRunSchema,
-} from '@mh-os/shared/src/dto/automation';
+} from '@mh-os/shared';
 
 const conditionSchema = z.object({
   path: z.string(),
@@ -36,9 +37,6 @@ export const createAutomationRuleVersionSchema = AutomationRuleVersionSchema.omi
 });
 
 export const createAutomationRunSchema = AutomationRunSchema.omit({
-  // Export for controller/routes compatibility (after declarations)
-  export const createAutomationSchema = createAutomationRuleSchema;
-  export const updateAutomationSchema = createAutomationRuleVersionSchema;
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -51,3 +49,7 @@ export const createAutomationActionRunSchema = AutomationActionRunSchema.omit({
   updatedAt: true,
   status: true,
 });
+
+// Export for controller/routes compatibility (after declarations)
+export const createAutomationSchema = createAutomationRuleSchema;
+export const updateAutomationSchema = createAutomationRuleVersionSchema;

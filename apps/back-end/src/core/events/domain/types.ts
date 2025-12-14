@@ -1,3 +1,8 @@
+
+// Helper for defining domain events (for type safety and registration)
+export function defineDomainEvent<T extends DomainEventName>() {
+  return {} as unknown as DomainEvent<T>;
+}
 import type { SecurityEvent } from "../../security/security-events.js";
 
 type SecurityPayloadMap = {

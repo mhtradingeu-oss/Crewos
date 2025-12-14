@@ -2,16 +2,23 @@ import { Prisma } from "@prisma/client";
 import type { AutomationActionRunStatus, AutomationRunStatus } from "@prisma/client";
 import { prisma } from "../../prisma.js";
 
+
 export interface AutomationRunCreationArgs {
   ruleId: string;
+  ruleVersionId: string;
   eventName: string;
   eventId?: string | null;
 }
 
 export async function createAutomationRun(args: AutomationRunCreationArgs) {
+  // ruleVersionId is required for all AutomationRun creation in Phase 6
+  if (!args.ruleVersionId) {
+    throw new Error("ruleVersionId is required for AutomationRun creation");
+  }
   return prisma.automationRun.create({
     data: {
       ruleId: args.ruleId,
+      ruleVersionId: args.ruleVersionId,
       eventName: args.eventName,
       eventId: args.eventId ?? null,
       status: "PENDING",

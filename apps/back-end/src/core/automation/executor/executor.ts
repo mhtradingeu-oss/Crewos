@@ -33,6 +33,7 @@ export interface AutomationActionSummary {
 
 export interface AutomationRunSummary {
   ruleId: string;
+  ruleVersionId: string;
   runId?: string;
   status: AutomationRunStatus;
   actions: AutomationActionSummary[];
@@ -65,6 +66,7 @@ export async function executeAutomationActions({
     }));
     return {
       ruleId: rule.id,
+      ruleVersionId: rule.ruleVersionId,
       status: "SUCCESS",
       actions: simulated,
     };
@@ -72,6 +74,7 @@ export async function executeAutomationActions({
 
   const runRecord = await createAutomationRun({
     ruleId: rule.id,
+    ruleVersionId: rule.ruleVersionId,
     eventName: event.type,
     eventId: event.id ?? null,
   });
@@ -224,6 +227,7 @@ export async function executeAutomationActions({
 
   const runSummary = {
     ruleId: rule.id,
+    ruleVersionId: rule.ruleVersionId,
     ruleName: rule.name,
     event: { name: event.type, id: event.id },
     actions: summaries,
@@ -239,6 +243,7 @@ export async function executeAutomationActions({
 
   return {
     ruleId: rule.id,
+    ruleVersionId: rule.ruleVersionId,
     runId: runRecord.id,
     status: finalStatus,
     actions: summaries,

@@ -1,5 +1,5 @@
 // Phase 6: Automation Governance Gates
-import type { PolicyViolation } from '../../../../modules/automation/automation.types.js';
+import type { PolicyViolation } from '../../../modules/automation/automation.types.js';
 
 export class AutomationGates {
   static policyGatePreSave({ actionsConfigJson, triggerEvent, userRole }: { actionsConfigJson: unknown; triggerEvent: string; userRole?: string; }): PolicyViolation[] {

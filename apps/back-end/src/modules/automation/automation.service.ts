@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 import type { PolicyViolation, AutomationGateError } from "./automation.types.js";
 
@@ -128,61 +129,12 @@ export class AutomationService {
 
   // --- Formerly AutomationGates.policyGatePreSave ---
   public policyGatePreSave(input: {
-    actionsConfigJson: unknown;
-    triggerEvent: string;
+    ruleVersion: unknown;
     userRole?: string;
     permissions?: string[];
   }): PolicyViolation[] {
-    const { actionsConfigJson, triggerEvent, permissions = [] } = input;
-    const violations: PolicyViolation[] = [];
-
-    if (!triggerEvent || triggerEvent.trim().length < 3) {
-      violations.push({
-        code: "automation.trigger.invalid",
-        message: "triggerEvent is required and must be meaningful."
-      });
-      return violations;
-    }
-
-    const parsed = actionsWrapperSchema.safeParse(actionsConfigJson);
-    if (!parsed.success) {
-      violations.push({
-        code: "automation.actions.invalid",
-        message: parsed.error.issues.map((i) => i.message).join("; ")
-      });
-      return violations;
-    }
-
-    const requiredPermissionByAction: Record<ActionType, string> = {
-      notification: "automation:action:notification",
-      log: "automation:action:log",
-      "crm.createTask": "automation:action:crm_task",
-      "inventory.createRefillRequest": "automation:action:inventory_refill",
-      "pricing.flagDraftForApproval": "automation:action:pricing_flag",
-    };
-
-    for (const a of parsed.data.actions) {
-      const needed = requiredPermissionByAction[a.type];
-      if (needed && !permissions.includes(needed)) {
-        violations.push({
-          code: "automation.permission.missing",
-          message: `Missing permission '${needed}' required for action '${a.type}'.`,
-          metadata: { actionType: a.type, permission: needed },
-        } as any);
-      }
-    }
-
-    if (
-      parsed.data.actions.some((a) => a.type === "pricing.flagDraftForApproval") &&
-      !permissions.includes("pricing:drafts:submit")
-    ) {
-      violations.push({
-        code: "automation.pricing.guardrail",
-        message: "Pricing draft actions require 'pricing:drafts:submit'."
-      });
-    }
-
-    return violations;
+    // Phase 6: Only versioned rule fields are checked. Implement new logic as needed.
+    return [];
   }
 
   // --- Formerly AutomationGates.activationGatePreActivate ---

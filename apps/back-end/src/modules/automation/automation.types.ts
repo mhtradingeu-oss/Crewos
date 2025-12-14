@@ -24,7 +24,7 @@ import type {
   AutomationRuleVersion,
   AutomationRun,
   AutomationActionRun,
-} from '@mh-os/shared/src/dto/automation';
+} from '@mh-os/shared';
 
 export type { AutomationRule, AutomationRuleVersion, AutomationRun, AutomationActionRun };
 
