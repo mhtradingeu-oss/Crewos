@@ -2,14 +2,8 @@
 // This interface approves ExecutionIntents.
 // It NEVER executes or triggers automation.
 
-import React from "react";
-import { ApprovalDetail } from "../ApprovalDetail";
-import { TenantAppShell } from "@/components/shell/tenant-app-shell";
+import ApprovalDetailClient from '../ApprovalDetailClient';
 
 export default function ApprovalDetailPage() {
-  return (
-    <TenantAppShell>
-      <ApprovalDetail />
-    </TenantAppShell>
-  );
+  return <ApprovalDetailClient />;
 }

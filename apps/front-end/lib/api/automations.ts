@@ -1,5 +1,5 @@
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+import { api } from "./client.ts";
+import type { PaginatedResponse } from "./types.ts";
 
 export type AutomationTriggerType = "event" | "schedule";
 

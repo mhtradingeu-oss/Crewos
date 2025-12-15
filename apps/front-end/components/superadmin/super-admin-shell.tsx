@@ -2,8 +2,8 @@
 
 import { ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SuperAdminSidebar } from "./super-admin-sidebar";
-import { SuperAdminTopbar } from "./super-admin-topbar";
+import { SuperAdminSidebar } from "./super-admin-sidebar.tsx";
+import { SuperAdminTopbar } from "./super-admin-topbar.tsx";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/lib/auth/auth-context";
 

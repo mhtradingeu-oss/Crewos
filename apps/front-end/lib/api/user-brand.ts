@@ -1,5 +1,5 @@
 import { BrandInfo } from "@mh-os/shared";
-import { api } from "./client";
+import { api } from "./client.ts";
 
 export interface UserBrandResponse {
   hasBrand: boolean;

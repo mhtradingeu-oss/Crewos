@@ -1,8 +1,5 @@
-// Ensure jest globals are available for ESM
 
-// ai-crew.session.service.test.ts
-// Tests for AICrewSessionService (advisory session composition)
-
+import { jest } from '@jest/globals';
 import { AICrewSessionService } from '../ai-crew.session.service.js';
 import { AdvisorySessionInput } from '../ai-crew.session.types.js';
 import * as AICrewServiceModule from '../ai-crew.service.js';

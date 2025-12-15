@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SimpleTable } from "./simple-table";
+import { SimpleTable } from "./simple-table.tsx";
 import { cn } from "@/lib/utils";
 
 export type TableWithToolbarProps = {

@@ -1,4 +1,5 @@
 
+// @ts-expect-type-only
 export type ExplainOutcome = "SUCCESS" | "FAILED" | "PARTIAL" | "SKIPPED";
 
 export type ExplainEvidence = {

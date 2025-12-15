@@ -1,5 +1,5 @@
-import { api } from "@/lib/api/client";
-import type { PaginatedResponse } from "./types";
+import { api } from "@/lib/api/client.ts";
+import type { PaginatedResponse } from "./types.ts";
 
 export type SecurityPolicy = {
   id: string;

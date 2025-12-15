@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield } from "lucide-react";
-import { superAdminNav, isActivePath } from "./super-admin-nav";
+import { superAdminNav, isActivePath } from "./super-admin-nav.tsx";
 import { cn } from "@/lib/utils";
 
 export function SuperAdminSidebar() {

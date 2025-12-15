@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api } from "./client.ts";
 
 export async function fetchEngineHealth() {
   const res = await api.get("/ai/monitoring/engine-health");

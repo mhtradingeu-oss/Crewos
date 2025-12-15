@@ -29,6 +29,7 @@ import { security_governanceRouter } from "./modules/security-governance/index.j
 import { adminRouter } from "./modules/admin/index.js";
 import { ai_brainRouter } from "./modules/ai-brain/index.js";
 import { aiCrewRouter, advisorySessionRouter } from "./ai/crew/index.js";
+import learningRouter from "./ai/learning/learning.routes.js";
 import { executionIntentRouter } from "./ai/execution-intent/index.js";
 import { social_intelligenceRouter } from "./modules/social-intelligence/index.js";
 import { influencer_osRouter } from "./modules/influencer-os/index.js";
@@ -63,6 +64,7 @@ export function createApp() {
   const authRateLimiter = createRateLimiter({ limit: 100 });
   const aiRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 120 });
   const platformOpsRateLimiter = createRateLimiter({ limit: 80 });
+  app.use("/api/v1/ai/learning", aiRateLimiter, learningRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });

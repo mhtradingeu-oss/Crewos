@@ -7,7 +7,7 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/navbar/user-menu";
 import { Input } from "@/components/ui/input";
-import { superAdminNav, isActivePath } from "./super-admin-nav";
+import { superAdminNav, isActivePath } from "./super-admin-nav.tsx";
 import { useGlobalAssistant } from "@/components/layout/global-assistant-provider";
 import { Button } from "@/components/ui/button";
 

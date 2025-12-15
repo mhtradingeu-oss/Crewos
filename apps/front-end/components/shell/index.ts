@@ -1,17 +1,18 @@
-export { AppShell } from "./app-shell";
-export { Sidebar } from "./sidebar";
-export { Topbar } from "./topbar";
-export { TenantAppShell } from "./tenant-app-shell";
-export { TenantAppLayout } from "./tenant-app-layout";
-export { PageHeader } from "./page-header";
-export { ModuleScaffold } from "./module-scaffold";
-export { KpiCard } from "./kpi-card";
-export { StatCard } from "@/components/ui/stat-card";
-export { SectionCard } from "./section-card";
-export { SimpleTable } from "./simple-table";
-export { FilterBar } from "./filter-bar";
-export { AIRecommendationPanel } from "./ai-recommendation-panel";
-export { ModulePageLayout, type TableRow } from "./module-page";
-export { InfoTooltip } from "./info-tooltip";
-export { TableWithToolbar } from "./table-with-toolbar";
-export { Tabs } from "./tabs";
+export * from './ai-recommendation-panel.js'; // TODO: file missing — export skipped
+export * from './app-shell.js'; // TODO: file missing — export skipped
+export * from './filter-bar.js'; // TODO: file missing — export skipped
+export * from './info-tooltip.js'; // TODO: file missing — export skipped
+export * from './kpi-card.js'; // TODO: file missing — export skipped
+export * from './module-page.js'; // TODO: file missing — export skipped
+export * from './module-scaffold.js'; // TODO: file missing — export skipped
+export * from './page-header.js'; // TODO: file missing — export skipped
+export * from './section-card.js'; // TODO: file missing — export skipped
+export * from './sidebar.js'; // TODO: file missing — export skipped
+export * from './simple-table.js'; // TODO: file missing — export skipped
+export * from './table-with-toolbar.js'; // TODO: file missing — export skipped
+export * from './tabs.js'; // TODO: file missing — export skipped
+export * from './tenant-app-layout.js'; // TODO: file missing — export skipped
+export * from './tenant-app-shell.js'; // TODO: file missing — export skipped
+export * from './tenant-sidebar.js'; // TODO: file missing — export skipped
+export * from './tenant-topbar.js'; // TODO: file missing — export skipped
+export * from './topbar.js'; // TODO: file missing — export skipped

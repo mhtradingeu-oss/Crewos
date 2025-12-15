@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api } from "./client.ts";
 import type { AuthSessionResponse, LoginDto, RegisterDto, ForgotPasswordDto } from "@mh-os/shared";
 
 export async function login(payload: LoginDto) {

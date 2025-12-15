@@ -71,17 +71,17 @@ export function ApprovalList() {
       <SimpleTable
         columns={["Intent ID", "Scope", "Risk Level", "Decision ID", "Created At", "Status", "Actions"]}
         rows={filtered.map((item) => [
-          <span key={item.intentId} className="font-mono text-xs">{item.intentId}</span>,
-          item.scope,
-          item.riskLevel,
-          <span key={item.decisionId} className="font-mono text-xs">{item.decisionId}</span>,
-          new Date(item.createdAt).toLocaleString(),
-          <span className={`badge badge-${item.approval.status.toLowerCase()}`}>{item.approval.status}</span>,
-          <Link href={`/governance/approvals/${item.intentId}`} className="btn btn-sm">View</Link>,
+          <span key={`intentId-${item.intentId}`} className="font-mono text-xs">{item.intentId}</span>,
+          <span key={`scope-${item.intentId}`}>{item.scope}</span>,
+          <span key={`riskLevel-${item.intentId}`}>{item.riskLevel}</span>,
+          <span key={`decisionId-${item.decisionId}`} className="font-mono text-xs">{item.decisionId}</span>,
+          <span key={`createdAt-${item.intentId}`}>{new Date(item.createdAt).toLocaleString()}</span>,
+          <span key={`status-${item.intentId}`} className={`badge badge-${item.approval.status.toLowerCase()}`}>{item.approval.status}</span>,
+          <Link key={`view-${item.intentId}`} href={`/governance/approvals/${item.intentId}`} className="btn btn-sm">View</Link>,
         ])}
       />
       {isLoading && <div>Loading...</div>}
-      {error && <div className="text-red-500">Error loading approvals</div>}
+      {error ? <div className="text-red-500">Error loading approvals</div> : null}
       {filtered.length === 0 && !isLoading && <div>No matching approvals found.</div>}
     </div>
   );

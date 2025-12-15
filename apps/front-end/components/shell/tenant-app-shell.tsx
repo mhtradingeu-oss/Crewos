@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { TenantSidebar } from "./tenant-sidebar";
-import { TenantTopbar, type TenantTopbarProps } from "./tenant-topbar";
+import { TenantSidebar } from "./tenant-sidebar.tsx";
+import { TenantTopbar, type TenantTopbarProps } from "./tenant-topbar.tsx";
 
 export type TenantAppShellProps = {
   children: ReactNode;

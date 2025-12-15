@@ -9,6 +9,7 @@ import {
 import { getExecutionIntentRiskLevel, requiresApproval, isBlocked } from './execution-intent.gates.js';
 import { saveExecutionIntent, getExecutionIntent, listExecutionIntents, updateExecutionIntent } from './execution-intent.store.js';
 import { recordExecutionIntentAudit } from './execution-intent.audit.js';
+import { LearningService } from '../learning/learning.service.js';
 
 // PHASE 8.0 LOCK: All constraints.* must be true, no execution allowed
 const CONSTRAINTS = {
@@ -51,6 +52,15 @@ export function createExecutionIntentFromDecision(decision: DecisionObject, requ
     timestamp: now,
     actorUserId: requestedBy.userId,
   });
+  // PHASE 9: Learning Loop (read-only, in-memory)
+  LearningService.collectSignal({
+    type: 'decision_outcome',
+    decisionId: intent.decisionId,
+    outcome: 'approved',
+    confidence: decision.confidence,
+    agentId: decision.proposedBy,
+    timestamp: Date.now(),
+  });
   return intent;
 }
 
@@ -73,6 +83,15 @@ export function approveExecutionIntent(intentId: string, userId: string, reason:
     actorUserId: userId,
     reason,
   });
+  // PHASE 9: Learning Loop (read-only, in-memory)
+  LearningService.collectSignal({
+    type: 'decision_outcome',
+    decisionId: intent.decisionId,
+    outcome: 'approved',
+    confidence: 1,
+    agentId: intent.createdBy,
+    timestamp: Date.now(),
+  });
   return getExecutionIntent(intentId);
 }
 
@@ -94,6 +113,15 @@ export function rejectExecutionIntent(intentId: string, userId: string, reason: 
     timestamp: new Date().toISOString(),
     actorUserId: userId,
     reason,
+  });
+  // PHASE 9: Learning Loop (read-only, in-memory)
+  LearningService.collectSignal({
+    type: 'decision_outcome',
+    decisionId: intent.decisionId,
+    outcome: 'rejected',
+    confidence: 0,
+    agentId: intent.createdBy,
+    timestamp: Date.now(),
   });
   return getExecutionIntent(intentId);
 }

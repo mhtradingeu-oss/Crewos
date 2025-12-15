@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../client';
+import { api } from '../client.ts';
 
 // Types
 export interface Product {

@@ -4,9 +4,9 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StepHeader } from "../components/StepHeader";
-import { WizardNav } from "../components/WizardNav";
-import { useOnboardingStore } from "../context/onboarding-store";
+import { StepHeader } from "../components/StepHeader.tsx";
+import { WizardNav } from "../components/WizardNav.tsx";
+import { useOnboardingStore } from "../context/onboarding-store.ts";
 import { postOnboardingPersona } from "@/lib/api/onboarding";
 import type { PersonaChoice } from "@/types/onboarding.types";
 
