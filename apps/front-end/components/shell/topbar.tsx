@@ -1,53 +1,26 @@
-"use client";
+// Server Component: Topbar
+import { Bell, ShieldCheck } from "lucide-react";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
-
-const BRAND_OPTIONS = [
-  { value: "hairoticmen", label: "HAIROTICMEN" },
-  { value: "orbit-phase", label: "ORBIT PHASE" },
-  { value: "nova-stack", label: "NOVA STACK" },
-];
-
-type TopbarProps = {};
-
-export function Topbar({}: TopbarProps) {
-  const defaultBrand = BRAND_OPTIONS[0]?.value ?? "";
-  const [brand, setBrand] = useState(defaultBrand);
-
+export function Topbar() {
   return (
-    <div className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/90 px-6 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-slate-950/90 px-6 py-3 backdrop-blur">
       <div className="flex items-center gap-4">
-        <div className="space-y-1 text-xs uppercase tracking-[0.4em] text-slate-500">
-          <p>Brand</p>
-          <p className="text-2xl font-semibold tracking-[0.2em] text-white">
-            {BRAND_OPTIONS.find((b) => b.value === brand)?.label}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-          <Select
-            value={brand}
-            onChange={(event) => setBrand(event.target.value)}
-            className="min-w-[9rem] bg-transparent text-sm font-semibold uppercase text-white"
-          >
-            {BRAND_OPTIONS.map((option: typeof BRAND_OPTIONS[number]) => (
-              <option key={option.value} value={option.value} className="bg-slate-950 text-white">
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="hidden text-xs text-slate-400 sm:block">Global OS · International HQ</div>
+        <span className="text-xl font-bold text-white flex items-center gap-2">
+          <ShieldCheck className="h-6 w-6 text-emerald-400" aria-hidden />
+          MH-OS SUPERAPP
+        </span>
+        <span className="ml-3 rounded bg-blue-900/60 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-blue-300">Production</span>
       </div>
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" size="sm" className="flex items-center gap-2 text-xs uppercase">
-          <Sparkles className="h-3.5 w-3.5" />
-          AI Dock
-        </Button>
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-sky-500 text-xs font-semibold uppercase text-white">
+      <div className="flex items-center gap-4">
+        <button
+          aria-label="Notifications"
+          className="relative rounded-full p-2 hover:bg-white/10 focus:outline-none focus-visible:ring"
+        >
+          <Bell className="h-5 w-5 text-slate-300" />
+          <span className="sr-only">View notifications</span>
+        </button>
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-sky-500 text-xs font-semibold uppercase text-white">
             NH
           </div>
           <div className="text-sm">
@@ -56,6 +29,6 @@ export function Topbar({}: TopbarProps) {
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

@@ -72,12 +72,12 @@ export interface KPIOverviewPayload {
   aiNarrative?: KPINarrative;
 }
 
-export async function getKpiSummary(params?: {
   brandId?: string;
   scope?: string;
   periodStart?: string;
   periodEnd?: string;
-}): Promise<KPIOverviewPayload> {
-  const { data } = await api.get(`/ai/insights/kpi/summary`, { params });
-  return data;
+}): Promise<KPIOverviewPayload | null> {
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<KPIOverviewPayload>(`/ai/insights/kpi/summary`);
+  return data ?? null;
 }

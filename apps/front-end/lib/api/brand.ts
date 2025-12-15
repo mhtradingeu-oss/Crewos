@@ -6,82 +6,59 @@ export interface BrandDto {
   name: string;
   slug: string;
   description?: string | null;
-  countryOfOrigin?: string | null;
-  defaultCurrency?: string | null;
-  settings?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
+  // V1 READ-ONLY: List brands
+  export async function listBrands(): Promise<BrandDto[]> {
+    const { data } = await apiFetch<PaginatedResponse<BrandDto>>("/brand");
+    return data?.items ?? [];
+  }
 
-export interface BrandIdentityDto {
-  brandId: string;
-  vision?: string;
-  mission?: string;
-  values?: string;
-  toneOfVoice?: string;
-  persona?: string;
-  brandStory?: string;
-  keywords?: string;
-  colorPalette?: string;
-  packagingStyle?: string;
-  socialProfiles?: Record<string, string>;
-  createdAt: string;
-  updatedAt: string;
-}
+  // V1 READ-ONLY: Get single brand
+  export async function getBrand(id: string): Promise<BrandDto | null> {
+    const { data } = await apiFetch<BrandDto>(`/brand/${id}`);
+    return data ?? null;
+  }
 
-export interface BrandIdentityPayload {
-  vision?: string | null;
-  mission?: string | null;
-  values?: string | null;
-  toneOfVoice?: string | null;
-  persona?: string | null;
-  brandStory?: string | null;
-  keywords?: string | null;
-  colorPalette?: string | null;
-  packagingStyle?: string | null;
-  socialProfiles?: Record<string, string> | null;
-}
+  // V1 READ-ONLY: Get brand identity
+  export async function getBrandIdentity(id: string): Promise<BrandIdentityDto | null> {
+    const { data } = await apiFetch<BrandIdentityDto>(`/brand/${id}/identity`);
+    return data ?? null;
+  }
 
-export interface BrandAiIdentityResponse {
-  id: string;
-  summary: string;
-  details: string;
-  createdAt: string;
-  updatedAt: string;
-}
+  // V1 READ-ONLY: Get brand rules
+  export async function getBrandRules(id: string): Promise<BrandRulesDto | null> {
+    const { data } = await apiFetch<BrandRulesDto>(`/brand/${id}/rules`);
+    return data ?? null;
+  }
 
-export interface BrandRulesDto {
-  brandId: string;
-  namingRules?: string | null;
-  descriptionRules?: string | null;
-  marketingRules?: string | null;
-  discountRules?: string | null;
-  pricingConstraints?: string | null;
-  restrictedWords?: string | null;
-  allowedWords?: string | null;
-  aiRestrictions?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+  // V1 READ-ONLY: Get brand AI config
+  export async function getBrandAiConfig(id: string): Promise<BrandAiConfigDto | null> {
+    const { data } = await apiFetch<BrandAiConfigDto>(`/brand/${id}/ai/config`);
+    return data ?? null;
+  }
 
-export interface BrandAiConfigDto {
-  brandId: string;
-  aiPersonality?: string | null;
-  aiTone?: string | null;
-  aiContentStyle?: string | null;
-  aiPricingStyle?: string | null;
-  aiEnabledActions?: string[] | null;
-  aiBlockedTopics?: string[] | null;
-  aiModelVersion?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+  // V1 READ-ONLY STUB: Create brand (disabled)
+  export async function createBrand(): Promise<null> {
+    // V1 READ-ONLY STUB
+    return null;
+  }
 
-function normalizePaginated<T>(payload: any): PaginatedResponse<T> {
-  if (payload && "items" in payload) {
-    return {
-      data: (payload.items as T[]) ?? [],
-      total: payload.total ?? ((payload.items as T[])?.length ?? 0),
+  // V1 READ-ONLY STUB: Update brand (disabled)
+  export async function updateBrand(): Promise<null> {
+    // V1 READ-ONLY STUB
+    return null;
+  }
+
+  // V1 READ-ONLY STUB: Delete brand (disabled)
+  export async function deleteBrand(): Promise<null> {
+    // V1 READ-ONLY STUB
+    return null;
+  }
+
+  // V1 READ-ONLY STUB: Refresh brand identity (disabled)
+  export async function refreshBrandIdentity(): Promise<null> {
+    // V1 READ-ONLY STUB
+    return null;
+  }
       page: payload.page ?? 1,
       pageSize: payload.pageSize ?? ((payload.items as T[])?.length ?? 0),
     };
@@ -89,73 +66,65 @@ function normalizePaginated<T>(payload: any): PaginatedResponse<T> {
   return payload as PaginatedResponse<T>;
 }
 
-export async function listBrands(params?: { search?: string; page?: number; pageSize?: number }) {
-  const { data } = await api.get<PaginatedResponse<BrandDto> | { items: BrandDto[]; total: number; page: number; pageSize: number }>("/brand", { params });
-  return normalizePaginated<BrandDto>(data);
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<PaginatedResponse<BrandDto>>(`/brand`);
+  return data?.items ?? [];
 }
 
-export async function getBrand(id: string) {
-  const { data } = await api.get<BrandDto>(`/brand/${id}`);
-  return data;
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<BrandDto>(`/brand/${id}`);
+  return data ?? null;
 }
 
-export async function createBrand(payload: Partial<BrandDto> & { name: string; slug: string }) {
-  const { data } = await api.post<BrandDto>("/brand", payload);
-  return data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function updateBrand(id: string, payload: Partial<BrandDto>) {
-  const { data } = await api.put<BrandDto>(`/brand/${id}`, payload);
-  return data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function removeBrand(id: string) {
-  await api.delete(`/brand/${id}`);
-  return true;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function getBrandIdentity(id: string) {
-  const { data } = await api.get<BrandIdentityDto | null>(`/brand/${id}/identity`);
-  return data;
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<BrandIdentityDto>(`/brand/${id}/identity`);
+  return data ?? null;
 }
 
-export async function updateBrandIdentity(id: string, payload: BrandIdentityPayload) {
-  const { data } = await api.put<BrandIdentityDto>(`/brand/${id}/identity`, payload);
-  return data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function refreshBrandAiIdentity(
   id: string,
   payload?: { forceRegenerate?: boolean },
-) {
-  const { data } = await api.post<BrandAiIdentityResponse>(`/brand/${id}/ai/identity`, payload ?? {});
-  return data;
+): Promise<null> {
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function refreshBrandRulesAi(
   id: string,
   payload?: { forceRegenerate?: boolean },
-) {
-  const { data } = await api.post<BrandAiIdentityResponse>(`/brand/${id}/ai/rules`, payload ?? {});
-  return data;
+): Promise<null> {
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function getBrandRules(id: string) {
-  const { data } = await api.get<BrandRulesDto | null>(`/brand/${id}/rules`);
-  return data;
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<BrandRulesDto>(`/brand/${id}/rules`);
+  return data ?? null;
 }
 
-export async function updateBrandRules(id: string, payload: Partial<BrandRulesDto>) {
-  const { data } = await api.put<BrandRulesDto>(`/brand/${id}/rules`, payload);
-  return data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function getBrandAiConfig(id: string) {
-  const { data } = await api.get<BrandAiConfigDto | null>(`/brand/${id}/ai/config`);
-  return data;
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<BrandAiConfigDto>(`/brand/${id}/ai/config`);
+  return data ?? null;
 }
 
-export async function updateBrandAiConfig(id: string, payload: Partial<BrandAiConfigDto>) {
-  const { data } = await api.put<BrandAiConfigDto>(`/brand/${id}/ai/config`, payload);
-  return data;
+  // V1 READ-ONLY STUB
+  return null;
 }

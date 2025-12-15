@@ -7,7 +7,7 @@ export * from './module-page.js'; // TODO: file missing — export skipped
 export * from './module-scaffold.js'; // TODO: file missing — export skipped
 export * from './page-header.js'; // TODO: file missing — export skipped
 export * from './section-card.js'; // TODO: file missing — export skipped
-export * from './sidebar.js'; // TODO: file missing — export skipped
+export * from './Sidebar.js'; // TODO: file missing — export skipped
 export * from './simple-table.js'; // TODO: file missing — export skipped
 export * from './table-with-toolbar.js'; // TODO: file missing — export skipped
 export * from './tabs.js'; // TODO: file missing — export skipped
@@ -15,4 +15,4 @@ export * from './tenant-app-layout.js'; // TODO: file missing — export skipped
 export * from './tenant-app-shell.js'; // TODO: file missing — export skipped
 export * from './tenant-sidebar.js'; // TODO: file missing — export skipped
 export * from './tenant-topbar.js'; // TODO: file missing — export skipped
-export * from './topbar.js'; // TODO: file missing — export skipped
+export * from './Topbar.js'; // TODO: file missing — export skipped

@@ -28,6 +28,7 @@
     "seed:core": "cd apps/back-end && npm run seed:core"
   },
   "devDependencies": {
+    "@types/next": "^8.0.7",
     "@types/node": "^20.11.17",
     "@types/supertest": "^6.0.3",
     "@types/testing-library__jest-dom": "^5.14.9",
@@ -42,6 +43,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "next": "^16.0.10",
     "openai": "^6.9.1",
     "uuid": "^13.0.0"
   }

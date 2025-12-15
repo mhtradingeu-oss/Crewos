@@ -10,7 +10,7 @@ type KpiCardProps = {
   icon?: ReactNode;
 };
 
-export function KpiCard({ title, value, hint, trend, icon }: KpiCardProps) {
+const KpiCard = ({ title, value, hint, trend, icon }: KpiCardProps) => {
   return (
     <Card className="rounded-2xl border border-white/5 bg-white/5/80 shadow-lg shadow-black/30">
       <CardHeader className="flex items-center justify-between gap-2">
@@ -32,4 +32,6 @@ export function KpiCard({ title, value, hint, trend, icon }: KpiCardProps) {
       </CardContent>
     </Card>
   );
-}
+};
+
+export default KpiCard;

@@ -10,7 +10,7 @@ type SectionCardProps = {
   className?: string;
 };
 
-export function SectionCard({ title, description, actions, children, className }: SectionCardProps) {
+const SectionCard = ({ title, description, actions, children, className }: SectionCardProps) => {
   return (
     <Card className={cn("rounded-3xl border border-white/5 bg-white/5/80 shadow-lg", className)}>
       <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -23,4 +23,6 @@ export function SectionCard({ title, description, actions, children, className }
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
   );
-}
+};
+
+export default SectionCard;

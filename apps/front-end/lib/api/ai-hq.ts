@@ -14,44 +14,35 @@ export type AutonomyStatus = {
   completed: unknown[];
 };
 
-export async function getAutonomyStatus(): Promise<AutonomyStatus | null> {
+  // V1 READ-ONLY STUB
   return null;
 }
 
-export async function getAutonomyPending(): Promise<unknown[]> {
+  // V1 READ-ONLY STUB
   return [];
 }
 
-export async function approveAutonomyTask(_taskId: string): Promise<null> {
+  // V1 READ-ONLY STUB
   return null;
 }
 
-export async function rejectAutonomyTask(_taskId: string, _reason?: string): Promise<null> {
+  // V1 READ-ONLY STUB
   return null;
 }
 
 
-export async function runAutonomyCycle(payload?: {
-  brandId?: string;
-  tenantId?: string;
-  autoExecute?: boolean;
-  dryRun?: boolean;
-  includeEmbeddings?: boolean;
-}) {
-  const response = await api.post(`/ai/autonomy/run-cycle`, payload ?? {});
-  return response.data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
 
-export async function getAutonomyConfig() {
-  const response = await api.get(`/ai/autonomy/config`);
-  return response.data as { globalAutonomyEnabled: boolean; defaultAutonomyLevelPerAgent?: string };
+  // V1 READ-ONLY STUB
+  return null;
 }
 
 
-export async function updateAutonomyConfig(payload: { globalAutonomyEnabled?: boolean }) {
-  const response = await api.post(`/ai/autonomy/config`, payload);
-  return response.data;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
 export type AgentConfigOverride = {
@@ -62,17 +53,14 @@ export type AgentConfigOverride = {
   brandId?: string;
 };
 
-export async function listAgentConfigs(params?: { brandId?: string }) {
-  const { data } = await api.get(`/ai/agents/config`, { params });
-  return data as any[];
+  // V1 READ-ONLY STUB
+  return [];
 }
 
-export async function getAgentConfig(agentId: string, params?: { brandId?: string }) {
-  const { data } = await api.get(`/ai/agents/config/${agentId}`, { params });
-  return data as any;
+  // V1 READ-ONLY STUB
+  return null;
 }
 
-export async function updateAgentConfig(agentId: string, payload: AgentConfigOverride) {
-  const { data } = await api.post(`/ai/agents/config/${agentId}`, payload);
-  return data as any;
+  // V1 READ-ONLY STUB
+  return null;
 }

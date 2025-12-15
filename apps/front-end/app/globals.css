@@ -25,6 +25,11 @@
   --radius: 0.75rem;
   --shadow-soft: 0 10px 40px rgba(33, 41, 64, 0.08);
   --shadow-strong: 0 20px 60px rgba(21, 30, 55, 0.12);
+  /* White-label brand tokens (visual only) */
+  --brand-primary: #2563eb;
+  --brand-secondary: #f59e42;
+  --brand-surface: #f7f8fa;
+  --brand-text: #1e293b;
 }
 
 .dark {

@@ -5,10 +5,12 @@
 import { apiFetch } from '@/lib/api/client.ts';
 import type { Brand, ApiListResponse } from '@/lib/api/types.ts';
 
-export async function listBrands(): Promise<ApiListResponse<Brand>> {
-  return apiFetch<ApiListResponse<Brand>>('/api/v1/brand');
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<ApiListResponse<Brand>>('/api/v1/brand');
+  return data ?? { items: [], total: 0 };
 }
 
-export async function getBrand(id: string): Promise<Brand> {
-  return apiFetch<Brand>(`/api/v1/brand/${id}`);
+  // V1 READ-ONLY: Only GET is supported
+  const { data } = await apiFetch<Brand>(`/api/v1/brand/${id}`);
+  return data ?? null;
 }
