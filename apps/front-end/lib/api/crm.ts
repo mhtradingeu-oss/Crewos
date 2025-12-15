@@ -1,4 +1,5 @@
-import { api } from "./client.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
 import type { PaginatedResponse } from "./types.ts";
 
 export interface LeadDto {
@@ -16,27 +17,16 @@ export interface LeadDto {
   updatedAt: string;
 }
 
-export async function listLeads(params?: {
-  brandId?: string;
-  status?: string;
-  search?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { data } = await api.get<PaginatedResponse<LeadDto>>("/crm", { params });
-  return data;
+export async function listLeads(params?: Record<string, unknown>): Promise<LeadDto[]> {
+  return [];
 }
 
-export async function getLead(id: string) {
-  const { data } = await api.get<LeadDto>(`/crm/${id}`);
-  return data;
+export async function getLead(_id: string): Promise<LeadDto | null> {
+  return null;
 }
 
-export async function createLead(
-  payload: Partial<LeadDto> & { brandId?: string; status?: string },
-) {
-  const { data } = await api.post<LeadDto>("/crm", payload);
-  return data;
+export async function createLead(_payload: Partial<LeadDto> & { brandId?: string; status?: string }): Promise<null> {
+  return null;
 }
 
 export async function updateLead(id: string, payload: Partial<LeadDto>) {

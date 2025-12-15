@@ -1,3 +1,7 @@
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+export async function listLoyaltyCustomers() { return []; }
+export async function updateLoyaltyCustomer() { return undefined; }
 
 // Loyalty API (read-only, presenter layer)
 // No business/AI/decision/automation logic. No hooks. No side effects.

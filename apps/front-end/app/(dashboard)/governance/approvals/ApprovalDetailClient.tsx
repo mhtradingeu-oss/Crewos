@@ -4,7 +4,8 @@
 
 'use client';
 import React from "react";
-import { ApprovalDetail } from "../ApprovalDetail";
+// V1 READ-ONLY: ApprovalDetail is a default export, import accordingly
+import ApprovalDetail from "./ApprovalDetail";
 import { TenantAppShell } from "@/components/shell/tenant-app-shell";
 
 export default function ApprovalDetailClient() {

@@ -1,41 +1,11 @@
-import { useParams } from 'next/navigation';
-import { useRunDetail } from './useRunDetail';
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// This page is a read-only placeholder for run details. All execution and mutation logic is disabled for V1.
 
 export default function RunDetailPage() {
-  const params = useParams();
-  const runId = typeof params?.runId === 'string' ? params.runId : Array.isArray(params?.runId) ? params.runId[0] : '';
-  const { run, isLoading, isError } = useRunDetail(runId);
-
   return (
     <div>
-      <h2>Run Detail</h2>
-      {isLoading && <div>Loading...</div>}
-      {isError && <div>Error loading run detail.</div>}
-      {!isLoading && !isError && !run && <div>Run not found.</div>}
-      {!isLoading && !isError && run && (
-        <>
-          <div>
-            <strong>ID:</strong> {run.id}<br />
-            <strong>Status:</strong> {run.status}<br />
-            <strong>Started:</strong> {run.startedAt}<br />
-            <strong>Finished:</strong> {run.finishedAt}
-          </div>
-          <section>
-            <h3>Action Runs</h3>
-            {run.actionRuns && run.actionRuns.length > 0 ? (
-              <ul>
-                {run.actionRuns.map((ar: any) => (
-                  <li key={ar.id}>
-                    {ar.actionType} — {ar.status} (Started: {ar.startedAt})
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div>No action runs found.</div>
-            )}
-          </section>
-        </>
-      )}
+      <h2>Run Detail (V1 Read-Only)</h2>
+      <p>Execution and mutation actions are disabled in V1.</p>
     </div>
   );
 }

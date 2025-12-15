@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { apiErrorMessage } from "@/lib/api/client";
-import { listBrands, type BrandDto } from "@/lib/api/brand";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// import { apiErrorMessage } from "@/lib/api/client";
+// import { listBrands, type BrandDto } from "@/lib/api/brand";
 
 const STORAGE_KEY = "mh-os-active-brand";
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../client.ts';
+import { apiFetch } from '../client.ts';
 
 // Types (best effort, update as backend/types evolve)
 export interface InventoryItem {

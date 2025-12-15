@@ -1,5 +1,6 @@
-import { api } from "./client.ts";
-import type { PaginatedResponse } from "./types.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+
 
 export interface CampaignDto {
   id: string;
@@ -13,29 +14,20 @@ export interface CampaignDto {
   updatedAt: string;
 }
 
-export async function listCampaigns(params?: {
-  brandId?: string;
-  status?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { data } = await api.get<PaginatedResponse<CampaignDto>>("/marketing", { params });
-  return data;
+export async function listCampaigns(params?: Record<string, unknown>): Promise<CampaignDto[]> {
+  return [];
 }
 
-export async function createCampaign(payload: Partial<CampaignDto>) {
-  const { data } = await api.post<CampaignDto>("/marketing", payload);
-  return data;
+export async function createCampaign(_payload: Partial<CampaignDto>): Promise<null> {
+  return null;
 }
 
-export async function updateCampaign(id: string, payload: Partial<CampaignDto>) {
-  const { data } = await api.put<CampaignDto>(`/marketing/${id}`, payload);
-  return data;
+export async function updateCampaign(_id: string, _payload: Partial<CampaignDto>): Promise<null> {
+  return null;
 }
 
-export async function getCampaign(id: string) {
-  const { data } = await api.get<CampaignDto>(`/marketing/${id}`);
-  return data;
+export async function getCampaign(_id: string): Promise<CampaignDto | null> {
+  return null;
 }
 
 export async function deleteCampaign(id: string) {

@@ -1,14 +1,5 @@
-import useSWR from 'swr';
-
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All automation policy violations logic is disabled for V1 read-only build.
 export function usePolicyViolations() {
-  const { data, error, isLoading } = useSWR('/api/automation/policy-violations', async (url) => {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to fetch policy violations');
-    return res.json();
-  });
-  return {
-    violations: data?.items ?? [],
-    isLoading,
-    isError: !!error,
-  };
+  return { data: [], error: null, isLoading: false };
 }

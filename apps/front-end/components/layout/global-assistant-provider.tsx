@@ -10,8 +10,9 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { fetchAiInsights } from "@/lib/api/ai";
-import { apiErrorMessage } from "@/lib/api/client";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// import { fetchAiInsights } from "@/lib/api/ai";
+// import { apiErrorMessage } from "@/lib/api/client";
 
 export type ModuleContext =
   | "pricing"

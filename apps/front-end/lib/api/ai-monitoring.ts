@@ -1,26 +1,31 @@
-import { api } from "./client.ts";
-
 export async function fetchEngineHealth() {
-  const res = await api.get("/ai/monitoring/engine-health");
-  return res.data;
-}
-
-export async function fetchAgentActivity() {
-  const res = await api.get("/ai/monitoring/agent-activity");
-  return res.data;
+  return [];
 }
 
 export async function fetchTokenUsage() {
-  const res = await api.get("/ai/monitoring/token-usage");
-  return res.data;
+  return {};
 }
 
 export async function fetchPerformanceMetrics() {
-  const res = await api.get("/ai/monitoring/performance-metrics");
-  return res.data;
+  return null;
+}
+// V1 placeholder for missing exports
+export async function fetchAgentActivity() {
+  return [];
 }
 
 export async function fetchSystemAlerts() {
-  const res = await api.get("/ai/monitoring/system-alerts");
+  return [];
+}
+// V1 READ-ONLY — AI MONITORING
+import { apiFetch } from "./client.ts";
+
+export async function getEngineHealth() {
+  const res = await apiFetch("/ai/monitoring/engine-health");
+  return res.data;
+}
+
+export async function getAgentActivity() {
+  const res = await apiFetch("/ai/monitoring/agent-activity");
   return res.data;
 }

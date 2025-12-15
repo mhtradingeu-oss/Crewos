@@ -1,4 +1,4 @@
-import { api } from "./client.ts";
+import { apiFetch } from "./client.ts";
 import type { PaginatedResponse } from "./types.ts";
 
 export interface ProductDto {

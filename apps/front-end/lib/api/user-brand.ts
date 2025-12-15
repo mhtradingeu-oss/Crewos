@@ -1,5 +1,5 @@
 import { BrandInfo } from "@mh-os/shared";
-import { api } from "./client.ts";
+import { apiFetch } from "./client.ts";
 
 export interface UserBrandResponse {
   hasBrand: boolean;
@@ -8,7 +8,7 @@ export interface UserBrandResponse {
 
 export async function getCurrentUserPrimaryBrand(): Promise<UserBrandResponse> {
   try {
-    const { data } = await api.get<UserBrandResponse>("/brand/me");
+    const { data } = await apiFetch<UserBrandResponse>("/brand/me");
     return data;
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {

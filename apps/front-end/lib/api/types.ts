@@ -1,3 +1,5 @@
+// V1: Alias for legacy compatibility
+export type PaginatedResponse<T> = ApiListResponse<T>;
 
 // Shared API response types for presenter layer (read-only)
 // No business/AI/decision/automation logic. No hooks. No side effects.

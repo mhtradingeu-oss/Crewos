@@ -1,4 +1,5 @@
-import { api } from "@/lib/api/client.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
 import type { PaginatedResponse } from "./types.ts";
 
 export type SecurityPolicy = {

@@ -1,4 +1,5 @@
-import { api } from "./client.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
 import type {
   BrandDefinitionInput,
   BrandIdentity,
@@ -25,19 +26,16 @@ export interface AIJournalEntry {
 /**
  * Central AI helpers for legacy endpoints and the new orchestrator contracts.
  */
-export async function fetchAiInsights(payload: { brandName?: string; highlights?: string }) {
-  const { data } = await api.post("/ai/insights", payload);
-  return data;
+export async function fetchAiInsights(_payload: { brandName?: string; highlights?: string }): Promise<null> {
+  return null;
 }
 
-export async function listAiJournal() {
-  const { data } = await api.get<AIJournalEntry[]>("/ai/insights");
-  return data;
+export async function listAiJournal(): Promise<AIJournalEntry[]> {
+  return [];
 }
 
-export async function generateMarketing(payload: { goal: string; tone?: string; audience?: string }) {
-  const { data } = await api.post(`/marketing/ai/generate`, payload);
-  return data;
+export async function generateMarketing(_payload: { goal: string; tone?: string; audience?: string }): Promise<null> {
+  return null;
 }
 
 export async function generateSeo(payload: { topic: string; locale?: string }) {

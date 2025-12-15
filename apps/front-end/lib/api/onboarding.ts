@@ -1,4 +1,5 @@
-import { api } from "./client.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
 import type {
   BrandCreatedResponse,
   BrandDefinitionDTO,
@@ -23,21 +24,16 @@ import type {
  * Placeholder API clients that call the onboarding backend endpoints.
  */
 
-export async function fetchBrandProducts(brandId: string) {
-  const { data } = await api.get<ProductEntry[]>(`/products/brand/${brandId}`);
-  return data;
+export async function fetchBrandProducts(_brandId: string): Promise<ProductEntry[]> {
+  return [];
 }
 
-export async function createBrand(payload: BrandDefinitionDTO) {
-  const { data } = await api.post<BrandCreatedResponse>("/brand", payload);
-  return data;
+export async function createBrand(_payload: BrandDefinitionDTO): Promise<null> {
+  return null;
 }
 
-export async function createProducts(brandId: string, products: ProductDTO[]) {
-  const { data } = await api.post<ProductCreatedResponse[]>(`/brand/${brandId}/products`, {
-    products,
-  });
-  return data;
+export async function createProducts(_brandId: string, _products: ProductDTO[]): Promise<null> {
+  return null;
 }
 
 export async function previewPricing(payload: PricingSetupDTO) {

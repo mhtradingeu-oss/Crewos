@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Loader2, CheckCircle2 } from "lucide-react";
-import { listNotifications, markNotificationsRead } from "@/lib/api/notifications";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// import { listNotifications, markNotificationsRead } from "@/lib/api/notifications";
 import { Button } from "@/components/ui/button";
-import { apiErrorMessage } from "@/lib/api/client";
+// import { apiErrorMessage } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 export function NotificationBell() {

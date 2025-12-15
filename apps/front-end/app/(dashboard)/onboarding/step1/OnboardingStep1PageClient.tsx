@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StepHeader } from "../components/StepHeader.tsx";
 import { WizardNav } from "../components/WizardNav.tsx";
-import { useOnboardingStore } from "../context/onboarding-store.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// import { useOnboardingStore } from "../context/onboarding-store.ts";
+// Local read-only mock onboarding store for V1
+const useOnboardingStore = () => {
+  const [persona, setPersona] = React.useState("");
+  return { persona, setPersona };
+};
 import { postOnboardingPersona } from "@/lib/api/onboarding";
 import type { PersonaChoice } from "@/types/onboarding.types";
 

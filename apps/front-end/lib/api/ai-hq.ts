@@ -1,4 +1,5 @@
-import { api } from "./client.ts";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
 
 export type AutonomyStatus = {
   lastRunAt?: string;
@@ -13,30 +14,20 @@ export type AutonomyStatus = {
   completed: unknown[];
 };
 
-export async function getAutonomyStatus() {
-  const { data } = await api.get<AutonomyStatus>("/ai/autonomy/status");
-  return data;
+export async function getAutonomyStatus(): Promise<AutonomyStatus | null> {
+  return null;
 }
 
-export async function getAutonomyPending(params?: {
-  severity?: "low" | "medium" | "high";
-  brandId?: string;
-  type?: string;
-  limit?: number;
-  offset?: number;
-}) {
-  const { data } = await api.get("/ai/autonomy/pending", { params });
-  return data as unknown[];
+export async function getAutonomyPending(): Promise<unknown[]> {
+  return [];
 }
 
-export async function approveAutonomyTask(taskId: string) {
-  const { data } = await api.post(`/ai/autonomy/approve/${taskId}`);
-  return data;
+export async function approveAutonomyTask(_taskId: string): Promise<null> {
+  return null;
 }
 
-export async function rejectAutonomyTask(taskId: string, reason?: string) {
-  const { data } = await api.post(`/ai/autonomy/reject/${taskId}`, { reason });
-  return data;
+export async function rejectAutonomyTask(_taskId: string, _reason?: string): Promise<null> {
+  return null;
 }
 
 

@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { FilterBar } from "@/components/shell/filter-bar";
-import { ModulePageLayout, type TableRow } from "@/components/shell/module-page";
+import { Button } from "../../../../components/ui/button.tsx";
+import { FilterBar } from "../../../../components/shell/filter-bar.tsx";
+import { ModulePageLayout, type TableRow } from "../../../../components/shell/module-page.tsx";
 
 const columns = ["Insight", "Plane", "Confidence", "Owner"];
 const rows: TableRow[] = [

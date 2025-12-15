@@ -21,20 +21,8 @@ export * from './governance.ts';
 export * from './brands.ts';
 export * from './products.ts';
 export * from './pricing.ts';
-export * from './loyalty.ts';
-	fetchAiInsights,
-	listAiJournal,
-	generateMarketing,
-	generateSeo as aiGenerateSeo,
-	generateCaptions as aiGenerateCaptions,
-	scoreLead,
-	generateBrandIdentity,
-	generateProductDescription,
-	aiPricingEngine,
-	generateMarketingStarterPlan,
-	logWizardLearning,
-	logOnboardingLearning
-} from './ai.js';
+
+// V1 READ-ONLY — ai.js named exports intentionally disabled for type safety
 
 /* ------------------------------------------------------------------
  * Brand
