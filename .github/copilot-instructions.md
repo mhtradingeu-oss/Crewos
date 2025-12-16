@@ -18,3 +18,13 @@
 - Continue/agents: config `.continue/config.yml`; prompts `.continue/prompts/`; rules `.continue/rules/` (secure configuration, backend protocol). Open VS Code at repo root so paths resolve; avoid modifying archives.
 - Docker: copy `.env.sample` -> `.env`, `apps/back-end/.env.example` -> `.env`; `docker compose build`; `docker compose up db` then backend (optionally frontend); `docker compose down --volumes` to reset. Ports: backend `${PORT:-4000}`, frontend `${FRONTEND_PORT:-3000}`.
 - Archives under `archive_old/` are legacy—do not modify unless requested.
+- Automation Phase C rules: 
+  - Runtime is PLAN_ONLY
+  - No side effects without Governance approval
+  - tenantId is mandatory on all AutomationEvents
+- NEVER enrich or mutate AutomationEvent inside dispatcher/runtime
+- Event must be fully valid before entering Automation pipeline
+- Do NOT place demo, test, or example files inside apps/back-end/src
+- Always use explicit .js extensions in ESM imports
+- Prefer barrel exports via index.ts
+- If unsure about domain ownership, DO NOT create new logic; ask for clarification
