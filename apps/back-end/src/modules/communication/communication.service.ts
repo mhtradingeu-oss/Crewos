@@ -134,7 +134,7 @@ export const communicationService = {
     ]);
 
     return {
-      items: rows.map(templateToDTO),
+      items: rows.map((item: any) => templateToDTO(item)),
       total,
       page,
       pageSize: take,
@@ -348,7 +348,7 @@ export const communicationService = {
       }),
     ]);
 
-    const items = rows.map((row) => {
+    const items = rows.map((row: any) => {
       const payload = parseJSON(row.dataJson);
       const meta = parseJSON(row.metaJson);
       return {

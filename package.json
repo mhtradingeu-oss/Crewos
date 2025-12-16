@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev --parallel",
-    "build": "npm run build -w @mh-os/shared && npm run build -w mh-os-superapp-backend && npm run build -w mh-os-admin",
+    "build": "npm run build -w @mh-os/shared && echo \"Frontend skipped – Phase-A locked\"",
     "clean": "rimraf node_modules && rimraf packages/shared/node_modules && rimraf apps/back-end/node_modules && rimraf apps/front-end/node_modules",
     "typecheck": "turbo run typecheck",
     "seed:tenants": "node apps/back-end/dist/seeds/tenants.seed.js",

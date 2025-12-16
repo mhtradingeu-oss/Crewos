@@ -65,7 +65,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesRepListItem[] = reps.map((rep) => ({
+    const data: SalesRepListItem[] = reps.map((rep: any) => ({
       id: rep.id,
       brandId: rep.brandId ?? undefined,
       userId: rep.userId ?? undefined,
@@ -140,7 +140,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesLeadRecord[] = leads.map((lead) => ({
+    const data: SalesLeadRecord[] = leads.map((lead: any) => ({
       id: lead.id,
       repId: lead.repId,
       stage: lead.stage ?? undefined,
@@ -204,7 +204,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesVisitRecord[] = visits.map((visit) => ({
+    const data: SalesVisitRecord[] = visits.map((visit: any) => ({
       id: visit.id,
       repId: visit.repId,
       partnerId: visit.partnerId ?? undefined,
@@ -331,7 +331,7 @@ class SalesRepsService {
 
     const kpis = await this.getKpis(repId);
 
-    const leadContext = leads.map((lead) => ({
+    const leadContext = leads.map((lead: any) => ({
       leadId: lead.leadId ?? lead.id,
       name: lead.leadId ?? undefined,
       stage: lead.stage ?? undefined,
@@ -342,7 +342,7 @@ class SalesRepsService {
       source: lead.source ?? undefined,
     }));
 
-    const visitContext = visits.map((visit) => ({
+    const visitContext = visits.map((visit: any) => ({
       visitId: visit.id,
       partnerId: visit.partnerId ?? undefined,
       purpose: visit.purpose ?? undefined,
@@ -368,7 +368,7 @@ class SalesRepsService {
       {
         repId,
         brandId: rep.brandId ?? undefined,
-        leadIds: Array.from(new Set(planTasks.map((task) => task.leadId))),
+        leadIds: Array.from(new Set(planTasks.map((task: any) => task.leadId))),
         taskCount: planTasks.length,
         summary: planResult.summary ?? undefined,
       },

@@ -181,7 +181,7 @@ class InfluencerOSService {
     ]);
 
     return {
-      items: rows.map((row) => this.mapProfile(row, row.statSnapshots?.[0] ?? null)),
+      items: rows.map((row: any) => this.mapProfile(row, row.statSnapshots?.[0] ?? null)),
       total,
       page,
       pageSize: take,

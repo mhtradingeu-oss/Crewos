@@ -145,7 +145,7 @@ class ProductService {
     ]);
 
     return {
-      items: products.map((product) => this.mapProduct(product)),
+      items: products.map((product: any) => this.mapProduct(product)),
       total,
       page,
       pageSize: take,
@@ -578,7 +578,7 @@ class ProductService {
       select: productSelect,
       orderBy: { createdAt: "desc" },
     });
-    const payload = products.map((product) => this.mapProduct(product));
+    const payload = products.map((product: any) => this.mapProduct(product));
     const format = filters.format ?? "json";
 
     if (format === "csv") {
@@ -786,7 +786,7 @@ class ProductService {
       "updatedAt",
     ];
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const lines = rows.map((row) => {
+    const lines = rows.map((row: any) => {
       const columns = [
         row.id,
         row.brandId ?? "",
@@ -805,7 +805,7 @@ class ProductService {
         row.createdAt.toISOString(),
         row.updatedAt.toISOString(),
       ];
-      return columns.map((column) => escape(String(column))).join(",");
+      return columns.map((column: any) => escape(String(column))).join(",");
     });
     return [headers.join(","), ...lines].join("\n");
   }
@@ -830,7 +830,7 @@ class ProductService {
     const next =
       mode === "attach"
         ? Array.from(new Set([...current, ...payload.mediaIds]))
-        : current.filter((id) => !payload.mediaIds.includes(id));
+        : current.filter((id: any) => !payload.mediaIds.includes(id));
     const updated = await this.db.brandProduct.update({
       where: { id: productId },
       data: { mediaIds: next.length ? next : undefined }, // Changed null to undefined
@@ -873,7 +873,7 @@ class ProductService {
       socialProof: this.parseJsonString(record.socialProofJson),
       analyticsProfile: this.parseJsonString(record.analyticsProfileJson),
       pricing: this.mapPricing(record.pricing),
-      competitorPrices: record.competitorPrices.map((price) => ({
+      competitorPrices: record.competitorPrices.map((price: any) => ({
         id: price.id,
         productId: price.productId,
         brandId: price.brandId ?? undefined,
@@ -978,13 +978,13 @@ class ProductService {
   private parseStringArray(value?: Prisma.JsonValue | null): string[] | undefined {
     if (!value) return undefined;
     if (Array.isArray(value)) {
-      return value.filter((item): item is string => typeof item === "string");
+      return value.filter((item: any): item is string => typeof item === "string");
     }
     if (typeof value === "string") {
       try {
         const parsed = JSON.parse(value);
         if (Array.isArray(parsed)) {
-          return parsed.filter((item): item is string => typeof item === "string");
+          return parsed.filter((item: any): item is string => typeof item === "string");
         }
       } catch {
         return undefined;

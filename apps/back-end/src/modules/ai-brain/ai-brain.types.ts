@@ -1,5 +1,31 @@
+// Phase-B compatibility re-exports (NO logic)
+export type {
+  CampaignIdeasInput,
+  CampaignIdeasOutput,
+  LeadFollowupInput,
+  LeadFollowupOutput,
+  PricingSuggestionInput,
+  PricingSuggestionOutput,
+  AiBrainEventPayload,
+  CreateAiBrainInput,
+  UpdateAiBrainInput,
+} from "@mh-os/shared";
+
 // All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
-//
+
+import type {
+  AiBaseInput,
+  SalesKpiSummary,
+  CampaignIdeasInput,
+  CampaignIdeasOutput,
+  LeadFollowupInput,
+  LeadFollowupOutput,
+  PricingSuggestionInput,
+  PricingSuggestionOutput,
+  AiBrainEventPayload,
+  CreateAiBrainInput,
+  UpdateAiBrainInput
+} from "@mh-os/shared";
 
 export interface StandInventoryContext {
   locationId?: string;

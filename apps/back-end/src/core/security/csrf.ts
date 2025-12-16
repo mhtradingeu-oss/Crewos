@@ -53,11 +53,13 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
   const headerToken =
     req.get(CSRF_HEADER_NAME) ?? req.get(CSRF_HEADER_NAME.toLowerCase()) ?? null;
 
+
   if (!cookieToken || !headerToken) {
     return next(csrfInvalid("CSRF token missing"));
   }
 
-  if (!tokensMatch(cookieToken, headerToken)) {
+  const headerTokenNormalized = Array.isArray(headerToken) ? headerToken[0] : headerToken;
+  if (!tokensMatch(cookieToken, headerTokenNormalized)) {
     return next(csrfInvalid("CSRF token mismatch"));
   }
 

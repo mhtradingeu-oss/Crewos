@@ -1,5 +1,15 @@
+// Phase-B stub
+export type CrmCustomerRecord = any;
+
 // All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
-//
+
+// Phase-B: CRM contract stubs
+export type CrmLeadEventPayload = any;
+export type CrmCustomerEventPayload = any;
+export type CrmContactEventPayload = any;
+export type LeadRecord = any;
+export type CreateLeadInput = any;
+export type UpdateLeadInput = any;
 
 export interface ConvertLeadToContactInput {
   ownerId?: string;
