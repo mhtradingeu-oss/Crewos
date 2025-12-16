@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { apiFetch } from "./client";
 
 export interface MarketingPlanDto {
   headline: string;

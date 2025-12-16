@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoTooltip } from "./info-tooltip";
+import { InfoTooltip } from "./info-tooltip.tsx";
 
 export function AiPanel({
   title,

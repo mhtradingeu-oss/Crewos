@@ -27,3 +27,26 @@ export function validateBody(schema: ParsableSchema) {
     return next();
   };
 }
+
+// إضافة validateQuery وvalidateParams لتصديرها
+export function validateQuery(schema: ParsableSchema) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      return next(badRequest("Validation error", result.error.flatten()));
+    }
+    req.query = result.data as typeof req.query;
+    return next();
+  };
+}
+
+export function validateParams(schema: ParsableSchema) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.params);
+    if (!result.success) {
+      return next(badRequest("Validation error", result.error.flatten()));
+    }
+    req.params = result.data as typeof req.params;
+    return next();
+  };
+}

@@ -1,7 +1,7 @@
 /**
  * INVENTORY SERVICE — MH-OS v2 (stabilized)
  */
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../core/prisma.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
@@ -179,10 +179,16 @@ export const inventoryService = {
     return toInventoryItemDTO(created);
   },
 
-  async createInventoryAdjustment(input: CreateInventoryAdjustmentInput, tx = prisma): Promise<InventoryAdjustmentResult> {
+  async createInventoryAdjustment(
+    input: CreateInventoryAdjustmentInput,
+    tx: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<InventoryAdjustmentResult> {
     const inventoryItem = await ensureInventoryItem(input.inventoryItemId, input.brandId);
     const previousQuantity = Number(inventoryItem.quantity ?? 0);
     const newQuantity = previousQuantity + Number(input.delta ?? 0);
+    if (newQuantity < 0) {
+      throw badRequest("Inventory adjustment would result in negative stock");
+    }
 
     // استخدم tx بدلاً من prisma.$transaction
     const [updatedItem, transaction, adjustment] = await Promise.all([

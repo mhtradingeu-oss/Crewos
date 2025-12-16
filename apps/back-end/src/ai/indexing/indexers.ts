@@ -788,16 +788,18 @@ export async function indexAutomationRule(
 ): Promise<IndexRecord | null> {
   const rule = await prisma.automationRule.findUnique({
     where: { id: ruleId },
-    include: { brand: { select: { id: true, tenantId: true, name: true } } },
   });
   if (!rule) return null;
-  assertScopeOwnership(rule.brandId ?? rule.brand?.id, rule.brand?.tenantId, scope);
-
+  assertScopeOwnership(rule.brandId, undefined, scope);
+  const activeVersion = await prisma.automationRuleVersion.findFirst({
+    where: { ruleId: rule.id, state: 'ACTIVE' },
+    orderBy: { versionNumber: 'desc' },
+  });
   const content = [
     `Automation rule ${rule.name}`,
     rule.description,
-    rule.triggerEvent ? `Trigger ${rule.triggerEvent}` : undefined,
-    rule.enabled ? "Enabled" : "Disabled",
+    activeVersion?.triggerEvent ? `Trigger ${activeVersion.triggerEvent}` : undefined,
+    rule.state === 'ACTIVE' ? "Enabled" : "Disabled",
   ]
     .filter(Boolean)
     .map(normalizeText)
@@ -806,25 +808,26 @@ export async function indexAutomationRule(
   return buildRecord({
     id: rule.id,
     type: "automation-rule",
-    brandId: rule.brandId ?? rule.brand?.id,
-    tenantId: rule.brand?.tenantId,
+    brandId: rule.brandId,
+    tenantId: undefined,
     title: rule.name,
     description: rule.description ?? undefined,
-    tags: [rule.triggerEvent ?? "", rule.triggerType ?? "", rule.enabled ? "enabled" : "disabled"].filter(Boolean),
+    tags: [
+      activeVersion?.triggerEvent ?? "",
+      rule.state === 'ACTIVE' ? "enabled" : "disabled"
+    ].filter(Boolean),
     content,
     source: "automation",
     updatedAt: rule.updatedAt,
     metadata: {
-      trigger: rule.triggerEvent,
-      triggerType: rule.triggerType,
-      conditions: rule.conditionsJson ?? rule.conditionConfigJson,
-      actions: rule.actionsJson ?? rule.actionsConfigJson,
-      enabled: rule.enabled,
-      lastRunAt: rule.lastRunAt,
-      lastRunStatus: rule.lastRunStatus,
+      trigger: activeVersion?.triggerEvent,
+      conditions: activeVersion?.conditionConfigJson,
+      actions: activeVersion?.actionsConfigJson,
+      enabled: rule.state === 'ACTIVE',
     },
     raw: {
       rule,
+      activeVersion,
     },
   });
 }
@@ -1045,7 +1048,7 @@ export async function indexSupportTicket(
     },
   });
   if (!ticket) return null;
-  assertScopeOwnership(ticket.brandId ?? ticket.brand?.id, ticket.brand?.tenantId, scope);
+  assertScopeOwnership(ticket.brandId, undefined, scope);
 
   const tagNames = ticket.tags?.map((t) => t.name) ?? [];
   const messageSummary = ticket.messages
@@ -1067,8 +1070,8 @@ export async function indexSupportTicket(
   return buildRecord({
     id: ticket.id,
     type: "support-ticket",
-    brandId: ticket.brandId ?? ticket.brand?.id,
-    tenantId: ticket.brand?.tenantId,
+    brandId: ticket.brandId,
+    tenantId: undefined,
     title: `Ticket ${ticket.id}`,
     description: ticket.category ?? ticket.status ?? undefined,
     tags: [ticket.status ?? "", ticket.priority ?? "", ticket.category ?? "", ...tagNames].filter(Boolean),
@@ -1271,53 +1274,47 @@ export async function indexOperationsTask(
 }
 
 export async function indexActivityLog(logId: string, scope?: IndexingScope): Promise<IndexRecord | null> {
-  const log = await prisma.activityLog.findUnique({
+  const rule = await prisma.automationRule.findUnique({
     where: { id: logId },
-    include: { brand: { select: { id: true, tenantId: true } } },
   });
-  if (!log) return null;
-  assertScopeOwnership(log.brandId ?? log.brand?.id, log.brand?.tenantId, scope);
-
+  if (!rule) return null;
+  assertScopeOwnership(rule.brandId, undefined, scope);
   const content = [
-    `Activity ${log.type}`,
-    log.module ? `Module ${log.module}` : undefined,
-    log.source ? `Source ${log.source}` : undefined,
-    log.severity ? `Severity ${log.severity}` : undefined,
-    log.metaJson,
+    `Activity log for automation rule ${rule.name}`,
+    rule.description,
+    rule.state === 'ACTIVE' ? "Enabled" : "Disabled",
   ]
     .filter(Boolean)
     .map(normalizeText)
     .join(" | ");
 
   return buildRecord({
-    id: log.id,
+    id: rule.id,
     type: "activity-log",
-    brandId: log.brandId ?? log.brand?.id,
-    tenantId: log.brand?.tenantId,
-    title: log.type,
-    description: log.source ?? log.module ?? undefined,
-    tags: [log.module ?? "", log.severity ?? ""].filter(Boolean),
+    brandId: rule.brandId,
+    tenantId: undefined,
+    title: rule.name,
+    description: rule.description ?? undefined,
+    tags: [rule.state === 'ACTIVE' ? "enabled" : "disabled"].filter(Boolean),
     content,
-    source: "activity_log",
-    updatedAt: log.createdAt,
+    source: "automation",
+    updatedAt: rule.updatedAt,
     metadata: {
-      module: log.module,
-      source: log.source,
-      severity: log.severity,
-      userId: log.userId,
+      enabled: rule.state === 'ACTIVE',
     },
-    raw: { log },
+    raw: {
+      rule,
+    },
   });
 }
 
 export const aiIndexers = {
-  brand: indexBrand,
-  brandProduct: indexBrandProduct,
-  productPricing: indexProductPricing,
-  competitorPrice: indexCompetitorPrice,
-  inventoryItem: indexInventoryItem,
-  crmClient: indexCRMClient,
-  partner: indexPartner,
+    brand: indexBrand,
+    brandProduct: indexBrandProduct,
+    productPricing: indexProductPricing,
+    inventoryItem: indexInventoryItem,
+    crmClient: indexCRMClient,
+    partner: indexPartner,
   dealer: indexDealer,
   stand: indexStand,
   affiliate: indexAffiliate,
@@ -1327,10 +1324,10 @@ export const aiIndexers = {
   aiInsight: indexAIInsight,
   aiLearning: indexAILearningJournal,
   aiPricingHistory: indexAIPricingHistory,
-   knowledgeDocument: indexKnowledgeDocument,
-   supportTicket: indexSupportTicket,
-   marketingCampaign: indexMarketingCampaign,
-   socialSignal: indexSocialSignal,
-   operationsTask: indexOperationsTask,
-   activityLog: indexActivityLog,
+  knowledgeDocument: indexKnowledgeDocument,
+  supportTicket: indexSupportTicket,
+  marketingCampaign: indexMarketingCampaign,
+  socialSignal: indexSocialSignal,
+  operationsTask: indexOperationsTask,
+  activityLog: indexActivityLog,
 };

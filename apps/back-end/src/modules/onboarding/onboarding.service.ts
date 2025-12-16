@@ -134,7 +134,7 @@ export async function selectPlan(userId: string, input: PlanSelectionInput) {
 export function getOnboardingOptions() {
   return {
     personas: PERSONAS,
-    plans: Object.values(planDefinitions).map((plan) => ({
+    plans: Object.values(planDefinitions).map((plan: any) => ({
       key: plan.key,
       name: plan.name,
       description: plan.description,

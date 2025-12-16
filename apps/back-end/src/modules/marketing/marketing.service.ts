@@ -9,11 +9,19 @@ import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import {
   emitMarketingCampaignStarted,
   emitMarketingCampaignStopped,
+  emitMarketingCampaignAttribution,
+  emitMarketingCampaignInteractionLogged,
   emitMarketingCreated,
   emitMarketingDeleted,
   emitMarketingUpdated,
 } from "./marketing.events.js";
 import type {
+  CampaignAttributionEventPayload,
+  CampaignAttributionInput,
+  CampaignAttributionRecord,
+  CampaignInteractionEventPayload,
+  CampaignInteractionInput,
+  CampaignInteractionRecord,
   CampaignRecord,
   CampaignSegmentPreview,
   CampaignTargetPreview,
@@ -59,6 +67,28 @@ const campaignSelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.CampaignSelect;
+
+const campaignAttributionSelect = {
+  id: true,
+  campaignId: true,
+  brandId: true,
+  leadId: true,
+  customerId: true,
+  source: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.CampaignLeadAttributionSelect;
+
+const campaignInteractionSelect = {
+  id: true,
+  campaignId: true,
+  type: true,
+  leadId: true,
+  customerId: true,
+  metadata: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.CampaignInteractionSelect;
 
 class MarketingService {
   constructor(private readonly db = prisma) {}
@@ -218,11 +248,133 @@ class MarketingService {
     });
   }
 
+  async linkLeadToCampaign(
+    campaignId: string,
+    input: CampaignAttributionInput,
+    context?: MarketingActionContext,
+  ): Promise<CampaignAttributionRecord> {
+    const campaign = await this.db.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true, brandId: true },
+    });
+    if (!campaign) {
+      throw notFound("Campaign not found");
+    }
+
+    if (!input.leadId && !input.customerId) {
+      throw badRequest("leadId or customerId is required");
+    }
+
+    if (input.leadId) {
+      await this.ensureLeadBelongsToBrand(input.leadId, campaign.brandId);
+    }
+    if (input.customerId) {
+      await this.ensureCustomerBelongsToBrand(input.customerId, campaign.brandId);
+    }
+
+    const created = await this.db.campaignLeadAttribution.create({
+      data: {
+        campaignId,
+        brandId: campaign.brandId ?? null,
+        leadId: input.leadId ?? undefined,
+        customerId: input.customerId ?? undefined,
+        source: input.source ?? null,
+      },
+      select: campaignAttributionSelect,
+    });
+
+    const payload: CampaignAttributionEventPayload = {
+      campaignId,
+      brandId: campaign.brandId ?? undefined,
+      leadId: input.leadId ?? undefined,
+      customerId: input.customerId ?? undefined,
+      source: input.source ?? undefined,
+    };
+    await emitMarketingCampaignAttribution(payload, buildMarketingEventContext(context));
+    return this.mapAttribution(created);
+  }
+
+  async recordCampaignInteraction(
+    campaignId: string,
+    input: CampaignInteractionInput,
+    context?: MarketingActionContext,
+  ): Promise<CampaignInteractionRecord> {
+    const campaign = await this.db.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true, brandId: true },
+    });
+    if (!campaign) {
+      throw notFound("Campaign not found");
+    }
+
+    if (!input.leadId && !input.customerId) {
+      throw badRequest("leadId or customerId is required");
+    }
+
+    if (input.leadId) {
+      await this.ensureLeadBelongsToBrand(input.leadId, campaign.brandId);
+    }
+    if (input.customerId) {
+      await this.ensureCustomerBelongsToBrand(input.customerId, campaign.brandId);
+    }
+
+    const metadataValue = input.metadata
+      ? (input.metadata as Prisma.InputJsonValue)
+      : undefined;
+    const created = await this.db.campaignInteraction.create({
+      data: {
+        campaignId,
+        type: input.type,
+        leadId: input.leadId ?? undefined,
+        customerId: input.customerId ?? undefined,
+        metadata: metadataValue,
+      },
+      select: campaignInteractionSelect,
+    });
+
+    const payload: CampaignInteractionEventPayload = {
+      campaignId,
+      brandId: campaign.brandId ?? undefined,
+      type: input.type,
+      leadId: input.leadId ?? undefined,
+      customerId: input.customerId ?? undefined,
+      metadata: input.metadata ?? undefined,
+    };
+    await emitMarketingCampaignInteractionLogged(payload, buildMarketingEventContext(context));
+    return this.mapInteraction(created);
+  }
+
   private async ensureValidSegments(ids?: string[] | null, brandId?: string): Promise<string[]> {
     if (!ids?.length) return [];
     const uniqueIds = Array.from(new Set(ids));
     await crmService.getSegmentsByIds(uniqueIds, { brandId });
     return uniqueIds;
+  }
+
+  private async ensureLeadBelongsToBrand(leadId: string, brandId?: string | null) {
+    const lead = await this.db.lead.findUnique({
+      where: { id: leadId },
+      select: { brandId: true },
+    });
+    if (!lead) {
+      throw notFound("Lead not found");
+    }
+    if (brandId && lead.brandId && lead.brandId !== brandId) {
+      throw badRequest("Lead does not belong to this campaign");
+    }
+  }
+
+  private async ensureCustomerBelongsToBrand(customerId: string, brandId?: string | null) {
+    const customer = await this.db.crmCustomer.findUnique({
+      where: { id: customerId },
+      select: { brandId: true },
+    });
+    if (!customer) {
+      throw notFound("Customer not found");
+    }
+    if (brandId && customer.brandId && customer.brandId !== brandId) {
+      throw badRequest("Customer does not belong to this campaign");
+    }
   }
 
   private buildCampaignEventPayload(
@@ -328,6 +480,36 @@ class MarketingService {
       targetSegmentIds: this.parseTargetSegmentIds(row.targetSegmentIds),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    };
+  }
+
+  private mapAttribution(
+    record: Prisma.CampaignLeadAttributionGetPayload<{ select: typeof campaignAttributionSelect }>,
+  ): CampaignAttributionRecord {
+    return {
+      id: record.id,
+      campaignId: record.campaignId,
+      brandId: record.brandId ?? undefined,
+      leadId: record.leadId ?? undefined,
+      customerId: record.customerId ?? undefined,
+      source: record.source ?? undefined,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  private mapInteraction(
+    record: Prisma.CampaignInteractionGetPayload<{ select: typeof campaignInteractionSelect }>,
+  ): CampaignInteractionRecord {
+    return {
+      id: record.id,
+      campaignId: record.campaignId,
+      type: record.type,
+      leadId: record.leadId ?? undefined,
+      customerId: record.customerId ?? undefined,
+      metadata: record.metadata ? (record.metadata as Record<string, unknown>) : undefined,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     };
   }
 

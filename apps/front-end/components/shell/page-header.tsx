@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { InfoTooltip } from "./info-tooltip";
+import { InfoTooltip } from "./info-tooltip.tsx";
 
 type Breadcrumb = { label: string; href?: string };
 

@@ -175,7 +175,7 @@ export const dealersService = {
       totalOrders: ordersAgg._count.id ?? 0,
       totalRevenue: Number(ordersAgg._sum.total ?? 0),
       totalStands,
-      topCountries: topCountries.map((row) => ({
+      topCountries: topCountries.map((row: any) => ({
         country: row.country ?? "unknown",
         partners: typeof row._count === "object" && row._count ? row._count.id ?? 0 : 0,
       })),
@@ -212,7 +212,7 @@ export const dealersService = {
     ]);
 
     return {
-      items: rows.map(mapPartner),
+      items: rows.map((item: any) => mapPartner(item)),
       total,
       page,
       pageSize: take,
@@ -352,7 +352,7 @@ export const dealersService = {
       }),
     ]);
     return {
-      items: rows.map((record) => ({
+      items: rows.map((record: any) => ({
         ...mapDealerKpi(record),
         partnerName: record.partner?.name ?? undefined,
       })),

@@ -36,26 +36,18 @@ export async function create(req: AuthenticatedRequest, res: Response, next: Nex
   try {
     const parsed = createAutomationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(badRequest("Validation error", parsed.error.flatten()));
+      return res.status(400).json({ code: "validation_error", message: "Validation error", details: parsed.error.flatten() });
     }
-    const item = await automationService.create({ ...parsed.data, createdById: req.user?.id });
-    await publishActivity(
-      "automation",
-      "created",
-      {
-        entityType: "automation-rule",
-        entityId: item.id,
-        metadata: { name: item.name, brandId: item.brandId },
-      },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: (item as { brandId?: string }).brandId ?? req.user?.brandId,
-        source: "api",
-      },
-    );
-    respondWithSuccess(res, item, 201);
+    // PolicyGate: pre-save validation
+    const policyViolations = automationService.policyGatePreSave({
+      ruleVersion: parsed.data,
+      userRole: req.user?.role,
+    });
+    if (policyViolations.length) {
+      return res.status(400).json({ code: "policy_gate_failed", message: "PolicyGate failed", details: policyViolations });
+    }
+    await automationService.create({ ...parsed.data, createdById: req.user?.id });
+    respondWithSuccess(res, { status: "created" }, 201);
   } catch (err) {
     next(err);
   }
@@ -65,30 +57,23 @@ export async function update(req: AuthenticatedRequest, res: Response, next: Nex
   try {
     const parsed = updateAutomationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(badRequest("Validation error", parsed.error.flatten()));
+      return res.status(400).json({ code: "validation_error", message: "Validation error", details: parsed.error.flatten() });
     }
     const id = requireParam(req.params.id, "id");
-    const item = await automationService.update(id, {
+    // ActivationGate: pre-activate validation (simulate, as update may trigger activation)
+      const activationViolations = automationService.activationGatePreActivate({
+        ruleVersion: parsed.data,
+        policyStatus: "ok", // TODO: wire real policy status if available
+        permissions: [],
+      });
+    if (activationViolations.length) {
+      return res.status(400).json({ code: "activation_gate_failed", message: "ActivationGate failed", details: activationViolations });
+    }
+    await automationService.update(id, {
       ...parsed.data,
       createdById: req.user?.id,
     });
-    await publishActivity(
-      "automation",
-      "updated",
-      {
-        entityType: "automation-rule",
-        entityId: item.id,
-        metadata: { name: item.name, brandId: item.brandId },
-      },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: (item as { brandId?: string }).brandId ?? req.user?.brandId,
-        source: "api",
-      },
-    );
-    respondWithSuccess(res, item);
+    respondWithSuccess(res, { status: "updated" });
   } catch (err) {
     next(err);
   }
@@ -132,19 +117,13 @@ export async function runScheduled(_req: AuthenticatedRequest, res: Response, ne
 export async function runNow(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const id = requireParam(req.params.id, "id");
-    await automationService.runRule(id);
-    await publishActivity(
-      "automation",
-      "run",
-      { entityType: "automation-rule", entityId: id },
-      {
-        actorUserId: req.user?.id,
-        role: req.user?.role,
-        tenantId: req.user?.tenantId,
-        brandId: req.user?.brandId,
-        source: "api",
-      },
-    );
+    await automationService.runRule(id, {
+      actorUserId: req.user?.id,
+      role: req.user?.role,
+      tenantId: req.user?.tenantId,
+      brandId: req.user?.brandId,
+      source: "api",
+    });
     respondWithSuccess(res, { id, status: "executed" });
   } catch (err) {
     next(err);

@@ -6,9 +6,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StepHeader } from "../components/StepHeader";
-import { WizardNav } from "../components/WizardNav";
-import { useOnboardingStore } from "../context/onboarding-store";
+import { StepHeader } from "../components/StepHeader.tsx";
+import { WizardNav } from "../components/WizardNav.tsx";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// import { useOnboardingStore } from "../context/onboarding-store.ts";
+// Local read-only mock onboarding store for V1
+const useOnboardingStore = () => {
+  const [goals, setGoals] = React.useState([]);
+  return { goals, setGoals };
+};
 import { postOnboardingGoals } from "@/lib/api/onboarding";
 import type { OnboardingGoal } from "@/types/onboarding.types";
 

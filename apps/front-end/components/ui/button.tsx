@@ -10,10 +10,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        default: "bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary)]/90",
+        secondary: "bg-[var(--brand-secondary)] text-white hover:bg-[var(--brand-secondary)]/80",
+        ghost: "hover:bg-[var(--brand-surface)] hover:text-[var(--brand-primary)]",
+        outline: "border border-[var(--brand-primary)] bg-[var(--brand-surface)] text-[var(--brand-primary)] hover:bg-[var(--brand-surface)]/80",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
       },
       size: {
@@ -36,10 +36,15 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, style, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        style={style}
+        ref={ref}
+        {...props}
+      />
     );
   },
 );

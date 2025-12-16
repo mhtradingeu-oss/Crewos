@@ -1,43 +1,18 @@
 
-// DTO types are imported directly from @mh-os/shared
 
-import type {
-  PricingRecordDto,
-  PricingDraftDto,
-  PricingDraftCreateDto,
-  CompetitorPriceDto,
-  CompetitorPriceCreateDto,
-  PricingLogEntryDto,
-  PricingSuggestionInputDto,
-  PricingSuggestionOutputDto,
-  PricingPlanInputDto,
-  PricingPlanOutputDto,
-  CreatePricingInputDto,
-  UpdatePricingInputDto,
-} from "@mh-os/shared";
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+// Pricing API (read-only, presenter layer)
+// No business/AI/decision/automation logic. No hooks. No side effects.
+// All imports explicit, ESM, alias-based.
 
-// DTO types are now re-exported from ../types/pricing
+import { apiFetch } from '@/lib/api/client';
+import type { Pricing, ApiListResponse } from '@/lib/api/types';
 
-export async function listPricing(params?: {
-  productId?: string;
-  brandId?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { data } = await api.get<PaginatedResponse<PricingRecordDto>>("/pricing", { params });
-  return data;
+export async function listPricing(): Promise<ApiListResponse<Pricing>> {
+  return apiFetch<ApiListResponse<Pricing>>('/api/v1/pricing');
 }
 
-export async function getPricing(id: string) {
-  const { data } = await api.get<PricingRecordDto>(`/pricing/${id}`);
-  return data;
-}
-
-export async function createPricing(payload: CreatePricingInputDto) {
-  const { data } = await api.post<PricingRecordDto>("/pricing", payload);
-  return data;
+export async function getPricing(id: string): Promise<Pricing> {
+  return apiFetch<Pricing>(`/api/v1/pricing/${id}`);
 }
 
 export async function updatePricing(id: string, payload: UpdatePricingInputDto) {

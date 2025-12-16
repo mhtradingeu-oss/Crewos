@@ -1,4 +1,13 @@
+
+
 import { z } from "zod";
+
+import {
+  AutomationRuleBaseSchema,
+  AutomationRuleVersionSchema,
+  AutomationRunSchema,
+  AutomationActionRunSchema,
+} from '@mh-os/shared';
 
 const conditionSchema = z.object({
   path: z.string(),
@@ -11,21 +20,36 @@ const actionSchema = z.object({
   params: z.record(z.string(), z.any()).optional(),
 });
 
-export const createAutomationSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  brandId: z.string().optional(),
-  triggerType: z.enum(["event", "schedule"]),
-  triggerEvent: z.string().optional(),
-  triggerConfig: z.record(z.string(), z.any()).optional(),
-  conditionConfig: z
-    .object({
-      all: z.array(conditionSchema).optional(),
-      any: z.array(conditionSchema).optional(),
-    })
-    .optional(),
-  actions: z.array(actionSchema).min(1),
-  isActive: z.boolean().optional(),
+export const createAutomationRuleSchema = AutomationRuleBaseSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+  lastRunStatus: true,
+  state: true,
 });
 
-export const updateAutomationSchema = createAutomationSchema.partial();
+export const createAutomationRuleVersionSchema = AutomationRuleVersionSchema.omit({
+  id: true,
+  createdAt: true,
+  state: true,
+  versionNumber: true,
+});
+
+export const createAutomationRunSchema = AutomationRunSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+});
+
+export const createAutomationActionRunSchema = AutomationActionRunSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+});
+
+// Export for controller/routes compatibility (after declarations)
+export const createAutomationSchema = createAutomationRuleSchema;
+export const updateAutomationSchema = createAutomationRuleVersionSchema;

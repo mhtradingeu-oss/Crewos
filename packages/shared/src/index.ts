@@ -1,7 +1,3 @@
-export { z } from "zod";
-
-export * from "./dto/index.js";
-export * from "./entities/index.js";
-export * from "./responses/index.js";
-export * from "./utils/index.js";
-export * from "./auth/constants.js";
+// Phase-B canonical exports (single source of truth)
+export * from "./ai/phase-b.js";
+export * from "./phase-b-stubs.js";

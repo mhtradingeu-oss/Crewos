@@ -5,6 +5,8 @@ import { validateBody } from "../../core/http/middleware/validate.js";
 import {
   createCrmSchema,
   createSegmentSchema,
+  convertLeadToContactSchema,
+  convertLeadToCustomerSchema,
   crmFollowupSchema,
   crmScoreSchema,
   updateCrmSchema,
@@ -21,6 +23,18 @@ router.put(
   requirePermission("crm:update"),
   validateBody(updateCrmSchema),
   controller.update,
+);
+router.post(
+  "/:id/contact",
+  requirePermission("crm:update"),
+  validateBody(convertLeadToContactSchema),
+  controller.convertToContact,
+);
+router.post(
+  "/:id/customer",
+  requirePermission("crm:update"),
+  validateBody(convertLeadToCustomerSchema),
+  controller.convertToCustomer,
 );
 router.delete("/:id", requirePermission("crm:delete"), controller.remove);
 router.post(

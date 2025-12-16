@@ -1,44 +1,10 @@
-export interface CreateUserInput {
-  email: string;
-  password: string;
-  role?: string;
-  status?: string;
-}
 
-export interface UpdateUserInput {
-  email?: string;
-  password?: string;
-  role?: string;
-  status?: string;
-}
+// All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
 
-export interface ListUsersParams {
-  search?: string;
-  role?: string;
-  status?: string;
-  page?: number;
-  pageSize?: number;
-}
-
-export interface UserRoleInfo {
-  name: string;
-  description?: string | null;
-}
-
-export interface UserRecord {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-  permissions: string[];
-  roleDetails?: UserRoleInfo;
-}
-
-export interface PaginatedUsers {
-  items: UserRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+// Phase-B: Local stubs for users.service.ts compatibility
+export type CreateUserInput = any;
+export type UpdateUserInput = any;
+export type ListUsersParams = any;
+export type PaginatedUsers = any;
+export type UserRecord = any;
+export type UserRoleInfo = any;

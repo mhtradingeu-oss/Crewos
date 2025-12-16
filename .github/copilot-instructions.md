@@ -1,6 +1,6 @@
 # Copilot Instructions for MH-OS Superapp
 
-- Monorepo: `apps/back-end` (Express/TS), `apps/front-end` (Next 14 app router), shared DTOs in `packages/shared`; Node >=20, npm >=10.
+- Monorepo: `apps/back-end` (Express/TS), `apps/front-end` (Next 16 app router), shared DTOs in `packages/shared`; Node >=20, npm >=10.
 - Backend entry: `src/server.ts` -> `initEventHub()` -> `createApp()` (`src/app.ts`). `/health` open, `/api/v1/auth` public; all other `/api/v1/*` behind `authenticateRequest`.
 - Mounted routers (`src/app.ts`): auth, users, brand, product, pricing, crm, marketing, sales-reps, dealers, partners, competitor, stand, stand-pos, affiliate, loyalty, inventory, finance, white-label, automation, communication, knowledge, security, admin, ai, social-intelligence, operations, support, activity, notifications, platform-ops.
 - Module pattern: `src/modules/<name>/` with `<name>.routes.ts` (Router + `requirePermission` + `validateBody`), `<name>.controller.ts` (handlers only), `<name>.service.ts` (business logic + Prisma), `<name>.validators.ts` (Zod from `@mh-os/shared`), `<name>.events.ts` (publish via `core/events/event-bus`), optional `<name>.types.ts`/`ai.ts`/`http`; export router in `index.ts`, mount in `app.ts` under `/api/v1/<name>`.

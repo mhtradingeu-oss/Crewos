@@ -1,5 +1,5 @@
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+import { api, apiFetch } from "./client.ts";
+import type { PaginatedResponse } from "./types.ts";
 
 export interface ProductDto {
   id: string;
@@ -23,7 +23,15 @@ export async function listProducts(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { data } = await api.get<PaginatedResponse<ProductDto>>("/product", { params });
+  let path = "/product";
+  if (params) {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) qs.append(key, String(value));
+    }
+    if ([...qs].length) path += `?${qs.toString()}`;
+  }
+  const { data } = await api.get<PaginatedResponse<ProductDto>>(path);
   return data;
 }
 

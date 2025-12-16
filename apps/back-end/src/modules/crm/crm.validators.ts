@@ -22,6 +22,22 @@ export const crmFollowupSchema = z.object({
   goal: z.string().trim().min(1).optional(),
 });
 
+export const convertLeadToContactSchema = z.object({
+  ownerId: z.string().trim().min(1).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export const convertLeadToCustomerSchema = z
+  .object({
+    ownerId: z.string().trim().min(1).optional(),
+    orderId: z.string().trim().min(1).optional(),
+    revenueRecordId: z.string().trim().min(1).optional(),
+    notes: z.string().trim().max(500).optional(),
+  })
+  .refine((value) => Boolean(value.orderId) || Boolean(value.revenueRecordId), {
+    message: "orderId or revenueRecordId is required",
+  });
+
 const dateString = z
   .string()
   .trim()

@@ -32,6 +32,8 @@ export type AgentBudgetProfile = {
 export type AIAgentDefinition = {
   name: string;
   scope: string;
+  role?: string; // يميز الدور داخل الدومين
+  priority?: number; // ترتيب التوجيه
   model?: string;
   description: string;
   capabilities: string[];
@@ -2248,41 +2250,62 @@ export const AI_AGENTS_MANIFEST: AIAgentDefinition[] = [...BASE_AI_AGENTS_MANIFE
   },
 );
 
+
+// تحقق النزاهة حسب قواعد AI Crew (MH-OS)
 function validateManifestIntegrity(manifest: AIAgentDefinition[]) {
   const warnings: string[] = [];
   const seenNames = new Set<string>();
-  const seenScopes = new Set<string>();
-
+  const seenScopeRole = new Set<string>();
+  const agentsByScope: Record<string, AIAgentDefinition[]> = {};
+  // تحقق من تكرار الاسماء (خطأ صارم)
   for (const agent of manifest) {
     if (seenNames.has(agent.name)) {
-      warnings.push(`Duplicate agent name detected: ${agent.name}`);
-    } else {
-      seenNames.add(agent.name);
+      // خطأ حوكمة: الاسم يجب أن يكون فريدًا عالميًا
+      throw new Error(`AI Agent manifest integrity violation: duplicate agent name: ${agent.name}`);
     }
-
-    if (seenScopes.has(agent.scope)) {
-      warnings.push(`Duplicate scope detected: ${agent.scope}`);
-    } else {
-      seenScopes.add(agent.scope);
+    seenNames.add(agent.name);
+    // بناء جدول لكل scope
+    if (!agentsByScope[agent.scope]) {
+      agentsByScope[agent.scope] = [];
     }
-
-    if (!agent.allowedActions?.length) {
-      warnings.push(`Agent ${agent.name} missing allowedActions; default applied`);
+    (agentsByScope[agent.scope]!).push(agent);
+  }
+  // تحقق من تكرار (scope+role) إذا كان role معرفًا (تحذير فقط)
+  for (const scope in agentsByScope) {
+    const agents = agentsByScope[scope] || [];
+    const roleMap = new Map<string, AIAgentDefinition[]>();
+    for (const agent of agents) {
+      if (agent.role) {
+        const key = `${scope}::${agent.role}`;
+        if (!roleMap.has(key)) roleMap.set(key, []);
+        roleMap.get(key)!.push(agent);
+      }
     }
-
-    if (!agent.fallbackModels?.length) {
-      warnings.push(`Agent ${agent.name} missing fallbackModels; default applied`);
-    }
-
-    if (!agent.budgetProfile) {
-      warnings.push(`Agent ${agent.name} missing budgetProfile; default applied`);
+    for (const [key, agentsWithRole] of roleMap.entries()) {
+      if (agentsWithRole.length > 1) {
+        warnings.push(
+          `AI Crew governance warning: Multiple agents share the same (scope+role): ${key}. Agents: [${agentsWithRole.map(a => a.name).join(", ")}]`
+        );
+      }
     }
   }
-
-  if (warnings.length) {
+  // تحقق من وجود على الأقل وكيل واحد لكل scope (تحذير فقط)
+  for (const scope in agentsByScope) {
+    const agents = agentsByScope[scope] || [];
+    if (agents.length === 0) {
+      warnings.push(`AI Crew governance warning: No agents found for scope: ${scope}`);
+    }
+    // تحقق من وجود primary (إذا كان موجودًا)
+    // ملاحظة: لا يوجد حقل primary رسمي في AIAgentDefinition، نستخدم priority === 1 فقط
+    const hasPrimary = agents.some(a => a.priority === 1);
+    if (!hasPrimary) {
+      warnings.push(`AI Crew governance warning: No agent marked as primary (priority: 1) for scope: ${scope}`);
+    }
+  }
+  // لا تحذر أبدًا من تكرار scope فقط
+  if (warnings.length > 0) {
     logger.warn(`[AI][manifest] integrity warnings`, { warnings });
   }
-
   return warnings;
 }
 

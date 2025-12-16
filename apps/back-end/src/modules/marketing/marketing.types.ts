@@ -23,12 +23,64 @@ export interface CampaignRecord {
   updatedAt: Date;
 }
 
+export interface CampaignAttributionInput {
+  leadId?: string;
+  customerId?: string;
+  source?: string;
+}
+
+export interface CampaignAttributionRecord {
+  id: string;
+  campaignId: string;
+  brandId?: string;
+  leadId?: string;
+  customerId?: string;
+  source?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CampaignInteractionInput {
+  type: string;
+  leadId?: string;
+  customerId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CampaignInteractionRecord {
+  id: string;
+  campaignId: string;
+  type: string;
+  leadId?: string;
+  customerId?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface MarketingCampaignEventPayload {
   id: string;
   brandId?: string;
   channelId?: string | null;
   status?: string | null;
   targetSegmentIds?: string[];
+}
+
+export interface CampaignAttributionEventPayload {
+  campaignId: string;
+  brandId?: string;
+  leadId?: string;
+  customerId?: string;
+  source?: string;
+}
+
+export interface CampaignInteractionEventPayload {
+  campaignId: string;
+  brandId?: string;
+  type: string;
+  leadId?: string;
+  customerId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LeadPreview {

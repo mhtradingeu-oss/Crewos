@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { TenantAppShell } from "./tenant-app-shell";
+import { TenantAppShell } from "./tenant-app-shell.tsx";
 
 type AppShellProps = {
   children: ReactNode;

@@ -1,5 +1,6 @@
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+
 
 export interface SupportTicketDto {
   id: string;
@@ -21,22 +22,14 @@ export interface SupportAiSummaryDto {
   nextActions: string[];
 }
 
-export async function listSupportTickets(params?: {
-  status?: string;
-  priority?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { data } = await api.get<PaginatedResponse<SupportTicketDto>>("/support/tickets", { params });
-  return data;
+export async function listSupportTickets(params?: Record<string, unknown>): Promise<SupportTicketDto[]> {
+  return [];
 }
 
-export async function getSupportTicket(id: string) {
-  const { data } = await api.get<SupportTicketDto>(`/support/tickets/${id}`);
-  return data;
+export async function getSupportTicket(_id: string): Promise<SupportTicketDto | null> {
+  return null;
 }
 
-export async function getSupportAiSummary(id: string) {
-  const { data } = await api.get<SupportAiSummaryDto>(`/support/tickets/${id}/ai`);
-  return data;
+export async function getSupportAiSummary(_id: string): Promise<SupportAiSummaryDto | null> {
+  return null;
 }

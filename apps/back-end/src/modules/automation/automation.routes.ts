@@ -1,10 +1,14 @@
+
 import { Router } from "express";
 import * as controller from "./automation.controller.js";
 import { requirePermission } from "../../core/security/rbac.js";
 import { validateBody } from "../../core/http/middleware/validate.js";
 import { createAutomationSchema, updateAutomationSchema } from "./automation.validators.js";
+import { observabilityRouter as automationObservabilityRouter } from "./automation.observability.routes.js";
+import { automationExplainRouter } from "./automation.explain.routes.js";
 
 const router = Router();
+
 
 router.get("/", requirePermission("automation:read"), controller.list);
 router.get("/:id", requirePermission("automation:read"), controller.getById);
@@ -23,5 +27,18 @@ router.put(
 router.delete("/:id", requirePermission("automation:delete"), controller.remove);
 router.post("/run-scheduled", requirePermission("automation:run"), controller.runScheduled);
 router.post("/:id/run", requirePermission("automation:run"), controller.runNow);
+
+
+// Observability sub-router (strictly read-only)
+router.use(
+  "/observability",
+  automationObservabilityRouter
+);
+
+// Explainability sub-router (strictly read-only)
+router.use(
+  "/explain",
+  automationExplainRouter
+);
 
 export { router };

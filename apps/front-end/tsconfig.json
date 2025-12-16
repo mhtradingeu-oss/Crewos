@@ -1,17 +1,20 @@
 {
-  "extends": "../../tsconfig.base.json",
+  // "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "preserve",
     "allowJs": false,
     "noEmit": true,
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
     "incremental": true,
     "types": [
       "node",
-      "next"
+      "next",
+      "jest",
+      "@testing-library/jest-dom",
+      "@testing-library/react"
     ],
     "baseUrl": ".",
     "paths": {

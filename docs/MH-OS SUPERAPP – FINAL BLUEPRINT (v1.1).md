@@ -62,7 +62,7 @@ Security & Governance OS, Admin OS, SuperAdmin OS, Multi-brand/region manager, A
 mh-os-superapp/
 ├── apps/
 │ ├── backend/ # Express + TS + Prisma (API)
-│ ├── frontend-web/ # Next.js 14 (Admin & OS dashboards)
+│ ├── frontend-web/ # Next.js 16 (Admin & OS dashboards)
 │ └── mobile/ # (مستقبلاً) React Native SuperApp
 ├── packages/
 │ ├── ui-kit/ # UI components مشتركة

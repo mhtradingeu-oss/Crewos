@@ -1,4 +1,4 @@
-import { api } from "@/lib/api/client";
+import { apiFetch } from "@/lib/api/client";
 
 export type PlatformOpsHealthResponse = {
   api: {

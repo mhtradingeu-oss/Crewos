@@ -29,7 +29,7 @@ Every engineer, AI agent, designer, and PM must follow this blueprint.
 
 # 2. Workspace & Framework
 - Workspace: `mh-os-admin`  
-- Framework: Next.js 14 App Router  
+- Framework: Next.js 16 App Router  
 - State: React Query + Context  
 - Styling: TailwindCSS  
 - API: axios client with JWT interceptors  

@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { apiFetch } from "./client";
 import type { PaginatedResponse } from "./types";
 
 export interface StandPartnerDto {

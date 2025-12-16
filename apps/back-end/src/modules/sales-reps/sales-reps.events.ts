@@ -1,6 +1,7 @@
 import { publish, type EventContext } from "../../core/events/event-bus.js";
 import type {
   SalesActivityEventPayload,
+  SalesOrderEventPayload,
   SalesPlanEventPayload,
   SalesRepsEventPayload,
 } from "./sales-reps.types.js";
@@ -11,6 +12,7 @@ export enum SalesRepsEvents {
   DELETED = "sales-reps.deleted",
   PLAN_GENERATED = "sales.plan.generated",
   ACTIVITY_LOGGED = "sales.activity.logged",
+  ORDER_CREATED = "sales.order.created",
 }
 
 export async function emitSalesRepsCreated(payload: SalesRepsEventPayload) {
@@ -29,4 +31,11 @@ export async function emitSalesActivityLogged(
   context?: EventContext,
 ) {
   await publish(SalesRepsEvents.ACTIVITY_LOGGED, payload, context);
+}
+
+export async function emitSalesOrderCreated(
+  payload: SalesOrderEventPayload,
+  context?: EventContext,
+) {
+  await publish(SalesRepsEvents.ORDER_CREATED, payload, context);
 }

@@ -1,5 +1,6 @@
 import { registerActivityLogSubscriber } from "../../modules/activity-log/activity-log.subscriber.js";
 import { registerAutomationEventHandlers } from "../../modules/automation/automation.subscriber.js";
+import { registerAutomationEngineSubscriber } from "../automation/engine/subscriber.js";
 import { registerNotificationSubscribers } from "../../modules/notification/notification.subscriber.js";
 import { subscribe } from "./event-bus.js";
 import { PricingEvents } from "../../modules/pricing/pricing.events.js";
@@ -37,6 +38,7 @@ function registerDomainEventGuards() {
     PricingEvents.LOG_RECORDED,
     PricingEvents.AI_SUGGESTED,
     PricingEvents.AI_PLAN_GENERATED,
+    PricingEvents.SNAPSHOT_ACCESSED,
   ].forEach((eventName) => subscribe(eventName, ensurePayload(eventName)));
 
   [
@@ -92,6 +94,7 @@ export function initEventHub() {
   if (initialized) return;
   registerActivityLogSubscriber();
   registerAutomationEventHandlers();
+  registerAutomationEngineSubscriber();
   registerNotificationSubscribers();
   registerPricingAutomationSubscriber();
   registerDomainEventSubscribers();

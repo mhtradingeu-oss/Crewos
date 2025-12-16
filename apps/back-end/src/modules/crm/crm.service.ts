@@ -11,8 +11,15 @@ import {
   emitCrmLeadDeleted,
   emitCrmLeadScored,
   emitCrmLeadUpdated,
+  emitCrmLeadContacted,
+  emitCrmLeadCustomerCreated,
 } from "./crm.events.js";
 import type {
+  ConvertLeadToContactInput,
+  ConvertLeadToCustomerInput,
+  CrmContactEventPayload,
+  CrmCustomerEventPayload,
+  CrmCustomerRecord,
   CrmLeadEventPayload,
   CrmLeadScoredEventPayload,
   CrmSegmentCreateInput,
@@ -55,6 +62,7 @@ const leadSelect = {
   updatedAt: true,
   person: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
   company: { select: { id: true, name: true } },
+  crmCustomer: { select: { id: true } },
   _count: { select: { deals: true } },
 } satisfies Prisma.LeadSelect;
 
@@ -66,6 +74,18 @@ const segmentSelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.CRMSegmentSelect;
+
+const crmCustomerSelect = {
+  id: true,
+  leadId: true,
+  brandId: true,
+  personId: true,
+  companyId: true,
+  firstOrderId: true,
+  firstRevenueRecordId: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.CrmCustomerSelect;
 
 class CrmService {
   constructor(private readonly db = prisma) {}
@@ -251,6 +271,129 @@ class CrmService {
     return { id };
   }
 
+  async convertLeadToContact(
+    leadId: string,
+    input: ConvertLeadToContactInput,
+    context?: CrmActionContext,
+  ): Promise<LeadRecord> {
+    const lead = await this.db.lead.findUnique({
+      where: { id: leadId },
+      select: { id: true, brandId: true, ownerId: true },
+    });
+    if (!lead) throw notFound("Lead not found");
+    if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
+      throw forbidden("Access denied for this brand");
+    }
+
+    const updated = await this.db.lead.update({
+      where: { id: leadId },
+      data: {
+        status: "contact",
+        ownerId: input.ownerId ?? lead.ownerId ?? null,
+      },
+      select: leadSelect,
+    });
+    const contactPayload: CrmContactEventPayload = {
+      leadId: updated.id,
+      brandId: updated.brandId ?? undefined,
+      ownerId: updated.ownerId ?? undefined,
+      notes: input.notes ?? undefined,
+    };
+    await emitCrmLeadContacted(contactPayload, buildCrmEventContext(context));
+    return this.mapLead(updated);
+  }
+
+  async convertLeadToCustomer(
+    leadId: string,
+    input: ConvertLeadToCustomerInput,
+    context?: CrmActionContext,
+  ): Promise<{ lead: LeadRecord; customer: CrmCustomerRecord }> {
+    if (!input.orderId && !input.revenueRecordId) {
+      throw badRequest("orderId or revenueRecordId is required");
+    }
+
+    const lead = await this.db.lead.findUnique({
+      where: { id: leadId },
+      select: { id: true, brandId: true, personId: true, companyId: true, ownerId: true },
+    });
+    if (!lead) throw notFound("Lead not found");
+    if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
+      throw forbidden("Access denied for this brand");
+    }
+
+    const [order, revenueRecord] = await Promise.all([
+      input.orderId
+        ? this.db.salesOrder.findUnique({ where: { id: input.orderId }, select: { id: true, brandId: true } })
+        : null,
+      input.revenueRecordId
+        ? this.db.revenueRecord.findUnique({
+            where: { id: input.revenueRecordId },
+            select: { id: true, brandId: true },
+          })
+        : null,
+    ]);
+
+    if (input.orderId && !order) {
+      throw notFound("Sales order not found");
+    }
+    if (input.revenueRecordId && !revenueRecord) {
+      throw notFound("Revenue record not found");
+    }
+
+    if (await this.db.crmCustomer.findFirst({ where: { leadId } })) {
+      throw badRequest("Lead already converted to customer");
+    }
+
+    const brandCandidates = new Set<string>();
+    if (context?.brandId) brandCandidates.add(context.brandId);
+    if (lead.brandId) brandCandidates.add(lead.brandId);
+    if (order?.brandId) brandCandidates.add(order.brandId);
+    if (revenueRecord?.brandId) brandCandidates.add(revenueRecord.brandId);
+    if (brandCandidates.size > 1) {
+      throw badRequest("Brand mismatch between CRM lead and finance records");
+    }
+    const resolvedBrandId = brandCandidates.size === 1 ? Array.from(brandCandidates)[0] : null;
+
+    const { customer, updatedLead } = await this.db.$transaction(async (tx) => {
+      const created = await tx.crmCustomer.create({
+        data: {
+          leadId: lead.id,
+          brandId: resolvedBrandId,
+          personId: lead.personId ?? null,
+          companyId: lead.companyId ?? null,
+          firstOrderId: order?.id ?? null,
+          firstRevenueRecordId: revenueRecord?.id ?? null,
+        },
+        select: crmCustomerSelect,
+      });
+
+      const updated = await tx.lead.update({
+        where: { id: leadId },
+        data: {
+          status: "customer",
+          ownerId: input.ownerId ?? lead.ownerId ?? null,
+          brandId: resolvedBrandId ?? lead.brandId ?? null,
+        },
+        select: leadSelect,
+      });
+
+      return { customer: created, updatedLead: updated };
+    });
+
+    const payload: CrmCustomerEventPayload = {
+      leadId: updatedLead.id,
+      brandId: resolvedBrandId ?? undefined,
+      ownerId: updatedLead.ownerId ?? undefined,
+      customerId: customer.id,
+      orderId: order?.id ?? undefined,
+      revenueRecordId: revenueRecord?.id ?? undefined,
+      notes: input.notes ?? undefined,
+    };
+    await emitCrmLeadCustomerCreated(payload, buildCrmEventContext(context));
+
+    return { lead: this.mapLead(updatedLead), customer: this.mapCustomer(customer) };
+  }
+
   private async ensurePerson(input: CreateLeadInput, brandId?: string) {
     if (!input.email && !input.name && !input.phone) {
       throw badRequest("Lead requires at least a name or email");
@@ -291,6 +434,21 @@ class CrmService {
       dealCount: row._count.deals,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      customerId: row.crmCustomer?.id ?? undefined,
+    };
+  }
+
+  private mapCustomer(record: Prisma.CrmCustomerGetPayload<{ select: typeof crmCustomerSelect }>): CrmCustomerRecord {
+    return {
+      id: record.id,
+      leadId: record.leadId,
+      brandId: record.brandId ?? undefined,
+      personId: record.personId ?? undefined,
+      companyId: record.companyId ?? undefined,
+      firstOrderId: record.firstOrderId ?? undefined,
+      firstRevenueRecordId: record.firstRevenueRecordId ?? undefined,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     };
   }
 

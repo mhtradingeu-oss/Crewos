@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { apiFetch } from "./client";
 
 type ApiEnvelope<T> = { success?: boolean; data: T };
 

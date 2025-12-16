@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { PageHeader } from "./page-header";
+import { PageHeader } from "./page-header.tsx";
 import { StatCard } from "@/components/ui/stat-card";
-import { SectionCard } from "./section-card";
-import { SimpleTable } from "./simple-table";
-import { AIRecommendationPanel } from "./ai-recommendation-panel";
+import { SectionCard } from "./section-card.tsx";
+import { SimpleTable } from "./simple-table.tsx";
+import { AIRecommendationPanel } from "./ai-recommendation-panel.tsx";
 export type TableRow = (string | number | ReactNode)[];
 
 export type AiInsights = {

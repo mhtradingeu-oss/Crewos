@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AgentCard, type AgentCardProps } from "./agent-card";
+import { AgentCard, type AgentCardProps } from "./agent-card.tsx";
 
 export type Agent = AgentCardProps;
 

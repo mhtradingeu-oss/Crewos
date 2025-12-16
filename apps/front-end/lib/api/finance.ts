@@ -1,5 +1,6 @@
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+
 
 export interface FinanceDto {
   id: string;
@@ -14,12 +15,6 @@ export interface FinanceDto {
   updatedAt: string;
 }
 
-export async function listFinance(params?: {
-  brandId?: string;
-  productId?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const { data } = await api.get<PaginatedResponse<FinanceDto>>("/finance", { params });
-  return data;
+export async function listFinance(params?: Record<string, unknown>): Promise<FinanceDto[]> {
+  return [];
 }

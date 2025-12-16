@@ -1,67 +1,31 @@
-import type { SalesKpiSummary } from "../sales-reps/sales-reps.types.js";
+// Phase-B compatibility re-exports (NO logic)
+export type {
+  CampaignIdeasInput,
+  CampaignIdeasOutput,
+  LeadFollowupInput,
+  LeadFollowupOutput,
+  PricingSuggestionInput,
+  PricingSuggestionOutput,
+  AiBrainEventPayload,
+  CreateAiBrainInput,
+  UpdateAiBrainInput,
+} from "@mh-os/shared";
 
-export interface CreateAiBrainInput {
-  brandId: string;
-  scope?: string;
-  highlights?: string[];
-  notes?: string;
-  summary?: string;
-  metrics?: Record<string, unknown>;
-  createReport?: boolean;
-}
+// All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
 
-export interface UpdateAiBrainInput extends Partial<CreateAiBrainInput> {}
-
-export interface AiBrainEventPayload {
-  id: string;
-}
-
-export interface AiBaseInput {
-  brandId?: string;
-  locale?: string;
-  agentName?: string;
-}
-
-export interface PricingSuggestionInput extends AiBaseInput {
-  productId?: string;
-  productName?: string;
-  currentPrice?: number | null;
-  competitorSummary?: string;
-}
-
-export interface PricingSuggestionOutput {
-  suggestedPrice: number | null;
-  reasoning: string;
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  competitorSummary?: string;
-  confidenceScore?: number;
-}
-
-export interface CampaignIdeasInput extends AiBaseInput {
-  goal: string;
-  audience?: string;
-  channels?: string[];
-}
-
-export interface CampaignIdeasOutput {
-  headline: string;
-  body: string;
-  cta?: string;
-  keywords?: string[];
-}
-
-export interface LeadFollowupInput extends AiBaseInput {
-  leadName: string;
-  intent?: string;
-  lastInteraction?: string;
-}
-
-export interface LeadFollowupOutput {
-  summary: string;
-  nextAction: string;
-  probability: number;
-  reasons?: string[];
-}
+import type {
+  AiBaseInput,
+  SalesKpiSummary,
+  CampaignIdeasInput,
+  CampaignIdeasOutput,
+  LeadFollowupInput,
+  LeadFollowupOutput,
+  PricingSuggestionInput,
+  PricingSuggestionOutput,
+  AiBrainEventPayload,
+  CreateAiBrainInput,
+  UpdateAiBrainInput
+} from "@mh-os/shared";
 
 export interface StandInventoryContext {
   locationId?: string;

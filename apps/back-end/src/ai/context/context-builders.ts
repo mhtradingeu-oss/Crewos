@@ -54,7 +54,7 @@ export async function buildProductContext(
     },
   });
   if (!product) return null;
-  assertScopeOwnership(product.brandId ?? product.brand?.id, product.brand?.tenantId, options);
+  assertScopeOwnership(product.brandId, undefined, options);
 
   const competitorSignals = product.competitorPrices?.map((row) => ({
     id: row.id,
@@ -83,7 +83,7 @@ export async function buildProductContext(
   const indexRecord = await maybeEmbed(() => aiIndexers.brandProduct(productId, options), options);
 
   return {
-    scope: scopeFrom(product.brandId ?? product.brand?.id, product.brand?.tenantId),
+    scope: scopeFrom(product.brandId, undefined),
     fetchedAt: nowIso(),
     entity: {
       id: product.id,
@@ -92,7 +92,6 @@ export async function buildProductContext(
       sku: product.sku,
       description: product.description,
       status: product.status,
-      brand: product.brand,
       category: product.category,
     },
     related: {
@@ -414,18 +413,21 @@ export async function buildAutomationContext(
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.automation"], options);
+
   const rule = await prisma.automationRule.findUnique({
     where: { id: ruleId },
     include: {
-      brand: { select: { id: true, tenantId: true, name: true } },
       executionLogs: { orderBy: { runAt: "desc" }, take: 5 },
     },
   });
   if (!rule) return null;
-  assertScopeOwnership(rule.brandId ?? rule.brand?.id, rule.brand?.tenantId, options);
-
+  assertScopeOwnership(rule.brandId, undefined, options);
+  const activeVersion = await prisma.automationRuleVersion.findFirst({
+    where: { ruleId: rule.id, state: 'ACTIVE' },
+    orderBy: { versionNumber: 'desc' },
+  });
   const signals = {
-    enabled: rule.enabled,
+    enabled: rule.state === 'ACTIVE',
     lastRunAt: rule.lastRunAt,
     lastRunStatus: rule.lastRunStatus,
   };
@@ -433,7 +435,7 @@ export async function buildAutomationContext(
   const indexRecord = await maybeEmbed(() => aiIndexers.automationRule(ruleId, options), options);
 
   return {
-    scope: scopeFrom(rule.brandId ?? rule.brand?.id, rule.brand?.tenantId),
+    scope: scopeFrom(rule.brandId, undefined),
     fetchedAt: nowIso(),
     rule,
     executionLogs: rule.executionLogs,
@@ -449,18 +451,16 @@ export async function buildAIInsightContext(
   ensurePermissions(["ai.context.insight"], options);
   const insight = await prisma.aIInsight.findUnique({
     where: { id: insightId },
-    include: { brand: { select: { id: true, tenantId: true, name: true } } },
   });
   if (!insight) return null;
-  assertScopeOwnership(insight.brandId ?? insight.brand?.id, insight.brand?.tenantId, options);
-
+  assertScopeOwnership(insight.brandId, undefined, options);
+  const signals = { entityType: insight.entityType, os: insight.os };
   const indexRecord = await maybeEmbed(() => aiIndexers.aiInsight(insightId, options), options);
-
   return {
-    scope: scopeFrom(insight.brandId ?? insight.brand?.id, insight.brand?.tenantId),
+    scope: scopeFrom(insight.brandId, undefined),
     fetchedAt: nowIso(),
     insight,
-    signals: { entityType: insight.entityType, os: insight.os },
+    signals,
     indexRecord,
   };
 }

@@ -1,26 +1,32 @@
-import { api } from "./client";
+// V1 READ-ONLY — AI MONITORING
+import { apiFetch } from "./client";
 
+// V1 READ-ONLY STUB
 export async function fetchEngineHealth() {
-  const res = await api.get("/ai/monitoring/engine-health");
-  return res.data;
+  // V1 READ-ONLY: Only GET is supported
+  return await apiFetch("/ai/monitoring/engine-health");
 }
 
-export async function fetchAgentActivity() {
-  const res = await api.get("/ai/monitoring/agent-activity");
-  return res.data;
-}
-
+// V1 READ-ONLY STUB
 export async function fetchTokenUsage() {
-  const res = await api.get("/ai/monitoring/token-usage");
-  return res.data;
+  // V1 READ-ONLY: Only GET is supported
+  return await apiFetch("/ai/monitoring/token-usage");
 }
 
+// V1 READ-ONLY STUB
 export async function fetchPerformanceMetrics() {
-  const res = await api.get("/ai/monitoring/performance-metrics");
-  return res.data;
+  // V1 READ-ONLY: Only GET is supported
+  return await apiFetch("/ai/monitoring/performance-metrics");
 }
 
+// V1 READ-ONLY STUB
+export async function fetchAgentActivity() {
+  // V1 READ-ONLY: Only GET is supported
+  return await apiFetch("/ai/monitoring/agent-activity");
+}
+
+// V1 READ-ONLY STUB
 export async function fetchSystemAlerts() {
-  const res = await api.get("/ai/monitoring/system-alerts");
-  return res.data;
+  // V1 READ-ONLY: Only GET is supported
+  return await apiFetch("/ai/monitoring/system-alerts");
 }

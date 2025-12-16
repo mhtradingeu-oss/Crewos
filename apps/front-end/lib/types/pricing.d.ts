@@ -7,4 +7,4 @@ export type {
   CompetitorPriceDto,
   PricingLogDto,
   PricingAISuggestionDto,
-} from "../api/pricing";
+} from "../api/pricing.ts";

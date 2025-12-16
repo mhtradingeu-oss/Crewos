@@ -14,6 +14,7 @@ import {
 
 const router = Router();
 router.get("/", requirePermission("brand:read"), controller.list);
+router.get("/me", requirePermission("brand:read"), controller.getCurrentBrand);
 router.get("/:id", requirePermission("brand:read"), controller.getById);
 router.post(
   "/",

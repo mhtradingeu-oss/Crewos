@@ -3,7 +3,7 @@
 import { ReactNode, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { TenantAppShell } from "./tenant-app-shell";
+import { TenantAppShell } from "./tenant-app-shell.tsx";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Spinner } from "@/components/ui/spinner";
 import { getOnboardingStart } from "@/lib/api/onboarding";

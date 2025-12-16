@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { aiExecutions, errors, fallbacks, type AiExecution, type ErrorRecord, type FallbackRecord } from "./mock-data";
+import { aiExecutions, errors, fallbacks, type AiExecution, type ErrorRecord, type FallbackRecord } from "./mock-data.ts";
 
 export type MonitoringFilters = {
   status?: "success" | "fallback" | "error";

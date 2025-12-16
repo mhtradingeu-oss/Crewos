@@ -1,38 +1,26 @@
-export interface CreateLeadInput {
-  brandId?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  status?: string;
+// Phase-B stub
+export type CrmCustomerRecord = any;
+
+// All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
+
+// Phase-B: CRM contract stubs
+export type CrmLeadEventPayload = any;
+export type CrmCustomerEventPayload = any;
+export type CrmContactEventPayload = any;
+export type LeadRecord = any;
+export type CreateLeadInput = any;
+export type UpdateLeadInput = any;
+
+export interface ConvertLeadToContactInput {
   ownerId?: string;
-  sourceId?: string;
+  notes?: string;
 }
 
-export interface UpdateLeadInput extends Partial<CreateLeadInput> {}
-
-export interface LeadRecord {
-  id: string;
-  brandId?: string | null;
-  status?: string;
+export interface ConvertLeadToCustomerInput {
   ownerId?: string;
-  sourceId?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  companyName?: string | null;
-  score?: number | null;
-  dealCount?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CrmLeadEventPayload {
-  leadId: string;
-  brandId?: string;
-  status?: string | null;
-  ownerId?: string | null;
-  sourceId?: string | null;
-  score?: number | null;
+  orderId?: string;
+  revenueRecordId?: string;
+  notes?: string;
 }
 
 export interface CrmLeadScoredEventPayload {

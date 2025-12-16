@@ -394,7 +394,7 @@ async function listPricing(
     }),
   ]);
 
-  return { data: records.map((record) => mapPricing(record)), total, page, pageSize: take };
+  return { data: records.map((record: any) => mapPricing(record)), total, page, pageSize: take };
 }
 
 async function getPricingById(
@@ -614,7 +614,7 @@ async function listDrafts(
       take,
     }),
   ]);
-  return { data: drafts.map((draft) => mapDraft(draft)), total, page, pageSize: take };
+  return { data: drafts.map((draft: any) => mapDraft(draft)), total, page, pageSize: take };
 }
 
 async function submitDraftForApproval(
@@ -799,7 +799,7 @@ async function listCompetitorPrices(
       take,
     }),
   ]);
-  return { data: competitors.map((record) => mapCompetitorPrice(record)), total, page, pageSize: take };
+  return { data: competitors.map((record: any) => mapCompetitorPrice(record)), total, page, pageSize: take };
 }
 
 async function listLogs(
@@ -822,7 +822,7 @@ async function listLogs(
     }),
   ]);
   return {
-    data: logs.map((log) => ({
+    data: logs.map((log: any) => ({
       id: log.id,
       productId: log.productId,
       brandId: log.brandId ?? undefined,
@@ -862,7 +862,7 @@ async function createAISuggestion(
   }
 
   const competitorSummary = input.competitors
-    .map((item) => `${item.name}: ${item.price}`)
+    .map((item: any) => `${item.name}: ${item.price}`)
     .join("; ") || "No competitor data";
   const currentNet = decimalToNullableNumber(product.pricing?.b2cNet);
   const vatPct = decimalToNullableNumber(product.pricing?.vatPct);
@@ -1031,7 +1031,7 @@ async function listAISuggestions(
     }),
   ]);
   return {
-    data: insights.map((record) => ({
+    data: insights.map((record: any) => ({
       id: record.id,
       productId: record.entityId ?? productId,
       suggestionJson: parseInsightDetails(record.details),

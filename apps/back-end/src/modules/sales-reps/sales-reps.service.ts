@@ -4,8 +4,12 @@ import { aiOrchestrator } from "../../core/ai/orchestrator.js";
 import { prisma } from "../../core/prisma.js";
 import { publish } from "../../core/events/event-bus.js";
 import { buildPagination } from "../../core/utils/pagination.js";
-import { notFound } from "../../core/http/errors.js";
-import { emitSalesActivityLogged, emitSalesPlanGenerated } from "./sales-reps.events.js";
+import { badRequest, notFound } from "../../core/http/errors.js";
+import {
+  emitSalesActivityLogged,
+  emitSalesOrderCreated,
+  emitSalesPlanGenerated,
+} from "./sales-reps.events.js";
 /**
  * SALES-REPS SERVICE — MH-OS v2
  * Spec: docs/os/10_sales-rep-program.md (MASTER_INDEX)
@@ -61,7 +65,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesRepListItem[] = reps.map((rep) => ({
+    const data: SalesRepListItem[] = reps.map((rep: any) => ({
       id: rep.id,
       brandId: rep.brandId ?? undefined,
       userId: rep.userId ?? undefined,
@@ -136,7 +140,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesLeadRecord[] = leads.map((lead) => ({
+    const data: SalesLeadRecord[] = leads.map((lead: any) => ({
       id: lead.id,
       repId: lead.repId,
       stage: lead.stage ?? undefined,
@@ -200,7 +204,7 @@ class SalesRepsService {
       }),
     ]);
 
-    const data: SalesVisitRecord[] = visits.map((visit) => ({
+    const data: SalesVisitRecord[] = visits.map((visit: any) => ({
       id: visit.id,
       repId: visit.repId,
       partnerId: visit.partnerId ?? undefined,
@@ -327,7 +331,7 @@ class SalesRepsService {
 
     const kpis = await this.getKpis(repId);
 
-    const leadContext = leads.map((lead) => ({
+    const leadContext = leads.map((lead: any) => ({
       leadId: lead.leadId ?? lead.id,
       name: lead.leadId ?? undefined,
       stage: lead.stage ?? undefined,
@@ -338,7 +342,7 @@ class SalesRepsService {
       source: lead.source ?? undefined,
     }));
 
-    const visitContext = visits.map((visit) => ({
+    const visitContext = visits.map((visit: any) => ({
       visitId: visit.id,
       partnerId: visit.partnerId ?? undefined,
       purpose: visit.purpose ?? undefined,
@@ -364,7 +368,7 @@ class SalesRepsService {
       {
         repId,
         brandId: rep.brandId ?? undefined,
-        leadIds: Array.from(new Set(planTasks.map((task) => task.leadId))),
+        leadIds: Array.from(new Set(planTasks.map((task: any) => task.leadId))),
         taskCount: planTasks.length,
         summary: planResult.summary ?? undefined,
       },
@@ -441,7 +445,12 @@ export const sales_repsService = new SalesRepsService();
 
 // PHASE B: Core Revenue Flow — Create Order with Pricing Snapshot and Inventory Adjustment
 import { inventoryService } from "../inventory/inventory.service.js";
-import { pricingServiceCore } from "../pricing/pricing.service.js";
+import { pricingService } from "../pricing/pricing.service.js";
+import { emitPricingSnapshotAccessed } from "../pricing/pricing.events.js";
+import {
+  emitFinanceCreated,
+  emitFinanceInvoiceCreated,
+} from "../finance/finance.events.js";
 
 type CreateSalesOrderInput = {
   repId: string;
@@ -452,13 +461,17 @@ type CreateSalesOrderInput = {
 };
 
 export async function createSalesOrderWithPricingAndInventory(input: CreateSalesOrderInput) {
+  if (!input.brandId) {
+    throw new Error("brandId is required");
+  }
+  const brandId = input.brandId;
   // 0. Idempotency guard: check for duplicate order in last 60s
   const now = new Date();
   const windowStart = new Date(now.getTime() - 60 * 1000);
   const duplicate = await prisma.salesOrder.findFirst({
     where: {
       repId: input.repId,
-      brandId: input.brandId ?? undefined,
+      brandId,
       status: { not: "CANCELLED" },
       createdAt: { gte: windowStart },
       items: {
@@ -470,49 +483,69 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
     },
   });
   if (duplicate) {
-    throw badRequest("Duplicate order detected: similar order already exists within 60 seconds");
+    throw new Error("Duplicate order detected: similar order already exists within 60 seconds");
   }
 
-  // 1. Fetch latest pricing snapshot
-  const pricing = await pricingServiceCore.getPricingById(input.productId);
+  // 1. Fetch latest pricing snapshot approved for the brand
+  const pricing = await pricingService.getById(input.productId);
   if (!pricing) throw notFound("Pricing not found for product");
+  if (pricing.brandId && pricing.brandId !== brandId) {
+    throw badRequest("Pricing snapshot is not approved for this brand");
+  }
+  await emitPricingSnapshotAccessed(
+    {
+      id: pricing.id,
+      productId: pricing.productId,
+      brandId: pricing.brandId ?? brandId,
+    },
+    { brandId },
+  );
 
   // 2. Check and adjust inventory atomically
-  const inventoryItem = await inventoryService.getInventoryItem(input.productId, input.brandId);
+  const inventoryItem = await inventoryService.getInventoryItem(input.productId, brandId);
   if (!inventoryItem) throw notFound("Inventory item not found for product");
-  if (inventoryItem.quantity < input.quantity) throw badRequest("Insufficient stock");
+  if (inventoryItem.quantity < input.quantity) throw new Error("Insufficient stock");
 
   // استخدم تقريب آمن للمبالغ المالية (2 منازل عشرية)
-  const rawAmount = Number(pricing.price) * input.quantity;
+  const unitPrice = Number(pricing.basePrice);
+  const rawAmount = unitPrice * input.quantity;
   const amount = Math.round(rawAmount * 100) / 100;
+  const roundedUnitPrice = Math.round(unitPrice * 100) / 100;
 
   // 3. Transaction: create order, adjust inventory, create invoice, revenue record
   const result = await prisma.$transaction(async (tx) => {
     // 3.1. Adjust inventory (decrement)
-    await inventoryService.createInventoryAdjustment({
-      inventoryItemId: inventoryItem.id,
-      brandId: input.brandId,
-      delta: -input.quantity,
-      reason: `Order placed by sales rep ${input.repId}`,
-    }, tx);
+    await inventoryService.createInventoryAdjustment(
+      {
+        inventoryItemId: inventoryItem.id,
+        brandId,
+        delta: -input.quantity,
+        reason: `Order placed by sales rep ${input.repId}`,
+      },
+      tx,
+    );
 
     // 3.2. Create order
     const order = await tx.salesOrder.create({
       data: {
         repId: input.repId,
-        productId: input.productId,
-        brandId: input.brandId ?? null,
-        quantity: input.quantity,
-        warehouseId: input.warehouseId,
-        pricingSnapshotJson: JSON.stringify(pricing),
+        brandId,
         status: "PLACED",
+        total: new PrismaNamespace.Decimal(amount),
+        items: {
+          create: {
+            productId: input.productId,
+            quantity: input.quantity,
+            price: new PrismaNamespace.Decimal(roundedUnitPrice),
+          },
+        },
       },
     });
 
     // 3.3. Create FinanceInvoice (core revenue flow)
     const invoice = await tx.financeInvoice.create({
       data: {
-        brandId: input.brandId!,
+        brandId,
         customerId: undefined, // Extend as needed
         amount,
         currency: pricing.currency ?? "EUR",
@@ -524,8 +557,8 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
     // 3.4. Create RevenueRecord
     const revenueRecord = await tx.revenueRecord.create({
       data: {
-        brandId: input.brandId ?? null,
-        productId: input.productId ?? null,
+        brandId,
+        productId: input.productId,
         amount,
         currency: pricing.currency ?? "EUR",
         periodStart: new Date(),
@@ -535,6 +568,38 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
 
     return { order, pricingSnapshot: pricing, invoice, revenueRecord };
   });
+
+  const invoiceAmount = Number(result.invoice.amount ?? amount);
+  const invoiceCurrency = result.invoice.currency ?? pricing.currency ?? "EUR";
+  await emitFinanceInvoiceCreated(
+    {
+      invoiceId: result.invoice.id,
+      brandId,
+      amount: invoiceAmount,
+      currency: invoiceCurrency,
+      status: result.invoice.status ?? "draft",
+    },
+    { brandId, source: "api" },
+  );
+
+  await emitFinanceCreated(
+    { id: result.revenueRecord.id, brandId },
+    { brandId, source: "api" },
+  );
+
+  await emitSalesOrderCreated(
+    {
+      orderId: result.order.id,
+      brandId,
+      productId: input.productId,
+      quantity: input.quantity,
+      unitPrice: roundedUnitPrice,
+      totalAmount: amount,
+      invoiceId: result.invoice.id,
+      revenueRecordId: result.revenueRecord.id,
+    },
+    { brandId, source: "api" },
+  );
 
   return result;
 }

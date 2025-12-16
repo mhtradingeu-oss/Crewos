@@ -1,5 +1,6 @@
-import { api } from "./client";
-import type { PaginatedResponse } from "./types";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+import type { PaginatedResponse } from "./types.ts";
 
 export interface ActivityLogDto {
   id: string;

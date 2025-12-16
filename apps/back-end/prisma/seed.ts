@@ -1,9 +1,11 @@
 import { seedSuperAdmin } from "../src/seeds/admin.seed.js";
+import { seedAutomationRules } from "../src/seeds/automation.seed.js";
 import { prisma } from "../src/core/prisma.js";
 
 async function main() {
   console.log("🚀 Running Prisma DB seed...");
   await seedSuperAdmin();
+  await seedAutomationRules();
 }
 
 main()

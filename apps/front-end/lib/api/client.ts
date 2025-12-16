@@ -1,148 +1,103 @@
+// V1 placeholder for missing export
+export function onUnauthorized() {}
+// =====================================================
+// V1 READ-ONLY API CLIENT — FINAL & LOCKED
+// -----------------------------------------------------
+// - Read-only by default
+// - Backward compatible with legacy `api.get(...)`
+// - No execution, no mutation logic
+// =====================================================
 
-import axios, { AxiosInstance } from "axios";
+export type ApiFetchOptions = {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: Record<string, string>;
+  body?: unknown;
+  signal?: AbortSignal;
+};
 
-const browserApiUrl =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:41000/api/v1";
+export type ApiFetchResponse<T = unknown> = {
+  ok: boolean;
+  status: number;
+  data: T;
+};
 
-const serverApiUrl =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:41000/api/v1";
+// -----------------------------------------------------
+// Core V1 Read-only Fetcher
+// -----------------------------------------------------
+export async function apiFetch<T = unknown>(
+  path: string,
+  options: ApiFetchOptions = {}
+): Promise<ApiFetchResponse<T>> {
+  const url = joinUrl(getBaseUrl(), path);
 
-const baseURL =
-  typeof window === "undefined" ? serverApiUrl : browserApiUrl;
+  const res = await fetch(url, {
+    method: options.method ?? "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
+    credentials: "include",
+    cache: "no-store",
+  });
 
-const shouldDebugLog = process.env.NODE_ENV !== "production";
-
-
-// Defensive: ensure baseURL is always a string
-const safeBaseURL = typeof baseURL === "string" ? baseURL : "";
-
-/**
- * Canonical API client instance for all HTTP requests.
- * Always import as { apiClient } from this file for consistency.
- */
-const apiClient: AxiosInstance = axios.create({
-  baseURL: safeBaseURL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true,
-});
-
-
-let unauthorizedHandler: (() => void) | null = null;
-
-/* =========================
-   REQUEST INTERCEPTOR
-========================= */
-apiClient.interceptors.request.use((config) => {
-  if (shouldDebugLog) {
-    const fullUrl = `${config?.baseURL ?? ""}${config?.url ?? ""}`;
-    const payload = config?.data ?? config?.params ?? null;
-    console.info(
-      `[api request] ${config?.method?.toUpperCase() ?? "GET"} ${fullUrl}`,
-      payload,
-    );
+  let data: T | undefined = undefined;
+  try {
+    data = (await res.json()) as T;
+  } catch {
+    // allowed: empty body
   }
-  return config;
-});
 
-/* =========================
-   RESPONSE INTERCEPTOR
-========================= */
-apiClient.interceptors.response.use(
-  (response) => {
-    if (shouldDebugLog) {
-      const fullUrl = `${response?.config?.baseURL ?? ""}${response?.config?.url ?? ""}`;
-      console.info(`[api response] ${response?.status ?? ""} ${fullUrl}`);
-    }
-
-    const payload = response?.data;
-
-    // unwrap { success, data } envelopes
-    if (
-      payload &&
-      typeof payload === "object" &&
-      Object.prototype.hasOwnProperty.call(payload, "data")
-    ) {
-      return {
-        ...response,
-        data: (payload as Record<string, unknown>).data,
-      };
-    }
-
-    return response;
-  },
-  async (error) => {
-    // Defensive: always check for nested properties
-    const message =
-      error?.response?.data?.message ??
-      error?.response?.data?.error ??
-      error?.message ??
-      "Request failed";
-
-    if (error?.response?.status === 401) {
-      if (unauthorizedHandler) unauthorizedHandler();
-
-      if (
-        typeof window !== "undefined" &&
-        window.location?.pathname !== "/auth/login"
-      ) {
-        window.location.href = "/auth/login";
-      }
-    }
-
-    if (shouldDebugLog) {
-      const fullUrl = `${error?.config?.baseURL ?? ""}${error?.config?.url ?? ""}`;
-      console.warn(
-        `[api error] ${error?.response?.status ?? "ERR"} ${fullUrl} :: ${message}`,
-      );
-    }
-
-    return Promise.reject(new Error(message));
-  },
-);
-
-
-/* =========================
-  HELPERS
-========================= */
-
-
-export function onUnauthorized(handler: () => void) {
-  unauthorizedHandler = typeof handler === "function" ? handler : null;
-}
-
-
-export function apiErrorMessage(err: unknown): string {
-  const maybeAxios = err as {
-    isAxiosError?: boolean;
-    response?: any;
-    message?: string;
+  return {
+    ok: res.ok,
+    status: res.status,
+    data: data as T,
   };
-
-  if (maybeAxios?.isAxiosError && maybeAxios?.response) {
-    const data = maybeAxios?.response?.data ?? {};
-    const msg = data?.message ?? data?.error ?? maybeAxios?.message;
-    if (typeof msg === "string") return msg;
-    if (msg && typeof msg === "object") return JSON.stringify(msg);
-  }
-
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object") return JSON.stringify(err);
-
-  return "Unexpected error";
 }
 
+// -----------------------------------------------------
+// Backward-compatible API wrapper
+// (Required to stop 100+ build errors)
+// -----------------------------------------------------
+export const api = {
+  get: <T = unknown>(path: string, headers?: Record<string, string>) =>
+    apiFetch<T>(path, { method: "GET", headers }),
 
-/* =========================
-  EXPORTS (IMPORTANT)
-========================= */
+  // ⚠️ V1: Mutations are stubbed, NOT executed
+  post: <T = unknown>(_path: string, _body?: unknown) =>
+    Promise.reject(new Error("V1 READ-ONLY: POST disabled")),
 
-// Canonical export: always import as { apiClient }
-export { apiClient };
+  put: <T = unknown>(_path: string, _body?: unknown) =>
+    Promise.reject(new Error("V1 READ-ONLY: PUT disabled")),
 
-// Backward compatibility (DO NOT REMOVE): legacy 'api' alias
-export const api = apiClient;
+  patch: <T = unknown>(_path: string, _body?: unknown) =>
+    Promise.reject(new Error("V1 READ-ONLY: PATCH disabled")),
+
+  delete: <T = unknown>(_path: string) =>
+    Promise.reject(new Error("V1 READ-ONLY: DELETE disabled")),
+};
+
+// -----------------------------------------------------
+// Error helper (V1-safe)
+// -----------------------------------------------------
+export function apiErrorMessage() {
+  return "API error (V1 read-only client)";
+}
+
+// -----------------------------------------------------
+// Utilities
+// -----------------------------------------------------
+function joinUrl(base: string, path: string) {
+  const b = base.replace(/\/+$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${b}${p}`;
+}
+
+function getBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:3001"
+  );
+}

@@ -1,4 +1,21 @@
-import { api } from "./client";
+// V1 PLACEHOLDER — EXECUTION DISABLED
+// All API logic is disabled for V1 read-only build.
+
+export async function listImageEngines(): Promise<MediaEngine[]> {
+  return [];
+}
+
+export async function listVideoEngines(): Promise<MediaEngine[]> {
+  return [];
+}
+
+export async function generateImage(_payload: ImageGeneratePayload): Promise<null> {
+  return null;
+}
+
+export async function generateVideo(_payload: VideoGeneratePayload): Promise<null> {
+  return null;
+}
 
 type ApiEnvelope<T> = { success?: boolean; data: T };
 
@@ -53,48 +70,15 @@ export type MediaAsset = {
   runId?: string;
 };
 
-export async function listImageEngines() {
-  const { data } = await api.get<ApiEnvelope<MediaEngine[]>>("/media/engines/images");
-  return data.data;
-}
+// V1 stub already defined above
 
-export async function listVideoEngines() {
-  const { data } = await api.get<ApiEnvelope<MediaEngine[]>>("/media/engines/videos");
-  return data.data;
-}
+// V1 stub already defined above
 
-export async function generateImage(payload: ImageGeneratePayload) {
-  const { data } = await api.post<ApiEnvelope<any>>("/media/generate/image", payload);
-  return data.data;
-}
+// V1 stub already defined above
 
-export async function generateVideo(payload: VideoGeneratePayload) {
-  const { data } = await api.post<ApiEnvelope<any>>("/media/generate/video", payload);
-  return data.data;
-}
+// V1 stub already defined above
 
-export async function generateMedia(payload: MediaGeneratePayload): Promise<MediaAsset> {
-  const { type, resolution, ...rest } = payload as MediaGeneratePayload & { resolution?: string };
-  const endpoint = type === "video" ? "/media/generate/video" : "/media/generate/image";
-  const body: Record<string, unknown> = { ...rest };
-
-  if (type === "image" && resolution) {
-    const [w, h] = resolution.split("x").map((value: string) => Number(value));
-    if (Number.isFinite(w)) body.width = w;
-    if (Number.isFinite(h)) body.height = h;
-  }
-
-  const { data } = await api.post<ApiEnvelope<any>>(endpoint, body);
-  const asset = data.data ?? {};
-  return {
-    url: asset.url,
-    provider: asset.provider,
-    previewImageUrl: asset.previewImageUrl ?? asset.meta?.previewImageUrl,
-    width: asset.width,
-    height: asset.height,
-    meta: asset.meta,
-    kind: type,
-    riskLevel: asset.riskLevel,
-    runId: asset.runId,
-  } as MediaAsset;
+// V1: generateMedia is disabled (read-only build)
+export async function generateMedia(_payload: MediaGeneratePayload): Promise<null> {
+  return null;
 }

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { PageHeader, type PageHeaderProps } from "./page-header";
+import { PageHeader, type PageHeaderProps } from "./page-header.tsx";
 
 export type ModuleScaffoldProps = {
   header: PageHeaderProps;

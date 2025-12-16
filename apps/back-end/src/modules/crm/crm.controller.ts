@@ -6,6 +6,8 @@ import { crmService } from "./crm.service.js";
 import {
   createCrmSchema,
   createSegmentSchema,
+  convertLeadToContactSchema,
+  convertLeadToCustomerSchema,
   crmFollowupSchema,
   crmScoreSchema,
   updateCrmSchema,
@@ -85,6 +87,36 @@ export async function remove(req: AuthenticatedRequest, res: Response, next: Nex
     const id = requireParam(req.params.id, "id");
     const actionContext = buildCrmContext(req);
     const result = await crmService.remove(id, actionContext);
+    respondWithSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function convertToContact(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const parsed = convertLeadToContactSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(badRequest("Validation error", parsed.error.flatten()));
+    }
+    const id = requireParam(req.params.id, "id");
+    const actionContext = buildCrmContext(req);
+    const result = await crmService.convertLeadToContact(id, parsed.data, actionContext);
+    respondWithSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function convertToCustomer(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const parsed = convertLeadToCustomerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(badRequest("Validation error", parsed.error.flatten()));
+    }
+    const id = requireParam(req.params.id, "id");
+    const actionContext = buildCrmContext(req);
+    const result = await crmService.convertLeadToCustomer(id, parsed.data, actionContext);
     respondWithSuccess(res, result);
   } catch (err) {
     next(err);
