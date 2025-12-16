@@ -1,4 +1,4 @@
-// All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
+// Onboarding extra DTOs migrated from frontend
 
 export type PricingStrategy = "PREMIUM" | "COMPETITIVE" | "PENETRATION" | "AI";
 
@@ -30,7 +30,7 @@ export interface PricingOutput {
 }
 
 export interface ProductSetupDTO {
-  products: ProductDTO[];
+  products: import("./index.js").ProductDTO[];
 }
 
 export type MarketingChannel =
@@ -65,19 +65,19 @@ export interface MarketingPlanDTO {
 }
 
 export interface OnboardingSummary {
-  pathChoice?: PathChoice;
-  persona?: PersonaChoice;
-  goals?: OnboardingGoal[];
-  planSuggestion?: PlanSuggestion;
-  brandDefinition?: BrandDefinitionDTO;
+  pathChoice?: import("./index.js").PathChoice;
+  persona?: import("./index.js").PersonaChoice;
+  goals?: import("./index.js").OnboardingGoal[];
+  planSuggestion?: import("./index.js").PlanSuggestion;
+  brandDefinition?: import("./index.js").BrandDefinitionDTO;
   productSetup?: ProductSetupDTO;
   pricingSetup?: PricingSetupDTO;
-  products: ProductEntry[];
+  products: import("./index.js").ProductEntry[];
   pricing?: PricingOutput;
   marketingPlan?: MarketingPlanDTO;
   finalizedBrandId?: string;
   wizardCompleted?: boolean;
-  onboardingStatus?: OnboardingStatus;
+  onboardingStatus?: import("./index.js").OnboardingStatus;
 }
 
 export interface BrandCreatedResponse {
@@ -92,11 +92,11 @@ export interface ProductCreatedResponse {
 
 export interface OnboardingLearningPayload {
   brandId: string;
-  pathChoice?: PathChoice;
-  persona?: PersonaChoice;
-  goals?: OnboardingGoal[];
-  planSuggestion?: PlanSuggestion;
-  brandDefinition: BrandDefinitionDTO;
+  pathChoice?: import("./index.js").PathChoice;
+  persona?: import("./index.js").PersonaChoice;
+  goals?: import("./index.js").OnboardingGoal[];
+  planSuggestion?: import("./index.js").PlanSuggestion;
+  brandDefinition: import("./index.js").BrandDefinitionDTO;
   products: ProductCreatedResponse[];
   pricing: ProductPricingDTO[];
   marketingPlan?: MarketingPlanDTO;
@@ -105,5 +105,5 @@ export interface OnboardingLearningPayload {
 export interface OnboardingStartResponse {
   persona: string | null;
   goals: string[];
-  status: OnboardingStatus;
+  status: import("./index.js").OnboardingStatus;
 }

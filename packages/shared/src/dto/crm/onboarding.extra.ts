@@ -1,5 +1,4 @@
-// All domain types have been moved to @mh-os/shared. Only UI/View/Props types may remain here.
-//
+// CRM extra DTOs migrated from backend
 
 export interface ConvertLeadToContactInput {
   ownerId?: string;
@@ -51,5 +50,5 @@ export interface CrmSegmentRecord {
 export interface CrmSegmentLeadsResult {
   segmentId: string;
   total: number;
-  leads: LeadRecord[];
+  leads: import("./index.js").LeadRecord[];
 }
