@@ -13,13 +13,22 @@ export class AICrewController {
   static async advisory(req: Request, res: Response) {
     const parse = AdvisoryRequestSchema.safeParse(req.body);
     if (!parse.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parse.error.errors });
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: parse.error.errors,
+      });
     }
+
     const { scopes, agentNames, question, contextRefs } = parse.data;
-    // User info from auth middleware
-    // @ts-ignore Express user typing
-    const user = (req as any).user as { id: string; role: string } | undefined;
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // User info injected by auth middleware
+    // @ts-expect-error Express Request is extended by authentication middleware (Phase C wiring)
+    const user = req.user as { id: string; role: string } | undefined;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     try {
       const result = await aiCrewService.runAdvisory({
         scopes,
@@ -31,15 +40,20 @@ export class AICrewController {
           role: user.role,
         },
       });
+
       return res.json(result);
     } catch (err) {
-      return res.status(500).json({ error: 'Internal error', details: (err as Error).message });
+      return res.status(500).json({
+        error: 'Internal error',
+        details: (err as Error).message,
+      });
     }
   }
 }
 
-// Express router for this controller
+// Express router
 export const aiCrewControllerRouter = Router();
+
 aiCrewControllerRouter.post(
   '/advisory',
   authenticateRequest,
