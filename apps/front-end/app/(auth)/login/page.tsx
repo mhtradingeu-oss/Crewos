@@ -1,12 +1,8 @@
 // Login Page UI (no logic, UI only)
 // See prompt for design/tech rules. No backend, no state, no execution.
 
-import AuthLayout from "@/components/auth/AuthLayout";
-import AuthCard from "@/components/auth/AuthCard";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { AuthLayout, AuthCard } from "@/components/auth/index.ts";
+import { Input, Label, Button, Separator } from "@/components/ui/index.ts";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -41,13 +37,4 @@ export default function LoginPage() {
     </AuthLayout>
   );
 }
-          type="submit"
-          className="w-full rounded bg-emerald-600 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
-          disabled={loading}
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
-    </AuthLayout>
-  );
-}
+

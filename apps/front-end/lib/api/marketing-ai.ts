@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client";
 
 export interface MarketingPlanDto {
   headline: string;

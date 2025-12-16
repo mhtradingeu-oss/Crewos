@@ -1,4 +1,4 @@
 export { default as DataTable } from "./DataTable";
 export { default as EmptyState } from "./EmptyState";
 export { default as Pagination } from "./Pagination";
-export { default as StatusBadge } from "./StatusBadge";
+export { StatusBadge } from "./StatusBadge";

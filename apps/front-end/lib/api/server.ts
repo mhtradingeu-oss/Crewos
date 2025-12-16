@@ -4,7 +4,7 @@ import "server-only";
 import axios, { AxiosHeaders } from "axios";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE_NAME } from "@mh-os/shared";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, methodRequiresCsrf } from "./csrf.ts";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, methodRequiresCsrf } from "./csrf";
 
 const serverApiUrl =
   process.env.API_BASE_URL ??

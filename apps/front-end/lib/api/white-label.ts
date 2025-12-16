@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client";
 
 type ApiEnvelope<T> = { success?: boolean; data: T };
 

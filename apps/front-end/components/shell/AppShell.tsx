@@ -3,9 +3,9 @@
 // All imports explicit, ESM, and alias-based.
 
 import { ReactNode } from 'react';
-import { Sidebar } from '@/components/shell/Sidebar.tsx';
-import { Topbar } from '@/components/shell/Topbar.tsx';
-import Footer from '@/components/shell/Footer.tsx';
+import { Sidebar } from '@/components/shell/sidebar';
+import { Topbar } from '@/components/shell/topbar';
+import Footer from '@/components/shell/Footer';
 
 interface AppShellProps {
   children: ReactNode;

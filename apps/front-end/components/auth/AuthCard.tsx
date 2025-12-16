@@ -2,7 +2,10 @@
 // Card wrapper for auth forms. Uses shadcn/ui Card. No logic, UI only.
 
 import * as React from "react";
-import { Card } from "@/components/ui/card";
+// Update the import path below if Card is located elsewhere, e.g.:
+import { Card } from "@/components/ui/card.tsx";
+// Or, if Card is from shadcn/ui and you have it installed, use:
+// import { Card } from "shadcn-ui";
 
 export default function AuthCard({ children }: { children: React.ReactNode }) {
   return (

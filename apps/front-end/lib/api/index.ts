@@ -14,13 +14,13 @@
 // No business/AI/automation/decision logic. No hooks. No side effects.
 // All imports explicit, ESM, alias-based. Only GET/read endpoints.
 
-export * from './client.ts';
-export * from './errors.ts';
-export * from './types.ts';
-export * from './governance.ts';
-export * from './brands.ts';
-export * from './products.ts';
-export * from './pricing.ts';
+export * from './client';
+export * from './errors';
+export * from './types';
+export * from './governance';
+export * from './brands';
+export * from './products';
+export * from './pricing';
 
 // V1 READ-ONLY — ai.js named exports intentionally disabled for type safety
 

@@ -1,8 +1,8 @@
 // V1 READ-ONLY — AUTOMATIONS API
 // All mutations are disabled. GET only.
 
-import { apiFetch } from "./client.ts";
-import type { PaginatedResponse } from "./types.ts";
+import { apiFetch } from "./client";
+import type { PaginatedResponse } from "./types";
 
 export type AutomationTriggerType = "event" | "schedule";
 

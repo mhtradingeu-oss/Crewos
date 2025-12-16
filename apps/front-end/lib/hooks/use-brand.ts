@@ -5,7 +5,6 @@ import {
   listBrands,
   getBrand,
   getBrandIdentity,
-  refreshBrandAiIdentity,
   updateBrandIdentity,
   getBrandRules,
   updateBrandRules,
@@ -40,9 +39,9 @@ export function useBrandIdentity(brandId?: string) {
 export function useRefreshBrandIdentity() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { brandId: string; forceRegenerate?: boolean }) =>
-      refreshBrandAiIdentity(payload.brandId, { forceRegenerate: payload.forceRegenerate }),
-    onSuccess: (_, variables) => {
+    // No-op mutation since refreshBrandAiIdentity is not available
+    mutationFn: async (_payload: { brandId: string; forceRegenerate?: boolean }) => {},
+    onSuccess: (_data, variables) => {
       if (!variables?.brandId) return;
       queryClient.invalidateQueries({ queryKey: ["brand-identity", variables.brandId] });
     },

@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client";
 
 export interface KPIRevenueSeries {
   label: string;
@@ -72,6 +72,8 @@ export interface KPIOverviewPayload {
   aiNarrative?: KPINarrative;
 }
 
+
+export async function getKpiSummary(params: {
   brandId?: string;
   scope?: string;
   periodStart?: string;

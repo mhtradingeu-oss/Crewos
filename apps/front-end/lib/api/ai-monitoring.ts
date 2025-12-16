@@ -1,5 +1,5 @@
 // V1 READ-ONLY — AI MONITORING
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client";
 
 // V1 READ-ONLY STUB
 export async function fetchEngineHealth() {

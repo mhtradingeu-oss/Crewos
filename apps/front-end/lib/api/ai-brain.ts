@@ -1,4 +1,4 @@
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client.js";
 
 export type DepartmentScope =
   | "marketing"
@@ -85,33 +85,33 @@ export interface VirtualOfficeMeetingSummary {
 }
 
 export async function listAgents(params?: { brandId?: string; scope?: string }) {
-  const { data } = await api.get("/ai/agents", { params });
-  return data;
+  // TODO: Replace with actual API call or stub
+  return [];
 }
 
 export async function createAgent(payload: any) {
-  const { data } = await api.post("/ai/agents", payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function updateAgent(id: string, payload: any) {
-  const { data } = await api.put(`/ai/agents/${id}`, payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function deleteAgent(id: string) {
-  await api.delete(`/ai/agents/${id}`);
+  // TODO: Replace with actual API call or stub
   return true;
 }
 
 export async function testAgent(id: string, payload: any) {
-  const { data } = await api.post(`/ai/agents/${id}/test`, payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function refreshInsights(payload: { brandId?: string; scope?: string }) {
-  const { data } = await api.post(`/ai/insights/refresh`, payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function listInsights(params?: {
@@ -126,13 +126,13 @@ export async function listInsights(params?: {
   periodEnd?: string;
   sortOrder?: "asc" | "desc";
 }) {
-  const { data } = await api.get(`/ai/insights`, { params });
-  return data;
+  // TODO: Replace with actual API call or stub
+  return [];
 }
 
 export async function getInsight(id: string) {
-  const { data } = await api.get(`/ai/insights/${id}`);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function createReport(payload: {
@@ -142,8 +142,8 @@ export async function createReport(payload: {
   periodStart?: Date;
   periodEnd?: Date;
 }) {
-  const { data } = await api.post(`/ai/insights/reports`, payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function listReports(params?: {
@@ -152,28 +152,28 @@ export async function listReports(params?: {
   periodStart?: string;
   periodEnd?: string;
 }) {
-  const { data } = await api.get(`/ai/insights/reports/list`, { params });
-  return data;
+  // TODO: Replace with actual API call or stub
+  return [];
 }
 
 export async function getReport(id: string) {
-  const { data } = await api.get(`/ai/insights/reports/${id}`);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function getReportRendered(id: string) {
-  const { data } = await api.get(`/ai/insights/reports/${id}/render`);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function assistantChat(payload: any) {
-  const { data } = await api.post(`/ai/assistant/chat`, payload);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }
 
 export async function listVirtualOfficeDepartments() {
-  const { data } = await api.get<DepartmentAgentProfile[]>(`/ai/virtual-office/departments`);
-  return data;
+  // TODO: Replace with actual API call or stub
+  return [];
 }
 
 export async function runVirtualOfficeMeeting(payload: {
@@ -186,9 +186,6 @@ export async function runVirtualOfficeMeeting(payload: {
   standContext?: StandContextPayload;
   salesRepContext?: SalesRepContextPayload;
 }) {
-  const { data } = await api.post<VirtualOfficeMeetingSummary>(
-    `/ai/virtual-office/meeting`,
-    payload,
-  );
-  return data;
+  // TODO: Replace with actual API call or stub
+  return null;
 }

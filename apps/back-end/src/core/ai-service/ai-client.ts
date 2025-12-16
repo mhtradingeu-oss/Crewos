@@ -13,7 +13,7 @@ import { applySafetyLayers } from "../ai/ai-safety.js";
 export interface AIMessage {
   role: "system" | "user" | "assistant";
   content: string;
-}
+} 
 
 export interface AIRequest {
   model?: string;

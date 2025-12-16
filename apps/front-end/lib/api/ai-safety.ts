@@ -1,6 +1,6 @@
 // V1 READ-ONLY — AI SAFETY API
 // All mutation actions are disabled by design.
-import { apiFetch } from "./client.ts";
+import { apiFetch } from "./client";
 
 /**
  * V1: List safety constraints

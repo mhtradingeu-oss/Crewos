@@ -1,18 +1,18 @@
-export * from './ai-recommendation-panel.js'; // TODO: file missing — export skipped
-export * from './app-shell.js'; // TODO: file missing — export skipped
-export * from './filter-bar.js'; // TODO: file missing — export skipped
-export * from './info-tooltip.js'; // TODO: file missing — export skipped
-export * from './kpi-card.js'; // TODO: file missing — export skipped
-export * from './module-page.js'; // TODO: file missing — export skipped
-export * from './module-scaffold.js'; // TODO: file missing — export skipped
-export * from './page-header.js'; // TODO: file missing — export skipped
-export * from './section-card.js'; // TODO: file missing — export skipped
-export * from './Sidebar.js'; // TODO: file missing — export skipped
-export * from './simple-table.js'; // TODO: file missing — export skipped
-export * from './table-with-toolbar.js'; // TODO: file missing — export skipped
-export * from './tabs.js'; // TODO: file missing — export skipped
-export * from './tenant-app-layout.js'; // TODO: file missing — export skipped
-export * from './tenant-app-shell.js'; // TODO: file missing — export skipped
-export * from './tenant-sidebar.js'; // TODO: file missing — export skipped
-export * from './tenant-topbar.js'; // TODO: file missing — export skipped
-export * from './Topbar.js'; // TODO: file missing — export skipped
+export * from './ai-recommendation-panel.tsx';
+export * from './app-shell.tsx';
+export * from './filter-bar.tsx';
+export * from './info-tooltip.tsx';
+export * from './kpi-card.tsx';
+export * from './module-page.tsx';
+export * from './module-scaffold.tsx';
+export * from './page-header.tsx';
+export * from "./section-card.tsx";
+export * from './sidebar.tsx';
+export * from './simple-table.tsx';
+export * from './table-with-toolbar.tsx';
+export * from './tabs.tsx';
+export * from './tenant-app-layout.tsx';
+export * from './tenant-app-shell.tsx';
+export * from './tenant-sidebar.tsx';
+export * from './tenant-topbar.tsx';
+export * from './topbar.tsx';

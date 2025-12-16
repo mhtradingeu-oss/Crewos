@@ -1,3 +1,4 @@
+import type { AiCrewMember } from "@/lib/types/ai";
 export default function Page() {
   return <div>V1 Read-Only Placeholder</div>;
 }

@@ -1,5 +1,5 @@
-import { apiFetch } from "./client.ts";
-import type { PaginatedResponse } from "./types.ts";
+import { apiFetch } from "./client";
+import type { PaginatedResponse } from "./types";
 
 export interface StandPartnerDto {
   id: string;

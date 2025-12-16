@@ -1,3 +1,11 @@
+// Contract-required stubs for frontend contract alignment
+export async function listAiCrew() {
+  return [];
+}
+
+export async function getAiCrewMember(id: string) {
+  return null;
+}
 // V1 PLACEHOLDER — EXECUTION DISABLED
 // All API logic is disabled for V1 read-only build.
 
@@ -14,53 +22,21 @@ export type AutonomyStatus = {
   completed: unknown[];
 };
 
-  // V1 READ-ONLY STUB
+export function getAutonomyStatus(): AutonomyStatus | null {
   return null;
 }
-
-  // V1 READ-ONLY STUB
+export function listAutonomyItems(): unknown[] {
   return [];
 }
-
-  // V1 READ-ONLY STUB
+export function getAutonomyItem(): unknown | null {
   return null;
 }
-
-  // V1 READ-ONLY STUB
+export function updateAutonomyItem(): unknown | null {
   return null;
 }
-
-
-  // V1 READ-ONLY STUB
+export function deleteAutonomyItem(): null {
   return null;
 }
-
-
-  // V1 READ-ONLY STUB
-  return null;
-}
-
-
-  // V1 READ-ONLY STUB
-  return null;
-}
-
-export type AgentConfigOverride = {
-  autonomyLevel?: "AUTO_DISABLED" | "AUTO_LOW_RISK_ONLY" | "AUTO_FULL";
-  maxRiskLevel?: "low" | "medium" | "high";
-  enabledContexts?: string[];
-  notes?: string;
-  brandId?: string;
-};
-
-  // V1 READ-ONLY STUB
-  return [];
-}
-
-  // V1 READ-ONLY STUB
-  return null;
-}
-
-  // V1 READ-ONLY STUB
+export function createAutonomyItem(): null {
   return null;
 }
