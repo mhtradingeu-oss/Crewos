@@ -1,6 +1,12 @@
+/* =========================================================
+ * AUTOMATION – CANONICAL TYPES (PHASE C)
+ * ========================================================= */
+
+/* ---------- EVENT ---------- */
+
 export type AutomationEvent = {
   name: string;
-  occurredAt: string;
+  occurredAt: string; // ISO string (NOT Date object)
   tenantId: string;
   brandId?: string;
   actorUserId?: string;
@@ -8,15 +14,37 @@ export type AutomationEvent = {
   payload: unknown;
 };
 
+/* ---------- CONDITIONS ---------- */
+
 export type AutomationCondition = {
   kind: 'json-logic';
   config: unknown;
 };
 
+export type ConditionEvalResult = {
+  passed: boolean;
+  details?: Record<string, unknown>;
+};
+
+/* ---------- ACTIONS ---------- */
+
 export type AutomationAction = {
   type: string;
   params: Record<string, unknown>;
 };
+
+export type ActionPlanItem = {
+  type: string;
+  params: Record<string, unknown>;
+  mode: 'PLAN_ONLY'; // execution NOT allowed in Phase C
+};
+
+/* ---------- RULE (MATCH RESULT) ---------- */
+/**
+ * IMPORTANT:
+ * RuleMatcher returns *matches*, NOT raw rules.
+ * This prevents runtime from touching rule storage logic.
+ */
 
 export type AutomationRuleMatch = {
   ruleId: string;
@@ -27,16 +55,7 @@ export type AutomationRuleMatch = {
   actions: AutomationAction[];
 };
 
-export type ConditionEvalResult = {
-  passed: boolean;
-  details?: Record<string, unknown>;
-};
-
-export type ActionPlanItem = {
-  type: string;
-  params: Record<string, unknown>;
-  mode: 'PLAN_ONLY';
-};
+/* ---------- PLAN ---------- */
 
 export type AutomationPlan = {
   event: AutomationEvent;
@@ -49,6 +68,8 @@ export type AutomationPlan = {
     plannedActions: ActionPlanItem[];
   }>;
 };
+
+/* ---------- RUNTIME RESULT ---------- */
 
 export type AutomationRuntimeResult = {
   plan: AutomationPlan;

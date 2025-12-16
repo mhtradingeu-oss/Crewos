@@ -4,13 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2022",
-    "lib": [
-      "ES2022"
-    ],
-    "types": [
-      "node",
-      "jest"
-    ],
+    "lib": ["ES2022"],
+    "types": ["node", "jest"],
     "allowJs": false,
     "strict": true,
     "esModuleInterop": true,
@@ -25,7 +20,8 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "dev"
   ],
   "references": [
     {
