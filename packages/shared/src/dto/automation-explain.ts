@@ -30,11 +30,13 @@ export const AutomationDecisionSummarySchema = z.object({
   message: z.string().optional(),
 });
 
+
 export interface ConditionExplainEntry {
   kind: "json-logic";
   passed: boolean;
   reason?: string;
   details?: Record<string, unknown>;
+  level?: ExplainLevel;
 }
 
 export const ConditionExplainEntrySchema = z.object({
@@ -42,6 +44,7 @@ export const ConditionExplainEntrySchema = z.object({
   passed: z.boolean(),
   reason: z.string().optional(),
   details: z.record(z.unknown()).optional(),
+  level: ExplainLevelSchema.optional(),
 });
 
 export interface PolicyExplainEntry {
@@ -60,12 +63,14 @@ export const PolicyExplainEntrySchema = z.object({
     .optional(),
 });
 
+
 export interface ActionExplainEntry {
   type: string;
   mode: "PLAN_ONLY";
   planned: boolean;
   reason?: string;
   params?: Record<string, unknown>;
+  level?: ExplainLevel;
 }
 
 export const ActionExplainEntrySchema = z.object({
@@ -74,6 +79,7 @@ export const ActionExplainEntrySchema = z.object({
   planned: z.boolean(),
   reason: z.string().optional(),
   params: z.record(z.unknown()).optional(),
+  level: ExplainLevelSchema.optional(),
 });
 
 export interface RuleExplainEntry {

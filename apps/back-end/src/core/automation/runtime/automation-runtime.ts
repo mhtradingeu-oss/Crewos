@@ -51,24 +51,26 @@ export class AutomationRuntime {
     // PLAN-ONLY explainability trace wiring
     // Helper: map plan.matchedRules to RuleExplainEntry[]
     const matchedRules: RuleExplainEntry[] = (plan.matchedRules || []).map((rule) => {
-      // Map single condition to array
+      // Map single condition to array, with level
       const conditions = [
         {
           kind: 'json-logic' as const,
           passed: rule.condition.passed,
           reason: rule.condition.reason,
+          level: 'CONDITION' as import("@mh-os/shared").ExplainLevel,
         },
       ];
 
       // No per-rule policy in plan (design-only)
       const policy = undefined;
 
-      // Actions (PLAN-ONLY)
+      // Actions (PLAN-ONLY), with level
       const actions = (rule.plannedActions || []).map((action) => ({
         type: action.type,
         mode: 'PLAN_ONLY' as const,
         planned: true,
         params: action.params,
+        level: 'ACTION' as import("@mh-os/shared").ExplainLevel,
       }));
 
       // Decision summary for this rule (PLAN-ONLY, always allowed)
@@ -98,7 +100,7 @@ export class AutomationRuntime {
       reasonCodes: [],
     };
 
-    // Compose explain trace
+    // Compose explain trace (level: ACTION)
     const explain: AutomationExplainTrace = {
       traceId:
         plan.event.correlationId ||
@@ -109,7 +111,7 @@ export class AutomationRuntime {
       eventName: plan.event.name,
       matchedRules,
       finalDecision,
-      level: "RULE",
+      level: 'ACTION' as import("@mh-os/shared").ExplainLevel,
     };
 
     // Audit sink (PLAN-ONLY, design-only, no side effects)
