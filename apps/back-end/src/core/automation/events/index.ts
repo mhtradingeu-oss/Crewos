@@ -5,4 +5,4 @@ export type {
 } from './event-types.js';
 
 // Classes
-export { EventDispatcher } from './event-dispatcher.js';
+// EventDispatcher removed for Phase C.2

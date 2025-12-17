@@ -1,80 +1,47 @@
-import type {
-  AutomationEvent,
-  AutomationRuleMatch,
-  AutomationRuntimeResult,
-  AutomationPlan,
-  AutomationCondition,
-  ConditionEvalResult,
-} from "./types.js";
 
-import { JsonLogicConditionEvaluator } from "../conditions/json-logic-evaluator.js";
+import type { AutomationPlan } from "@mh-os/shared";
+import type { AutomationRuntimeResult } from "./types.js";
 import { DisabledExecutionGate } from "../gate/execution-gate.js";
-
+import { PolicyEngine } from "../policy/policy-engine.js";
 export class AutomationRuntime {
-  private readonly conditionEvaluator = new JsonLogicConditionEvaluator();
-
   /**
-   * Phase C Runtime
+   * Phase C Runtime (aligned to canonical AutomationPlan only)
    * PLAN-ONLY — no execution, no side effects
    */
-  async run(
-    event: AutomationEvent,
-    matchedRules: AutomationRuleMatch[]
-  ): Promise<AutomationRuntimeResult> {
-    const plan: AutomationPlan = {
-      event,
-      matchedRules: matchedRules.map(rule => {
-        // 1️⃣ Evaluate conditions
-        const conditionResults: ConditionEvalResult[] =
-          this.conditionEvaluator.evaluateConditions(
-            rule.conditions as AutomationCondition[],
-            event
-          );
-
-        const allPassed = conditionResults.every(r => r.passed);
-
-        // 2️⃣ Extract first failure reason (if any)
-        const failed = conditionResults.find(r => !r.passed);
-        const reason = failed?.reason;
-
-        return {
-          ruleId: rule.ruleId,
-          versionId: rule.versionId,
-          ruleName: rule.ruleName,
-          priority: rule.priority,
-
-          condition: {
-            passed: allPassed,
-            reason,
-          },
-
-          plannedActions: allPassed
-            ? rule.actions.map(action => ({
-                type: action.type,
-                params: action.params,
-                mode: "PLAN_ONLY",
-              }))
-            : [],
-        };
-      }),
-    };
-
-    // Phase C.2 Step 3: Execution Gate (explainability only)
+  run(plan: AutomationPlan): AutomationRuntimeResult {
+    // Execution Gate (explainability only)
     const gate = new DisabledExecutionGate();
+    const firstRule = plan.matchedRules[0];
     const executionGate = gate.decide({
-      tenantId: event.tenantId,
-      brandId: event.brandId,
-      actorUserId: event.actorUserId,
-      eventName: event.name,
-      ruleId: matchedRules[0]?.ruleId || "",
-      versionId: matchedRules[0]?.versionId || "",
-      actionType: matchedRules[0]?.actions[0]?.type,
+      tenantId: plan.event.tenantId,
+      brandId: plan.event.brandId,
+      actorUserId: plan.event.actorUserId,
+      eventName: plan.event.name,
+      ruleId: firstRule?.ruleId || "",
+      versionId: firstRule?.versionId || "",
+      actionType: firstRule?.plannedActions[0]?.type,
+    });
+
+    // Policy Layer (explainability only)
+    const defaultPolicyConfig = {
+      enabled: false,
+      allowlist: [],
+      defaultDeny: true,
+    };
+    const policyDecision = PolicyEngine.evaluate({
+      scope: {
+        tenantId: plan.event.tenantId,
+        brandId: plan.event.brandId,
+        actorUserId: plan.event.actorUserId,
+      },
+      plan,
+      config: defaultPolicyConfig,
     });
 
     return {
       plan,
-      auditId: `audit_${Date.now()}`,
       executionGate,
+      policyDecision,
     };
   }
 }

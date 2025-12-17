@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { AutomationPlan } from '../runtime/types.js';
+import type { AutomationPlan } from '@mh-os/shared';
 
 export type AutomationAuditRecord = {
   id: string;
@@ -29,3 +29,5 @@ export class AutomationAudit {
     return this.store.get(id) ?? null;
   }
 }
+// Phase C.2 — Audit stubbed (not used yet)
+export {};

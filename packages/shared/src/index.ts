@@ -24,6 +24,9 @@ export * from "./dto/automation-plan.js";
 // Automation Execution Gate (Phase C.2 Step 3)
 export * from "./dto/automation-execution-gate.js";
 
+// Automation Policy Layer (Phase C.2 Step 4)
+export * from "./dto/automation-policy.js";
+
 // AI
 export * from "./dto/ai-base.js";
 export * from "./dto/ai-brain/index.js";
