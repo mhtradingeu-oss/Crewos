@@ -1,3 +1,5 @@
+// Explainability Consumer Contracts (C.4 Step 1)
+export * from "./dto/automation-explain-consumer.js";
 // Automation Audit Sink (Phase C.3 Step 3)
 export * from "./dto/automation-audit.js";
 // =======================
