@@ -1,3 +1,8 @@
+// For POST /explain (Phase C.5 Step 1)
+import { AutomationExplainRequestSchema } from "./automation.explain.request.js";
+import { validateBody } from "../../core/http/middleware/validate.js";
+
+export const explainabilityBodyValidator = validateBody(AutomationExplainRequestSchema);
 import { z } from "zod";
 
 // All explain endpoints require brandId as query param (enforced)
