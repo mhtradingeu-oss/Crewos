@@ -1,3 +1,5 @@
+// Explainability Response Assembly (C.4 Step 4)
+export * from "./dto/automation-explain-assembly.js";
 // Explainability Policy & Redaction (C.4 Step 3)
 export * from "./dto/automation-explain-policy.js";
 // Explainability Projection Layer (C.4 Step 2)
