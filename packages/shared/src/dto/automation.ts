@@ -157,5 +157,5 @@ export type AutomationRun = z.infer<typeof AutomationRunSchema>;
 export type AutomationActionRun = z.infer<typeof AutomationActionRunSchema>;
 export type ConditionEvalResult = {
   passed: boolean;
-  details?: Record<string, unknown>;
+  reason?: string;
 };

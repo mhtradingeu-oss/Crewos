@@ -1,5 +1,4 @@
 import { publish } from "../../core/events/event-bus.js";
-import type { AutomationEventPayload } from "./automation.types.js";
 
 export enum AutomationEvents {
   CREATED = "automation.created",
@@ -7,6 +6,23 @@ export enum AutomationEvents {
   DELETED = "automation.deleted",
 }
 
-export async function emitAutomationCreated(payload: AutomationEventPayload) {
+/**
+ * Publish automation created event
+ */
+export async function publishAutomationCreated(payload: unknown) {
   await publish(AutomationEvents.CREATED, payload);
+}
+
+/**
+ * Publish automation updated event
+ */
+export async function publishAutomationUpdated(payload: unknown) {
+  await publish(AutomationEvents.UPDATED, payload);
+}
+
+/**
+ * Publish automation deleted event
+ */
+export async function publishAutomationDeleted(payload: unknown) {
+  await publish(AutomationEvents.DELETED, payload);
 }

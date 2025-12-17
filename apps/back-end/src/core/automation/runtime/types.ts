@@ -1,16 +1,13 @@
+// Re-export canonical types for local imports
+export type { AutomationEvent, AutomationCondition, ConditionEvalResult } from '@mh-os/shared';
 /* =========================================================
  * AUTOMATION – CANONICAL TYPES (PHASE C)
  * ========================================================= */
 
 /* ---------- EVENT ---------- */
 
-// Use canonical AutomationEvent from @mh-os/shared
-export type { AutomationEvent } from '@mh-os/shared';
-
-/* ---------- CONDITIONS ---------- */
-
-// Use canonical AutomationCondition and ConditionEvalResult from @mh-os/shared
-export type { AutomationCondition, ConditionEvalResult } from '@mh-os/shared';
+// Use canonical Automation types from @mh-os/shared
+import type { AutomationEvent, AutomationCondition, ConditionEvalResult } from '@mh-os/shared';
 
 /* ---------- ACTIONS ---------- */
 

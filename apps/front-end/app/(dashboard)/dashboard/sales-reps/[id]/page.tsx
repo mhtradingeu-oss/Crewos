@@ -134,7 +134,7 @@ export default function SalesRepDetailPage({ params }: { params: { id: string } 
     setAiPlanLoading(true);
     try {
       const plan = await getSalesRepAiPlan(id, {
-        brandId: rep.brandId,
+        brandId: rep.brandId === null ? undefined : rep.brandId,
         scope: "sales",
         notes: contextNotes,
       });
@@ -169,7 +169,7 @@ export default function SalesRepDetailPage({ params }: { params: { id: string } 
       const meeting = await runVirtualOfficeMeeting({
         topic: `Sales rep review – ${rep.code ?? "Rep"}`,
         scope: "sales",
-        brandId: rep.brandId,
+        brandId: rep.brandId === null ? undefined : rep.brandId,
         departments: ["sales", "crm", "finance"],
         agenda: ["Review pipeline health", "Plan next actions"],
         notes: contextNotes || "Sales rep checkpoint requested from workspace.",

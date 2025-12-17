@@ -1,10 +1,5 @@
 // --- Event payload type for automation events ---
-export interface AutomationEventPayload {
-  id: string;
-  name: string;
-  brandId?: string;
-  [key: string]: any;
-}
+// Canonical event types are imported from @mh-os/shared
 // --- Structured error/violation types for governance gates ---
 export interface PolicyViolation {
   code: string;

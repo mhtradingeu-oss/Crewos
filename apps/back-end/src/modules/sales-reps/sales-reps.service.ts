@@ -67,7 +67,7 @@ class SalesRepsService {
 
     const data: SalesRepListItem[] = reps.map((rep: any) => ({
       id: rep.id,
-      brandId: rep.brandId ?? undefined,
+      brandId: rep.brandId === null ? undefined : rep.brandId,
       userId: rep.userId ?? undefined,
       code: rep.code ?? undefined,
       region: rep.region ?? undefined,
@@ -242,14 +242,14 @@ class SalesRepsService {
 
     await emitSalesActivityLogged(
       {
-        brandId: rep.brandId ?? undefined,
+        brandId: rep.brandId === null ? undefined : rep.brandId,
         salesRepId: repId,
         customerId: visit.partnerId ?? undefined,
         summary: `Visit recorded${visit.purpose ? `: ${visit.purpose}` : ""}${
           visit.result ? ` (${visit.result})` : ""
         }`,
       },
-      { brandId: rep.brandId ?? undefined, module: "sales-reps" },
+      { brandId: rep.brandId === null ? undefined : rep.brandId, module: "sales-reps" },
     );
 
     return {
@@ -331,6 +331,23 @@ class SalesRepsService {
 
     const kpis = await this.getKpis(repId);
 
+    // Convert KPI aggregate to array for AI
+    // period = fallback to current month window
+    const now = new Date();
+    const periodStr = now.toISOString().slice(0, 10); // e.g., '2025-12-17'
+    const kpisForAI = [
+      {
+        kpiName: "TOTAL_LEADS",
+        value: kpis.totalLeads ?? 0,
+        period: periodStr,
+      },
+      {
+        kpiName: "TOTAL_REVENUE",
+        value: kpis.totalRevenue ?? 0,
+        period: periodStr,
+      },
+    ];
+
     const leadContext = leads.map((lead: any) => ({
       leadId: lead.leadId ?? lead.id,
       name: lead.leadId ?? undefined,
@@ -351,13 +368,13 @@ class SalesRepsService {
     }));
 
     const aiResponse = await aiOrchestrator.generateSalesRepPlan({
-      brandId: rep.brandId ?? undefined,
+      brandId: rep.brandId === null ? undefined : rep.brandId,
       repId,
       scope: input.scope,
       notes: input.notes,
       leads: leadContext,
       visits: visitContext,
-      kpis,
+      kpis: kpisForAI[0] ?? { kpiName: "TOTAL_LEADS", value: 0, period: periodStr },
     });
 
     // TODO: Pipe AI-prioritized leads into CRM tasks or automation once approvals exist.
@@ -367,12 +384,12 @@ class SalesRepsService {
     await emitSalesPlanGenerated(
       {
         repId,
-        brandId: rep.brandId ?? undefined,
+        brandId: rep.brandId === null ? undefined : rep.brandId,
         leadIds: Array.from(new Set(planTasks.map((task: any) => task.leadId))),
         taskCount: planTasks.length,
         summary: planResult.summary ?? undefined,
       },
-      { brandId: rep.brandId ?? undefined, module: "sales-reps" },
+      { brandId: rep.brandId === null ? undefined : rep.brandId, module: "sales-reps" },
     );
     return planResult;
   }

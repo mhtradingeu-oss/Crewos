@@ -53,4 +53,6 @@ export interface LeadFollowupInput extends AiBaseInput {
 export type LeadFollowupOutput = {
   summary: string;
   nextAction?: string;
+  probability?: number;
+  reasons?: string[];
 };

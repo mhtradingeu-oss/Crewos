@@ -1,5 +1,5 @@
 
-import { AutomationCondition, ConditionEvalResult, AutomationEvent } from './types.js';
+import type { AutomationCondition, ConditionEvalResult, AutomationEvent } from './types.js';
 
 export class RuleEvaluator {
   evaluateAll(
@@ -7,25 +7,29 @@ export class RuleEvaluator {
     conditions: AutomationCondition[]
   ): ConditionEvalResult {
     if (!conditions || conditions.length === 0) {
-      return { passed: true };
+      const result: ConditionEvalResult = { passed: true };
+      return result;
     }
 
     for (const c of conditions) {
       if (c.kind !== 'json-logic') {
-        return {
+        const result: ConditionEvalResult = {
           passed: false,
           reason: 'UNSUPPORTED_CONDITION_KIND',
         };
+        return result;
       }
 
       if (c.config && Object.keys(c.config as object).length > 0) {
-        return {
+        const result: ConditionEvalResult = {
           passed: false,
           reason: 'CONDITION_ENGINE_NOT_IMPLEMENTED',
         };
+        return result;
       }
     }
 
-    return { passed: true };
+    const result: ConditionEvalResult = { passed: true };
+    return result;
   }
 }
