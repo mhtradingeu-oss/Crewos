@@ -1,3 +1,5 @@
+// Automation Observability Projection & Aggregation (Phase C.6 Step 3)
+export * from "./dto/automation-observability-projection.js";
 // Automation Observability Collection Model (Phase C.6 Step 2)
 export * from "./dto/automation-observability-collection.js";
 // Automation Observability (Phase C.6 Step 1)
