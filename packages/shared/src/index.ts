@@ -18,6 +18,9 @@ export * from "./dto/finance/index.js";
 export * from "./dto/automation.js";
 export type { ConditionEvalResult } from "./dto/automation.js";
 
+// Automation Explainability (Phase C.3)
+export * from "./dto/automation-explain.js";
+
 // Automation Planner (Phase C.2)
 export * from "./dto/automation-plan.js";
 

@@ -3,9 +3,11 @@ import type {
   AutomationPolicyDecision,
   ExecutionGateDecision,
 } from '@mh-os/shared';
+import type { AutomationExplainTrace } from '@mh-os/shared';
 
 export interface AutomationRuntimeResult {
   plan: AutomationPlan;
   policyDecision?: AutomationPolicyDecision;
   executionGate?: ExecutionGateDecision;
+  explain?: AutomationExplainTrace;
 }
