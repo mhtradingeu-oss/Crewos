@@ -1,3 +1,5 @@
+// Automation Observability (Phase C.6 Step 1)
+export * from "./dto/automation-observability.js";
 // Explainability Snapshot (Phase C.5 Step 2)
 export * from "./dto/automation-explain-snapshot.js";
 // Explainability Response Assembly (C.4 Step 4)
