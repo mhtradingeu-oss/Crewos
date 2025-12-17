@@ -1,3 +1,5 @@
+// Explainability Snapshot (Phase C.5 Step 2)
+export * from "./dto/automation-explain-snapshot.js";
 // Explainability Response Assembly (C.4 Step 4)
 export * from "./dto/automation-explain-assembly.js";
 // Explainability Policy & Redaction (C.4 Step 3)
