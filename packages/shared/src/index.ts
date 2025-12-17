@@ -1,3 +1,5 @@
+// Explainability Policy & Redaction (C.4 Step 3)
+export * from "./dto/automation-explain-policy.js";
 // Explainability Projection Layer (C.4 Step 2)
 export * from "./dto/automation-explain-projection.js";
 // Explainability Consumer Contracts (C.4 Step 1)

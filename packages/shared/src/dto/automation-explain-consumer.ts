@@ -2,12 +2,12 @@
 // No logic, no side effects, JSON-serializable only
 import { z } from "zod";
 import type { AutomationExplainTrace, ExplainLevel } from "./automation-explain.js";
+import type { ExplainAudience } from "./automation-explain-policy.js";
+import { ExplainAudienceSchema } from "./automation-explain-policy.js";
 
 export type ExplainFormat = "RAW" | "SUMMARY" | "NARRATIVE";
 export const ExplainFormatSchema = z.enum(["RAW", "SUMMARY", "NARRATIVE"]);
 
-export type ExplainAudience = "SYSTEM" | "ADMIN" | "DEVELOPER" | "AI";
-export const ExplainAudienceSchema = z.enum(["SYSTEM", "ADMIN", "DEVELOPER", "AI"]);
 
 export interface ExplainConsumerMeta {
   audience?: ExplainAudience;
