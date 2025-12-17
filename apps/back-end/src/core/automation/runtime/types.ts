@@ -7,7 +7,7 @@ export type { AutomationEvent, AutomationCondition, ConditionEvalResult } from '
 /* ---------- EVENT ---------- */
 
 // Use canonical Automation types from @mh-os/shared
-import type { AutomationEvent, AutomationCondition, ConditionEvalResult } from '@mh-os/shared';
+import type { AutomationEvent, AutomationCondition, ConditionEvalResult, ExecutionGateDecision } from '@mh-os/shared';
 
 /* ---------- ACTIONS ---------- */
 
@@ -57,4 +57,5 @@ export type AutomationPlan = {
 export type AutomationRuntimeResult = {
   plan: AutomationPlan;
   auditId: string;
+  executionGate: ExecutionGateDecision;
 };

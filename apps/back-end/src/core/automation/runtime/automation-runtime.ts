@@ -8,6 +8,7 @@ import type {
 } from "./types.js";
 
 import { JsonLogicConditionEvaluator } from "../conditions/json-logic-evaluator.js";
+import { DisabledExecutionGate } from "../gate/execution-gate.js";
 
 export class AutomationRuntime {
   private readonly conditionEvaluator = new JsonLogicConditionEvaluator();
@@ -58,9 +59,22 @@ export class AutomationRuntime {
       }),
     };
 
+    // Phase C.2 Step 3: Execution Gate (explainability only)
+    const gate = new DisabledExecutionGate();
+    const executionGate = gate.decide({
+      tenantId: event.tenantId,
+      brandId: event.brandId,
+      actorUserId: event.actorUserId,
+      eventName: event.name,
+      ruleId: matchedRules[0]?.ruleId || "",
+      versionId: matchedRules[0]?.versionId || "",
+      actionType: matchedRules[0]?.actions[0]?.type,
+    });
+
     return {
       plan,
       auditId: `audit_${Date.now()}`,
+      executionGate,
     };
   }
 }

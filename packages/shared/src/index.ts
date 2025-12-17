@@ -21,6 +21,9 @@ export type { ConditionEvalResult } from "./dto/automation.js";
 // Automation Planner (Phase C.2)
 export * from "./dto/automation-plan.js";
 
+// Automation Execution Gate (Phase C.2 Step 3)
+export * from "./dto/automation-execution-gate.js";
+
 // AI
 export * from "./dto/ai-base.js";
 export * from "./dto/ai-brain/index.js";
