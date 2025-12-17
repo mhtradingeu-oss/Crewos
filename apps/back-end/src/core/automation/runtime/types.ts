@@ -10,4 +10,5 @@ export interface AutomationRuntimeResult {
   policyDecision?: AutomationPolicyDecision;
   executionGate?: ExecutionGateDecision;
   explain?: AutomationExplainTrace;
+  audit?: { auditId: string; kind: "PLAN_TRACE"; captured: boolean };
 }

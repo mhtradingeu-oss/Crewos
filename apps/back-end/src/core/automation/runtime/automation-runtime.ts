@@ -6,6 +6,11 @@ import type {
   RuleExplainEntry,
   AutomationDecisionSummary,
 } from "@mh-os/shared";
+import type {
+  AutomationAuditEnvelope,
+  AutomationAuditSink,
+} from "@mh-os/shared";
+import { NoopAutomationAuditSink } from "../audit/index.js";
 import { DisabledExecutionGate } from "../gate/execution-gate.js";
 import { PolicyEngine } from "../policy/policy-engine.js";
 export class AutomationRuntime {
@@ -107,11 +112,32 @@ export class AutomationRuntime {
       level: "RULE",
     };
 
+    // Audit sink (PLAN-ONLY, design-only, no side effects)
+    const auditId = plan.event.correlationId || plan.event.name || "audit-fallback";
+    const envelope: AutomationAuditEnvelope = {
+      record: {
+        auditId,
+        occurredAt: plan.event.occurredAt,
+        tenantId: plan.event.tenantId,
+        brandId: plan.event.brandId,
+        correlationId: plan.event.correlationId,
+        kind: "PLAN_TRACE",
+        level: "RUN",
+        trace: explain,
+      },
+      schemaVersion: 1,
+    };
+    const sink = new NoopAutomationAuditSink();
+    // Await the NOOP sink (no side effects)
+    // eslint-disable-next-line no-void
+    void sink.capture(envelope);
+
     return {
       plan,
       executionGate,
       policyDecision,
       explain,
+      audit: { auditId, kind: "PLAN_TRACE", captured: true },
     };
   }
 }

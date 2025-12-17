@@ -1,3 +1,5 @@
+// Automation Audit Sink (Phase C.3 Step 3)
+export * from "./dto/automation-audit.js";
 // =======================
 // DTOs
 // =======================
