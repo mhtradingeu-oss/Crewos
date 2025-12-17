@@ -1,5 +1,3 @@
-
-
 import { z } from "zod";
 
 import {
@@ -7,49 +5,48 @@ import {
   AutomationRuleVersionSchema,
   AutomationRunSchema,
   AutomationActionRunSchema,
-} from '@mh-os/shared';
+} from "@mh-os/shared";
 
-const conditionSchema = z.object({
-  path: z.string(),
-  op: z.enum(["eq", "neq", "gt", "lt", "includes"]),
-  value: z.any(),
-});
+/**
+ * Create Automation Rule
+ */
+export const createAutomationRuleSchema =
+  AutomationRuleBaseSchema.omit({
+    id: true,
+    lastRunAt: true,
+    lastRunStatus: true,
+    state: true,
+  });
 
-const actionSchema = z.object({
-  type: z.string(),
-  params: z.record(z.string(), z.any()).optional(),
-});
+/**
+ * Create Automation Rule Version
+ */
+export const createAutomationRuleVersionSchema =
+  AutomationRuleVersionSchema.omit({
+    id: true,
+    state: true,
+    versionNumber: true,
+  });
 
-export const createAutomationRuleSchema = AutomationRuleBaseSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  lastRunAt: true,
-  lastRunStatus: true,
-  state: true,
-});
+/**
+ * Create Automation Run
+ * ⚠️ only omit fields that EXIST in schema
+ */
+export const createAutomationRunSchema =
+  AutomationRunSchema.omit({
+    id: true,
+    status: true,
+  });
 
-export const createAutomationRuleVersionSchema = AutomationRuleVersionSchema.omit({
-  id: true,
-  createdAt: true,
-  state: true,
-  versionNumber: true,
-});
+/**
+ * Create Automation Action Run
+ */
+export const createAutomationActionRunSchema =
+  AutomationActionRunSchema.omit({
+    id: true,
+    status: true,
+  });
 
-export const createAutomationRunSchema = AutomationRunSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  status: true,
-});
-
-export const createAutomationActionRunSchema = AutomationActionRunSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  status: true,
-});
-
-// Export for controller/routes compatibility (after declarations)
+// Controller compatibility aliases
 export const createAutomationSchema = createAutomationRuleSchema;
 export const updateAutomationSchema = createAutomationRuleVersionSchema;

@@ -14,14 +14,7 @@ export class EventDispatcher {
   ): Promise<AutomationRuntimeResult> {
     const matchedRules = await this.matcher.match(event);
 
-    // Convert occurredAt to string if it's a Date
-    const normalizedEvent = {
-      ...event,
-      occurredAt: typeof event.occurredAt === 'string'
-        ? event.occurredAt
-        : event.occurredAt.toISOString(),
-    };
-
-    return this.runtime.run(normalizedEvent, matchedRules);
+    // occurredAt is always string (ISO)
+    return this.runtime.run(event, matchedRules);
   }
 }

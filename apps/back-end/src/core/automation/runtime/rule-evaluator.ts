@@ -1,3 +1,4 @@
+
 import { AutomationCondition, ConditionEvalResult, AutomationEvent } from './types.js';
 
 export class RuleEvaluator {
@@ -13,18 +14,18 @@ export class RuleEvaluator {
       if (c.kind !== 'json-logic') {
         return {
           passed: false,
-          details: { reason: 'UNSUPPORTED_CONDITION_KIND', kind: c.kind },
+          reason: 'UNSUPPORTED_CONDITION_KIND',
         };
       }
 
       if (c.config && Object.keys(c.config as object).length > 0) {
         return {
           passed: false,
-          details: { reason: 'CONDITION_ENGINE_NOT_IMPLEMENTED' },
+          reason: 'CONDITION_ENGINE_NOT_IMPLEMENTED',
         };
       }
     }
 
-    return { passed: true, details: { mode: 'PLACEHOLDER_PASS' } };
+    return { passed: true };
   }
 }

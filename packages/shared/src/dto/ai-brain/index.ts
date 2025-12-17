@@ -1,7 +1,7 @@
 // AI Brain DTOs migrated from backend
+import { AiBaseInput } from "../ai-base.js";
 
-export interface CreateAiBrainInput {
-  brandId: string;
+export interface CreateAiBrainInput extends AiBaseInput {
   scope?: string;
   highlights?: string[];
   notes?: string;
@@ -14,12 +14,6 @@ export interface UpdateAiBrainInput extends Partial<CreateAiBrainInput> {}
 
 export interface AiBrainEventPayload {
   id: string;
-}
-
-export interface AiBaseInput {
-  brandId?: string;
-  locale?: string;
-  agentName?: string;
 }
 
 export interface PricingSuggestionInput extends AiBaseInput {
@@ -56,6 +50,7 @@ export interface LeadFollowupInput extends AiBaseInput {
   lastInteraction?: string;
 }
 
-export interface LeadFollowupOutput {
+export type LeadFollowupOutput = {
   summary: string;
-}
+  nextAction?: string;
+};

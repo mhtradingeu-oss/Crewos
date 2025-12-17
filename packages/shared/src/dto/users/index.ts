@@ -1,4 +1,6 @@
 // User DTOs migrated from backend
+export * from "./create-user.schema.js";
+export * from "./update-user.schema.js";
 
 export interface CreateUserInput {
   email: string;

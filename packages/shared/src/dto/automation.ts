@@ -1,4 +1,39 @@
-// --- Structured error/violation schemas for governance gates ---
+import { z } from "zod";
+import type { RulesLogic } from "json-logic-js";
+
+/**
+ * ===============================
+ * Automation Core Event Types
+ * ===============================
+ */
+
+export type AutomationEvent = {
+  name: string;
+  occurredAt: string; // ISO string
+  tenantId: string;
+  brandId?: string;
+  actorUserId?: string;
+  correlationId?: string;
+  payload: unknown;
+};
+
+/**
+ * ===============================
+ * Conditions
+ * ===============================
+ */
+
+export type AutomationCondition = {
+  kind: "json-logic";
+  config: RulesLogic;
+};
+
+/**
+ * ===============================
+ * Policy / Gate Errors
+ * ===============================
+ */
+
 export const PolicyViolationSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -11,14 +46,19 @@ export const AutomationGateErrorSchema = z.object({
   message: z.string(),
   details: z.array(PolicyViolationSchema).optional(),
 });
-import { z } from 'zod';
+
+/**
+ * ===============================
+ * Rule Lifecycle
+ * ===============================
+ */
 
 export const AutomationRuleLifecycleState = z.enum([
-  'DRAFT',
-  'REVIEW',
-  'ACTIVE',
-  'PAUSED',
-  'ARCHIVED',
+  "DRAFT",
+  "REVIEW",
+  "ACTIVE",
+  "PAUSED",
+  "ARCHIVED",
 ]);
 
 export const AutomationRuleBaseSchema = z.object({
@@ -48,13 +88,19 @@ export const AutomationRuleVersionSchema = z.object({
   state: AutomationRuleLifecycleState.optional(),
 });
 
+/**
+ * ===============================
+ * Runs
+ * ===============================
+ */
+
 export const AutomationRunStatus = z.enum([
-  'PENDING',
-  'RUNNING',
-  'SUCCESS',
-  'FAILED',
-  'PARTIAL',
-  'SKIPPED',
+  "PENDING",
+  "RUNNING",
+  "SUCCESS",
+  "FAILED",
+  "PARTIAL",
+  "SKIPPED",
 ]);
 
 export const AutomationRunSchema = z.object({
@@ -68,22 +114,21 @@ export const AutomationRunSchema = z.object({
   finishedAt: z.string().datetime().optional().nullable(),
   summaryJson: z.any().optional(),
   errorJson: z.any().optional(),
-  triggerEventJson: z.any().optional(),
-  conditionsJson: z.any().optional(),
-  actionsJson: z.any().optional(),
-  ruleMetaJson: z.any().optional(),
-  dedupKey: z.string().optional().nullable(),
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional(),
 });
 
+/**
+ * ===============================
+ * Action Runs
+ * ===============================
+ */
+
 export const AutomationActionRunStatus = z.enum([
-  'PENDING',
-  'RUNNING',
-  'SUCCESS',
-  'FAILED',
-  'SKIPPED',
-  'RETRYING',
+  "PENDING",
+  "RUNNING",
+  "SUCCESS",
+  "FAILED",
+  "SKIPPED",
+  "RETRYING",
 ]);
 
 export const AutomationActionRunSchema = z.object({
@@ -98,14 +143,19 @@ export const AutomationActionRunSchema = z.object({
   actionConfigJson: z.any(),
   resultJson: z.any().optional(),
   errorJson: z.any().optional(),
-  startedAt: z.string().datetime().optional().nullable(),
-  finishedAt: z.string().datetime().optional().nullable(),
-  summary: z.string().optional().nullable(),
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional(),
 });
+
+/**
+ * ===============================
+ * Inferred Types
+ * ===============================
+ */
 
 export type AutomationRule = z.infer<typeof AutomationRuleBaseSchema>;
 export type AutomationRuleVersion = z.infer<typeof AutomationRuleVersionSchema>;
 export type AutomationRun = z.infer<typeof AutomationRunSchema>;
 export type AutomationActionRun = z.infer<typeof AutomationActionRunSchema>;
+export type ConditionEvalResult = {
+  passed: boolean;
+  details?: Record<string, unknown>;
+};

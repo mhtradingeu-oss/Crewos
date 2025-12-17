@@ -4,27 +4,13 @@
 
 /* ---------- EVENT ---------- */
 
-export type AutomationEvent = {
-  name: string;
-  occurredAt: string; // ISO string (NOT Date object)
-  tenantId: string;
-  brandId?: string;
-  actorUserId?: string;
-  correlationId?: string;
-  payload: unknown;
-};
+// Use canonical AutomationEvent from @mh-os/shared
+export type { AutomationEvent } from '@mh-os/shared';
 
 /* ---------- CONDITIONS ---------- */
 
-export type AutomationCondition = {
-  kind: 'json-logic';
-  config: unknown;
-};
-
-export type ConditionEvalResult = {
-  passed: boolean;
-  details?: Record<string, unknown>;
-};
+// Use canonical AutomationCondition and ConditionEvalResult from @mh-os/shared
+export type { AutomationCondition, ConditionEvalResult } from '@mh-os/shared';
 
 /* ---------- ACTIONS ---------- */
 

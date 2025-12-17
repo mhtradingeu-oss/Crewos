@@ -4,14 +4,5 @@ export type AutomationEventName =
   | 'user.registered'
   | 'price.changed';
 
-export interface AutomationEvent {
-  id: string;
-  name: AutomationEventName;
-  occurredAt: Date;
-  tenantId: string; // ✅ REQUIRED for Automation Runtime
-  payload: unknown;
-  meta?: {
-    source?: string;
-    correlationId?: string;
-  };
-}
+// Use canonical AutomationEvent from @mh-os/shared
+export type { AutomationEvent } from '@mh-os/shared';
