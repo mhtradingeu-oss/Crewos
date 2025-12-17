@@ -165,7 +165,7 @@ class SalesRepsService {
         repId,
         brandId: rep.brandId ?? null,
         leadId: input.leadId ?? null,
-        companyId: input.companyId ?? null,
+        companyId: input.companyId, // required string
         territoryId: input.territoryId ?? null,
         source: input.source,
         score: input.score ? new PrismaNamespace.Decimal(input.score) : undefined,

@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AutomationPlan } from "./automation-plan.js";
 
 export type AutomationPolicyScope = {
+  companyId: string; // MANDATORY tenant context
   tenantId: string;
   brandId?: string;
   actorUserId?: string;

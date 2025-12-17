@@ -29,5 +29,10 @@ export class AutomationAudit {
     return this.store.get(id) ?? null;
   }
 }
-// Phase C.2 — Audit stubbed (not used yet)
-export {};
+
+// Minimal runtime-safe audit function for engine orchestration
+const auditLog: any[] = [];
+export async function recordAudit(entry: any) {
+  // Only store safe, serializable audit entries
+  auditLog.push({ ...entry, at: new Date().toISOString() });
+}

@@ -15,6 +15,41 @@ export type ExplainCode = string;
 /** ISO 8601 timestamp string (e.g., 2025-12-17T12:34:56.789Z) */
 export type ExplainTimestampISO = string;
 
+export type AutomationExplainSnapshotStatus = "SUCCESS" | "FAILED";
+
+export interface AutomationExplainSnapshotEvent {
+  readonly name: string;
+  readonly occurredAt: string;
+  readonly payload: unknown;
+}
+
+export interface AutomationExplainConditionResult {
+  readonly passed: boolean;
+  readonly reason?: string;
+}
+
+export interface AutomationExplainAction {
+  readonly index: number;
+  readonly actionType: string;
+  readonly status: AutomationExplainSnapshotStatus;
+  readonly output?: unknown;
+  readonly error?: string;
+}
+
+export interface AutomationExplainSnapshot {
+  readonly runId: string;
+  readonly companyId: string;
+  readonly brandId?: string;
+  readonly ruleVersionId: string;
+  readonly event: AutomationExplainSnapshotEvent;
+  readonly conditions: AutomationExplainConditionResult;
+  readonly actions: readonly AutomationExplainAction[];
+  readonly finalStatus: AutomationExplainSnapshotStatus;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly error?: string;
+}
+
 // Core DTOs
 export interface AutomationDecisionSummary {
   allowed: boolean;

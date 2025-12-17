@@ -19,10 +19,16 @@ export class AutomationRuntime {
    * PLAN-ONLY — no execution, no side effects
    */
   run(plan: AutomationPlan): AutomationRuntimeResult {
+    // Enforce companyId presence at runtime (compile-time enforced by type)
+    const { companyId } = plan.event;
+    if (!companyId) {
+      throw new Error("companyId is required for Automation execution");
+    }
     // Execution Gate (explainability only)
     const gate = new DisabledExecutionGate();
     const firstRule = plan.matchedRules[0];
     const executionGate = gate.decide({
+      companyId,
       tenantId: plan.event.tenantId,
       brandId: plan.event.brandId,
       actorUserId: plan.event.actorUserId,
@@ -40,6 +46,7 @@ export class AutomationRuntime {
     };
     const policyDecision = PolicyEngine.evaluate({
       scope: {
+        companyId,
         tenantId: plan.event.tenantId,
         brandId: plan.event.brandId,
         actorUserId: plan.event.actorUserId,

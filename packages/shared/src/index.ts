@@ -18,6 +18,13 @@ export * from "./dto/automation-explain-projection.js";
 export * from "./dto/automation-explain-consumer.js";
 // Automation Audit Sink (Phase C.3 Step 3)
 export * from "./dto/automation-audit.js";
+export type {
+  AutomationAuditActionFailedPayload,
+  AutomationAuditActionStartPayload,
+  AutomationAuditActionSuccessPayload,
+  AutomationAuditRunEndPayload,
+  AutomationAuditRunStartPayload,
+} from "./dto/automation-audit.js";
 // =======================
 // DTOs
 // =======================
@@ -36,10 +43,21 @@ export * from "./dto/finance/index.js";
 
 // Automation
 export * from "./dto/automation.js";
-export type { ConditionEvalResult } from "./dto/automation.js";
+export type {
+  AutomationActionExecutionSummary,
+  AutomationExecutionResult,
+  ConditionEvalResult,
+} from "./dto/automation.js";
 
 // Automation Explainability (Phase C.3)
 export * from "./dto/automation-explain.js";
+export type {
+  AutomationExplainSnapshot,
+  AutomationExplainAction,
+  AutomationExplainConditionResult,
+  AutomationExplainSnapshotEvent,
+  AutomationExplainSnapshotStatus,
+} from "./dto/automation-explain.js";
 
 // Automation Planner (Phase C.2)
 export * from "./dto/automation-plan.js";
@@ -77,4 +95,3 @@ export * from "./dto/users/list-users.schema.js";
 // =======================
 // Constants
 // =======================
-

@@ -48,3 +48,50 @@ export const AutomationAuditEnvelopeSchema = z.object({
 export interface AutomationAuditSink {
   capture(envelope: AutomationAuditEnvelope): Promise<void>;
 }
+
+export type AutomationAuditRunStartPayload = {
+  type: "RUN_START";
+  runId: string;
+  ruleVersionId: string;
+  actorId: string;
+};
+
+export type AutomationAuditActionStartPayload = {
+  type: "ACTION_START";
+  actionRunId: string;
+  runId: string;
+  actionType: string;
+  index: number;
+};
+
+export type AutomationAuditActionSuccessPayload = {
+  type: "ACTION_SUCCESS";
+  actionRunId: string;
+  runId: string;
+  actionType: string;
+  index: number;
+};
+
+export type AutomationAuditActionFailedPayload = {
+  type: "ACTION_FAILED";
+  actionRunId: string;
+  runId: string;
+  actionType: string;
+  index: number;
+  error?: string;
+};
+
+export type AutomationAuditRunEndPayload = {
+  type: "RUN_END";
+  runId: string;
+  ruleVersionId: string;
+  status: "SUCCESS" | "FAILED";
+  error?: string;
+};
+
+export type AutomationAuditPayload =
+  | AutomationAuditRunStartPayload
+  | AutomationAuditActionStartPayload
+  | AutomationAuditActionSuccessPayload
+  | AutomationAuditActionFailedPayload
+  | AutomationAuditRunEndPayload;

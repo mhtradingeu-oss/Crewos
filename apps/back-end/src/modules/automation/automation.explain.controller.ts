@@ -3,13 +3,20 @@ import { AutomationRuntime } from "../../core/automation/runtime/automation-runt
 import { assembleExplainResponse } from "@mh-os/shared";
 import { buildPlan } from "../../core/automation/matcher/rule-matcher.js";
 // POST /api/v1/automation/explain
-export async function explainEvent(req: Request, res: Response, next: NextFunction) {
+import type { AuthenticatedRequest } from "../../core/http/http-types.js";
+export async function explainEvent(req: AuthenticatedRequest, res: Response, next: NextFunction) {
 	try {
 		const body = req.body as AutomationExplainRequest;
+		// Source companyId from authenticated user context
+		const companyId = req.user?.tenantId;
+		if (!companyId) {
+			return res.status(400).json({ code: "missing_companyId", message: "Authenticated user context missing companyId (tenantId)" });
+		}
 		// Build event for planner
 		const event = {
 			name: body.eventName,
 			occurredAt: body.occurredAt || new Date().toISOString(),
+			companyId, // ENFORCED
 			tenantId: body.tenantId,
 			brandId: body.brandId,
 			correlationId: body.correlationId,

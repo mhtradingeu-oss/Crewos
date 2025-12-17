@@ -24,6 +24,7 @@ export interface ExecutionGateDecision {
 }
 
 export interface ExecutionGateContext {
+  companyId: string; // MANDATORY tenant context
   tenantId: string;
   brandId?: string;
   actorUserId?: string;

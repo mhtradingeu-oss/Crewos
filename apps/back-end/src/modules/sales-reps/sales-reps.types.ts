@@ -35,7 +35,7 @@ export interface SalesRepUpdateInput extends Partial<SalesRepCreateInput> {}
 
 export interface SalesLeadInput {
   leadId?: string;
-  companyId?: string;
+  companyId: string;
   territoryId?: string;
   source?: string;
   score?: number;
