@@ -11,6 +11,7 @@ export type AutomationAuditRecord = {
  * Phase C: in-memory audit store (safe).
  * Later: persist to DB (AutomationRun + ActionRun).
  */
+// Module stability: In-memory audit remains fixed for PHASE 9.2 (final GA documentation only).
 export class AutomationAudit {
   private store = new Map<string, AutomationAuditRecord>();
 

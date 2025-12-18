@@ -18,6 +18,10 @@ export const AutomationExplainSnapshotMetaSchema = z.object({
   version: z.string(),
 });
 
+/**
+ * Explain snapshot contract for Final GA automation: data is expected to be frozen and serializable immediately after construction.
+ * Consumers can rely on `meta`, `payload`, `audience`, `format`, and `checksum` never changing once the snapshot is emitted.
+ */
 export interface AutomationExplainSnapshot {
   meta: AutomationExplainSnapshotMeta;
   payload: AutomationExplainResponse;

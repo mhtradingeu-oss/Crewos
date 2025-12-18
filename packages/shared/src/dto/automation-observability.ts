@@ -8,6 +8,9 @@ export const AutomationMetricTypeSchema = z.enum(["COUNTER", "GAUGE", "DURATION"
 export type AutomationMetricScope = "tenant" | "brand" | "rule" | "action";
 export const AutomationMetricScopeSchema = z.enum(["tenant", "brand", "rule", "action"]);
 
+/**
+ * Observability guarantee: metric events are append-only, timestamped entries that can be correlated to runs or explain snapshots without mutation.
+ */
 export interface AutomationMetricEvent {
   type: AutomationMetricType;
   scope: AutomationMetricScope;
@@ -45,3 +48,57 @@ export const AutomationMetricEnvelopeSchema = z.object({
   correlationId: z.string().optional(),
   snapshotId: z.string().optional(),
 });
+
+export type AutomationMetricsRunStatus = "SUCCESS" | "FAILED";
+export type AutomationMetricsActionStatus = AutomationMetricsRunStatus;
+
+export interface AutomationMetricsRunPayload {
+  runId: string;
+  ruleVersionId?: string;
+  companyId?: string;
+  brandId?: string;
+  startedAt?: string;
+}
+
+export interface AutomationMetricsRunStartPayload extends AutomationMetricsRunPayload {}
+
+export interface AutomationMetricsRunEndPayload extends AutomationMetricsRunPayload {
+  status: AutomationMetricsRunStatus;
+  finishedAt?: string;
+  durationMs?: number;
+}
+
+export interface AutomationMetricsActionPayload {
+  runId: string;
+  actionRunId: string;
+  actionType?: string;
+  startedAt?: string;
+}
+
+export interface AutomationMetricsActionStartPayload extends AutomationMetricsActionPayload {}
+
+export interface AutomationMetricsActionEndPayload extends AutomationMetricsActionPayload {
+  status: AutomationMetricsActionStatus;
+  finishedAt?: string;
+}
+
+export interface AutomationMetricsSnapshot {
+  runsStarted: number;
+  runsSucceeded: number;
+  runsFailed: number;
+  actionsStarted: number;
+  actionsSucceeded: number;
+  actionsFailed: number;
+  runDurationMs: number;
+}
+
+/**
+ * Collector guarantee: `snapshot` is a read-only summary that reflects all emitted events and stays stable for the lifetime of the collector instance.
+ */
+export interface AutomationMetricsCollector {
+  readonly snapshot: AutomationMetricsSnapshot;
+  onRunStart(payload: AutomationMetricsRunStartPayload): void;
+  onRunEnd(payload: AutomationMetricsRunEndPayload): void;
+  onActionStart(payload: AutomationMetricsActionStartPayload): void;
+  onActionEnd(payload: AutomationMetricsActionEndPayload): void;
+}

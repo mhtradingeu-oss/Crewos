@@ -201,3 +201,41 @@ export async function explainActionRun({ brandId, actionRunId }: { brandId: stri
 		evidence,
 	};
 }
+
+export async function getExplainSnapshotByRunId({
+	companyId,
+	runId,
+}: {
+	companyId: string;
+	runId: string;
+}): Promise<unknown | null> {
+	const record = await prisma.automationExplainSnapshot.findFirst({
+		where: {
+			companyId,
+			runId,
+		},
+		select: {
+			snapshotJson: true,
+		},
+	});
+	return record?.snapshotJson ?? null;
+}
+
+export async function getExplainSnapshotsByRuleVersion({
+	companyId,
+	ruleVersionId,
+}: {
+	companyId: string;
+	ruleVersionId: string;
+}): Promise<unknown[]> {
+	const records = await prisma.automationExplainSnapshot.findMany({
+		where: {
+			companyId,
+			ruleVersionId,
+		},
+		select: {
+			snapshotJson: true,
+		},
+	});
+	return records.map(record => record.snapshotJson);
+}

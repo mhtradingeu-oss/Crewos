@@ -20,6 +20,19 @@ automationExplainRouter.post(
 	controller.explainEvent,
 );
 
+// Snapshot lookup (Phase 7.4)
+automationExplainRouter.get(
+	"/by-rule/:ruleVersionId",
+	validateParams(explainRuleVersionParams),
+	controller.getExplainSnapshotsByRuleVersion,
+);
+
+automationExplainRouter.get(
+	"/:runId",
+	validateParams(explainRunParams),
+	controller.getExplainSnapshotByRunId,
+);
+
 // GET /rule-versions/:ruleVersionId
 automationExplainRouter.get(
 	"/rule-versions/:ruleVersionId",

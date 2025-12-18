@@ -2228,27 +2228,44 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
   },
 ];
 
-export const AI_AGENTS_MANIFEST: AIAgentDefinition[] = [...BASE_AI_AGENTS_MANIFEST, ...PERSONA_AGENTS, ...ADDITIONAL_AGENTS].map(
-  (agent) => {
-    const scope = canonicalizeScope(agent.scope);
-    const normalized = { ...agent, scope } as AIAgentDefinition;
-    return {
-      ...normalized,
-      scope,
-      bootPrompt: agent.bootPrompt ?? buildBootPrompt(normalized),
-      safetyRules: agent.safetyRules ?? agent.safety?.blockedTopics ?? [],
-      riskScore: agent.riskScore ?? DEFAULT_RISK_SCORE,
-      restrictedDomains: agent.restrictedDomains ?? [],
-      allowedActions: agent.allowedActions ?? DEFAULT_ALLOWED_ACTIONS,
-      autonomyLevel: normalizeAutonomyLevel(agent.autonomyLevel ?? DEFAULT_AUTONOMY_LEVEL),
-      requiredContexts:
-        agent.requiredContexts ?? agent.inputContexts.filter((ctx) => ctx.required).map((ctx) => ctx.name),
-      defaultModel: agent.defaultModel ?? agent.model ?? DEFAULT_MODEL,
-      fallbackModels: agent.fallbackModels ?? DEFAULT_FALLBACK_MODELS,
-      budgetProfile: agent.budgetProfile ?? DEFAULT_BUDGET,
-    };
-  },
-);
+const RAW_MANIFEST = [...BASE_AI_AGENTS_MANIFEST, ...PERSONA_AGENTS, ...ADDITIONAL_AGENTS].map((agent) => {
+  const scope = canonicalizeScope(agent.scope);
+  const normalized = { ...agent, scope } as AIAgentDefinition;
+  return {
+    ...normalized,
+    scope,
+    bootPrompt: agent.bootPrompt ?? buildBootPrompt(normalized),
+    safetyRules: agent.safetyRules ?? agent.safety?.blockedTopics ?? [],
+    riskScore: agent.riskScore ?? DEFAULT_RISK_SCORE,
+    restrictedDomains: agent.restrictedDomains ?? [],
+    allowedActions: agent.allowedActions ?? DEFAULT_ALLOWED_ACTIONS,
+    autonomyLevel: normalizeAutonomyLevel(agent.autonomyLevel ?? DEFAULT_AUTONOMY_LEVEL),
+    requiredContexts:
+      agent.requiredContexts ?? agent.inputContexts.filter((ctx) => ctx.required).map((ctx) => ctx.name),
+    defaultModel: agent.defaultModel ?? agent.model ?? DEFAULT_MODEL,
+    fallbackModels: agent.fallbackModels ?? DEFAULT_FALLBACK_MODELS,
+    budgetProfile: agent.budgetProfile ?? DEFAULT_BUDGET,
+  };
+});
+
+function ensurePrimaryAgentPerScope(manifest: AIAgentDefinition[]): AIAgentDefinition[] {
+  const scopesWithPrimary = new Set<string>();
+  for (const agent of manifest) {
+    if (agent.priority === 1) {
+      scopesWithPrimary.add(agent.scope);
+    }
+  }
+
+  return manifest.map((agent) => {
+    if (scopesWithPrimary.has(agent.scope)) {
+      return agent;
+    }
+    scopesWithPrimary.add(agent.scope);
+    return { ...agent, priority: 1 };
+  });
+}
+
+export const AI_AGENTS_MANIFEST: AIAgentDefinition[] = ensurePrimaryAgentPerScope(RAW_MANIFEST);
 
 
 // تحقق النزاهة حسب قواعد AI Crew (MH-OS)
