@@ -1,48 +1,39 @@
 {
-  // "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    /* ===== Next.js / React ===== */
     "jsx": "preserve",
-    "allowJs": false,
     "noEmit": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+
+    /* ===== Platform ===== */
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+
+    /* 🚨 IMPORTANT: Next.js DOES NOT like NodeNext here */
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    /* ===== Strictness ===== */
+    "strict": true,
     "isolatedModules": true,
-    "allowImportingTsExtensions": true,
-    "incremental": true,
-    "types": [
-      "node",
-      "next",
-      "jest",
-      "@testing-library/jest-dom",
-      "@testing-library/react"
-    ],
+
+    /* ===== Frontend Aliases ===== */
     "baseUrl": ".",
     "paths": {
-      "@mh-os/shared": [
-        "../../packages/shared/dist/index.d.ts"
-      ],
-      "@mh-os/shared/*": [
-        "../../packages/shared/dist/*"
-      ],
-      "@/components/*": [
-        "components/*"
-      ],
-      "@/lib/*": [
-        "lib/*"
-      ],
-      "@/app/*": [
-        "app/*"
-      ],
-      "@/types/*": [
-        "types/*"
-      ]
+      "@/components/*": ["components/*"],
+      "@/lib/*": ["lib/*"],
+      "@/app/*": ["app/*"],
+      "@/types/*": ["types/*"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+
+    /* ===== Runtime ===== */
+    "types": ["node"],
+
+    /* ===== Safety ===== */
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   },
+
   "include": [
     "next-env.d.ts",
     "app/**/*",
@@ -51,13 +42,6 @@
     "types/**/*",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    ".next"
-  ],
-  "references": [
-    {
-      "path": "../../packages/shared"
-    }
-  ]
+
+  "exclude": ["node_modules"]
 }
