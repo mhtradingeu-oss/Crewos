@@ -1,30 +1,17 @@
 import { Router } from "express";
 import * as controller from "./inventory.controller.js";
-import { requirePermission } from "../../core/security/rbac.js";
-import { validateBody } from "../../core/http/middleware/validate.js";
-import { createInventoryItemSchema, inventoryAdjustmentSchema } from "./inventory.validators.js";
+import { requireRole } from "../../core/security/auth-middleware.js";
+import { validateBody, validateQuery } from "../../core/http/middleware/validate.js";
+import { inventoryAdjustInputSchema, inventoryGetStockQuerySchema } from "./inventory.validators.js";
 
 const router = Router();
 
-router.get(
-  "/insights",
-  requirePermission("inventory:read"),
-  controller.insights,
-);
-
-router.get("/", requirePermission("inventory:read"), controller.list);
-router.get("/:id", requirePermission("inventory:read"), controller.getById);
+router.get("/stock", validateQuery(inventoryGetStockQuerySchema), controller.getStock);
 router.post(
-  "/",
-  requirePermission("inventory:create"),
-  validateBody(createInventoryItemSchema),
-  controller.create,
-);
-router.post(
-  "/adjustments",
-  requirePermission(["inventory:update", "inventory:adjust"]),
-  validateBody(inventoryAdjustmentSchema),
-  controller.createAdjustment,
+  "/adjust",
+  requireRole("ADMIN", "SUPER_ADMIN", "SYSTEM"),
+  validateBody(inventoryAdjustInputSchema),
+  controller.adjustStock,
 );
 
 export { router };
