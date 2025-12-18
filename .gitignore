@@ -30,3 +30,4 @@ packages/shared/.turbo/
 apps/front-end/tsconfig.tsbuildinfo
 mh-os-superapp-backend@*
 .vscode/
+jest.config.cjs
