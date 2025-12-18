@@ -2,7 +2,7 @@
 module.exports = {
   testEnvironment: "node",
   roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.test.ts"],
+  testMatch: ["**/__tests__/**/*.test.ts", "**/engine.test.ts"],
   extensionsToTreatAsEsm: [".ts"],
   transform: {
     "^.+\\.(ts|tsx)$": [
