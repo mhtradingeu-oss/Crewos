@@ -131,21 +131,28 @@ async function detectCompetitorPressure(): Promise<AutonomyDetection[]> {
 
 async function detectInventoryRisk(): Promise<AutonomyDetection[]> {
   const lowStock = await prisma.inventoryItem.findMany({
-    where: { quantity: { lte: 5 } },
-    orderBy: { quantity: "asc" },
+    where: { quantityOnHand: { lte: 5 } },
+    orderBy: { quantityOnHand: "asc" },
     take: 25,
-    include: { product: { select: { id: true, name: true, brandId: true, sku: true } }, brand: true },
+    select: {
+      id: true,
+      productId: true,
+      brandId: true,
+      warehouseId: true,
+      quantityOnHand: true,
+      product: { select: { id: true, name: true, brandId: true, sku: true } },
+    },
   });
 
   return lowStock.map((item) =>
     detection(
       "INVENTORY_RISK",
-      item.quantity <= 1 ? "CRITICAL" : "HIGH",
+      item.quantityOnHand <= 1 ? "CRITICAL" : "HIGH",
       {
         productId: item.productId,
         brandId: item.brandId ?? item.product?.brandId,
         warehouseId: item.warehouseId,
-        quantity: item.quantity,
+        quantity: item.quantityOnHand,
         sku: item.product?.sku,
       },
       ["inventory", "product", "brand"],

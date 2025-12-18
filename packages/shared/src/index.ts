@@ -38,6 +38,9 @@ export * from "./dto/users/index.js";
 // Pricing
 export * from "./dto/pricing.js";
 
+// Inventory
+export * from "./dto/inventory.js";
+
 // Finance
 export * from "./dto/finance/index.js";
 

@@ -148,8 +148,8 @@ export const aiKpiService = {
     let lowStock = 0;
     let stockouts = 0;
     for (const item of inventoryItems) {
-      if (item.quantity <= 0) stockouts += 1;
-      else if (item.quantity <= 5) lowStock += 1;
+      if (item.quantityOnHand <= 0) stockouts += 1;
+      else if (item.quantityOnHand <= 5) lowStock += 1;
     }
     const inventorySeries: KPIInventoryRiskSeries[] = [{ label: "Current", lowStock, stockouts }];
 
