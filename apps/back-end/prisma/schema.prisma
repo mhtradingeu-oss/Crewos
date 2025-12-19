@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -1352,6 +1352,22 @@ model SalesRepPerformanceSnapshot {
   brand     Brand?   @relation(fields: [brandId], references: [id])
   rep       SalesRep @relation(fields: [repId], references: [id])
 }
+
+model InventoryEvent {
+  id                String   @id
+  type              String
+  occurredAt         DateTime
+
+  companyId          String
+  inventoryItemId   String
+  idempotencyKey    String   @unique
+
+  payload            Json
+
+  @@index([companyId])
+  @@index([inventoryItemId])
+}
+
 
 model SalesRepCommissionScheme {
   id                String                     @id @default(cuid())
