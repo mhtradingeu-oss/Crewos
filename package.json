@@ -28,6 +28,7 @@
     "seed:core": "cd apps/back-end && npm run seed:core"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/next": "8.0.7",
     "@types/node": "^20.11.17",
     "@types/supertest": "^6.0.3",
@@ -39,6 +40,7 @@
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
     "rimraf": "^5.0.0",
+    "ts-jest": "^29.4.6",
     "turbo": "^2.6.1",
     "typescript": "^5.3.3"
   },

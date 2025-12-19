@@ -1,3 +1,8 @@
+// 🔒 INVENTORY MUTATION CONTRACT — PRODUCTION LOCKED
+// This is the ONLY place inventory can be mutated
+// Quantity is NEVER negative
+// All changes are LEDGER-BACKED
+// Tenant isolation is MANDATORY
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../core/prisma.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
@@ -7,6 +12,11 @@ import type {
   InventoryStockSnapshot,
 } from "@mh-os/shared";
 import { inventoryRepository } from "./inventory.repository.js";
+import {
+  assertNonNegativeQuantity,
+  assertTenantOwnership,
+  InventoryInvariantError,
+} from "./inventory.invariants.js";
 
 type LegacyInventoryAdjustmentInput = {
   inventoryItemId: string;
@@ -41,6 +51,11 @@ export const inventoryService = {
     if (!actorId) {
       throw badRequest("actorId is required for adjustments");
     }
+    // Enforce tenant isolation
+    assertTenantOwnership(actorId, input.companyId);
+    // Enforce non-negative quantity on delta
+    assertNonNegativeQuantity(input.delta);
+    // Next state check must be performed in repository before persistence
     return inventoryRepository.adjustStock(input, actorId);
   },
 
@@ -62,6 +77,10 @@ export const inventoryService = {
     if (!inventoryItem) {
       throw notFound("Inventory item not found");
     }
+    // Enforce tenant isolation
+    assertTenantOwnership(input.actorId ?? "system", inventoryItem.companyId);
+    // Enforce non-negative quantity on delta
+    assertNonNegativeQuantity(input.delta);
     const adjustInput: InventoryAdjustInput = {
       companyId: inventoryItem.companyId,
       brandId: inventoryItem.brandId ?? undefined,
