@@ -1,3 +1,5 @@
+export { inventoryService };
+
 // 🔒 INVENTORY MUTATION CONTRACT — PRODUCTION LOCKED
 // This is the ONLY place inventory can be mutated
 // Quantity is NEVER negative
@@ -26,6 +28,7 @@ type LegacyInventoryAdjustmentInput = {
   referenceId?: string | null;
   metadata?: Record<string, unknown>;
   actorId?: string;
+  idempotencyKey: string;
 };
 
 async function resolveCompanyIdForBrand(brandId?: string) {
@@ -42,7 +45,7 @@ async function resolveCompanyIdForBrand(brandId?: string) {
   return brand.tenantId;
 }
 
-export const inventoryService = {
+const inventoryService = {
   async getStockSnapshot(companyId: string, brandId?: string, productIds?: string[]) {
     return inventoryRepository.getStockSnapshot(companyId, brandId, productIds);
   },
@@ -70,6 +73,17 @@ export const inventoryService = {
     tx?: Prisma.TransactionClient | PrismaClient,
   ): Promise<{ item: InventoryStockSnapshot; movement: InventoryMovementRecord }> {
     const client = tx ?? prisma;
+    if (!input.idempotencyKey || typeof input.idempotencyKey !== 'string' || input.idempotencyKey.trim() === '') {
+      throw new InventoryInvariantError('idempotencyKey is required for inventory adjustment');
+    }
+    // Idempotency guard (stub)
+    await inventoryRepository.tryBeginIdempotentMutation({
+      idempotencyKey: input.idempotencyKey,
+      inventoryItemId: input.inventoryItemId,
+      actorId: input.actorId,
+      actionType: 'INVENTORY_ADJUSTMENT',
+      tx: client,
+    });
     const inventoryItem = await client.inventoryItem.findUnique({
       where: { id: input.inventoryItemId },
       select: { id: true, companyId: true, brandId: true, productId: true },
@@ -90,6 +104,29 @@ export const inventoryService = {
       referenceId: input.referenceId ?? undefined,
       metadata: input.metadata,
     };
-    return inventoryRepository.adjustStock(adjustInput, input.actorId ?? "system", client);
+    // OCC retry logic
+    const retryBudget = 2;
+    let lastError;
+    for (let attempt = 0; attempt < retryBudget; attempt++) {
+      try {
+        const result = await inventoryRepository.adjustStock(adjustInput, input.actorId ?? "system", client);
+        await inventoryRepository.completeIdempotentMutation({
+          idempotencyKey: input.idempotencyKey,
+          inventoryItemId: input.inventoryItemId,
+          actorId: input.actorId,
+          actionType: 'INVENTORY_ADJUSTMENT',
+          resultSnapshot: result,
+          tx: client,
+        });
+        return result;
+      } catch (err) {
+        if (err instanceof InventoryConcurrencyError) {
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError ?? new InventoryConcurrencyError('Inventory adjustment OCC failed');
   },
 };

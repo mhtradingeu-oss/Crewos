@@ -167,7 +167,7 @@ describe('Inventory OS — Runtime Invariants', () => {
   /* --------------------------------------------------------------- */
   /* 🔒 Atomicity                                                    */
   /* --------------------------------------------------------------- */
-  test('Does not mutate state if persistence fails', async () => {
+test('Concurrency: OCC path executes without retry when no conflict occurs', async () => {
 
     tx.inventoryMovement.create.mockImplementation(() => {
       throw new Error('Simulated persistence failure');

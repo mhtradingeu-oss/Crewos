@@ -7,6 +7,13 @@ export class InventoryInvariantError extends Error {
   }
 }
 
+export class InventoryConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InventoryConcurrencyError';
+  }
+}
+
 export function assertNonNegativeQuantity(quantity: number): void {
   if (quantity < 0) {
     throw new InventoryInvariantError('Quantity must never be negative');

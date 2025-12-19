@@ -1,3 +1,37 @@
+// Idempotency/concurrency guard stubs
+async function tryBeginIdempotentMutation({ idempotencyKey, inventoryItemId, actorId, actionType, tx }: {
+  idempotencyKey: string;
+  inventoryItemId: string;
+  actorId?: string;
+  actionType: string;
+  tx: Prisma.TransactionClient | PrismaClient;
+}): Promise<void> {
+  // Stub: In real impl, would attempt to insert idempotency record
+  return;
+}
+
+async function completeIdempotentMutation({ idempotencyKey, inventoryItemId, actorId, actionType, resultSnapshot, tx }: {
+  idempotencyKey: string;
+  inventoryItemId: string;
+  actorId?: string;
+  actionType: string;
+  resultSnapshot: unknown;
+  tx: Prisma.TransactionClient | PrismaClient;
+}): Promise<void> {
+  // Stub: In real impl, would update idempotency record with result
+  return;
+}
+
+async function getIdempotentResult({ idempotencyKey, inventoryItemId, actorId, actionType, tx }: {
+  idempotencyKey: string;
+  inventoryItemId: string;
+  actorId?: string;
+  actionType: string;
+  tx: Prisma.TransactionClient | PrismaClient;
+}): Promise<unknown | null> {
+  // Stub: In real impl, would fetch result from idempotency record
+  return null;
+}
 import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../core/prisma.js";
 import type {
@@ -140,4 +174,7 @@ export async function adjustStock(
 export const inventoryRepository = {
   getStockSnapshot,
   adjustStock,
+  tryBeginIdempotentMutation,
+  completeIdempotentMutation,
+  getIdempotentResult,
 };
