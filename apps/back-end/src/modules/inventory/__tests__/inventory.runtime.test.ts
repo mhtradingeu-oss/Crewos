@@ -5,17 +5,70 @@
  */
 /// <reference types="jest" />
 import { jest } from '@jest/globals';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
-/* ------------------------------------------------------------------ */
-/* 🔧 Prisma Mock — SINGLETON TX (CRITICAL)                            */
-/* ------------------------------------------------------------------ */
+const buildPrismaPromise = <T>(value: T): Prisma.PrismaPromise<T> =>
+  Promise.resolve(value) as Prisma.PrismaPromise<T>;
 
+type InventoryItemStub = {
+  id: string;
+  companyId: string;
+  brandId: string | null;
+  brandScopeKey: string | null;
+  warehouseId: string | null;
+  productId: string | null;
+  quantityOnHand: number;
+  createdAt: Date;
+  updatedAt: Date;
+  brand: null;
+  product: null;
+  warehouse: null;
+  movements: [];
+};
 
-const inventoryItemFindUnique: jest.Mock = jest.fn();
-const inventoryItemUpsert: jest.Mock = jest.fn();
-const inventoryMovementCreate: jest.Mock = jest.fn();
+type InventoryMovementStub = {
+  id: string;
+  companyId: string;
+  brandId: string | null;
+  productId: string | null;
+  inventoryItemId: string;
+  delta: number;
+  reason: string;
+  referenceId: string | null;
+  metadataJson: Prisma.JsonValue | null;
+  actorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  inventoryItem: null;
+};
 
-// ✅ Singleton TX — reference must NEVER change
+type InventoryEventStub = {
+  id: string;
+  type: string;
+  occurredAt: Date;
+  companyId: string;
+  inventoryItemId: string;
+  idempotencyKey: string;
+  payload: Prisma.JsonValue;
+};
+
+type InventoryItemFindUniqueFn = (
+  args: Parameters<PrismaClient['inventoryItem']['findUnique']>[0],
+) => Prisma.PrismaPromise<InventoryItemStub | null>;
+type InventoryItemUpsertFn = (
+  args: Parameters<PrismaClient['inventoryItem']['upsert']>[0],
+) => Prisma.PrismaPromise<InventoryItemStub>;
+type InventoryMovementCreateFn = (
+  args: Parameters<PrismaClient['inventoryMovement']['create']>[0],
+) => Prisma.PrismaPromise<InventoryMovementStub>;
+
+const inventoryItemFindUnique = jest.fn() as jest.MockedFunction<InventoryItemFindUniqueFn>;
+const inventoryItemUpsert = jest.fn() as jest.MockedFunction<InventoryItemUpsertFn>;
+const inventoryMovementCreate = jest.fn() as jest.MockedFunction<InventoryMovementCreateFn>;
+const inventoryEventCreate = jest.fn() as jest.MockedFunction<(
+  args: Parameters<PrismaClient['inventoryEvent']['create']>[0],
+) => Prisma.PrismaPromise<InventoryEventStub>>;
+
 const tx = {
   inventoryItem: {
     findUnique: inventoryItemFindUnique,
@@ -24,9 +77,9 @@ const tx = {
   inventoryMovement: {
     create: inventoryMovementCreate,
   },
-};
+} as unknown as Prisma.TransactionClient;
 
-const transactionFn = jest.fn(async (fn: any) => fn(tx));
+const transactionFn = jest.fn(async (fn: (client: Prisma.TransactionClient) => Promise<unknown>) => fn(tx));
 
 jest.unstable_mockModule('../../../core/prisma.js', () => ({
   prisma: {
@@ -37,6 +90,9 @@ jest.unstable_mockModule('../../../core/prisma.js', () => ({
     inventoryMovement: {
       create: inventoryMovementCreate,
     },
+    inventoryEvent: {
+      create: inventoryEventCreate,
+    },
     // ✅ ALWAYS return SAME tx reference
     $transaction: transactionFn,
     __tx: tx, // exposed for test control
@@ -46,11 +102,11 @@ jest.unstable_mockModule('../../../core/prisma.js', () => ({
 const [
   { inventoryService },
   { InventoryInvariantError },
-  { prisma },
+
 ] = await Promise.all([
   import('../inventory.service.js'),
   import('../inventory.invariants.js'),
-  import('../../../core/prisma.js'),
+
 ]);
 
 /* ------------------------------------------------------------------ */
@@ -67,42 +123,71 @@ describe('Inventory OS — Runtime Invariants', () => {
 
     const now = new Date();
 
-    tx.inventoryItem.findUnique.mockImplementation(() => ({
-      id: INVENTORY_ITEM_ID,
-      companyId: TENANT_ID,
-      brandId: null,
-      productId: null,
-      quantityOnHand: 10,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    inventoryItemFindUnique.mockImplementation(() =>
+      buildPrismaPromise<InventoryItemStub | null>({
+        id: INVENTORY_ITEM_ID,
+        companyId: TENANT_ID,
+        brandId: null,
+        productId: null,
+        quantityOnHand: 10,
+        createdAt: now,
+        updatedAt: now,
+        brandScopeKey: null,
+        warehouseId: null,
+        brand: null,
+        product: null,
+        warehouse: null,
+        movements: [],
+      } as InventoryItemStub),
+    );
 
+    inventoryItemUpsert.mockImplementation(() =>
+      buildPrismaPromise<InventoryItemStub>({
+        id: INVENTORY_ITEM_ID,
+        companyId: TENANT_ID,
+        brandId: null,
+        productId: null,
+        quantityOnHand: 15,
+        createdAt: now,
+        updatedAt: now,
+        brandScopeKey: null,
+        warehouseId: null,
+        brand: null,
+        product: null,
+        warehouse: null,
+        movements: [],
+      } as InventoryItemStub),
+    );
 
-    tx.inventoryItem.upsert.mockImplementation(() => ({
-      id: INVENTORY_ITEM_ID,
-      companyId: TENANT_ID,
-      brandId: null,
-      productId: null,
-      quantityOnHand: 15,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    inventoryMovementCreate.mockImplementation(() =>
+      buildPrismaPromise<InventoryMovementStub>({
+        id: 'move-1',
+        inventoryItemId: INVENTORY_ITEM_ID,
+        companyId: TENANT_ID,
+        brandId: null,
+        productId: null,
+        delta: 5,
+        reason: 'adjustment',
+        referenceId: null,
+        metadataJson: null,
+        actorId: TENANT_ID,
+        inventoryItem: null,
+        createdAt: now,
+        updatedAt: now,
+      } as InventoryMovementStub),
+    );
 
-
-    tx.inventoryMovement.create.mockImplementation(() => ({
-      id: 'move-1',
-      inventoryItemId: INVENTORY_ITEM_ID,
-      companyId: TENANT_ID,
-      brandId: null,
-      productId: null,
-      delta: 5,
-      reason: 'adjustment',
-      referenceId: null,
-      metadataJson: null,
-      actorId: TENANT_ID,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    inventoryEventCreate.mockImplementation(() =>
+      buildPrismaPromise<InventoryEventStub>({
+        id: 'evt-runtime',
+        type: 'INVENTORY_STOCK_ADJUSTED',
+        occurredAt: new Date(),
+        companyId: TENANT_ID,
+        inventoryItemId: INVENTORY_ITEM_ID,
+        idempotencyKey: 'runtime-event',
+        payload: { eventId: 'runtime' } as Prisma.JsonValue,
+      }),
+    );
   });
 
   /* --------------------------------------------------------------- */
@@ -116,9 +201,10 @@ describe('Inventory OS — Runtime Invariants', () => {
           inventoryItemId: INVENTORY_ITEM_ID,
           delta: -20,
           actorId: TENANT_ID,
+          idempotencyKey: 'runtime-neg-quantity',
         },
-        tx as unknown as import("@prisma/client").PrismaClient
-      )
+        tx as unknown as PrismaClient,
+      ),
     ).rejects.toThrow(InventoryInvariantError);
 
     expect(tx.inventoryItem.upsert).not.toHaveBeenCalled();
@@ -136,9 +222,10 @@ describe('Inventory OS — Runtime Invariants', () => {
           inventoryItemId: INVENTORY_ITEM_ID,
           delta: 1,
           actorId: OTHER_TENANT_ID,
+          idempotencyKey: 'runtime-tenant-mismatch',
         },
-        tx as unknown as import("@prisma/client").PrismaClient
-      )
+        tx as unknown as PrismaClient,
+      ),
     ).rejects.toThrow(InventoryInvariantError);
 
     expect(tx.inventoryItem.upsert).not.toHaveBeenCalled();
@@ -155,9 +242,10 @@ describe('Inventory OS — Runtime Invariants', () => {
           inventoryItemId: INVENTORY_ITEM_ID,
           delta: 5,
           actorId: TENANT_ID,
+          idempotencyKey: 'runtime-valid-adjustment',
         },
-        tx as unknown as import("@prisma/client").PrismaClient
-      )
+        tx as unknown as PrismaClient,
+      ),
     ).resolves.toBeDefined();
 
     expect(tx.inventoryItem.upsert).toHaveBeenCalledTimes(1);
@@ -167,22 +255,22 @@ describe('Inventory OS — Runtime Invariants', () => {
   /* --------------------------------------------------------------- */
   /* 🔒 Atomicity                                                    */
   /* --------------------------------------------------------------- */
-test('Concurrency: OCC path executes without retry when no conflict occurs', async () => {
-
-    tx.inventoryMovement.create.mockImplementation(() => {
+  test('Concurrency: OCC path executes without retry when no conflict occurs', async () => {
+    inventoryMovementCreate.mockImplementation(() => {
       throw new Error('Simulated persistence failure');
     });
 
-
+    
     await expect(
       inventoryService.createInventoryAdjustment(
         {
           inventoryItemId: INVENTORY_ITEM_ID,
           delta: 1,
           actorId: TENANT_ID,
+          idempotencyKey: 'runtime-occ-no-conflict',
         },
-        tx as unknown as import("@prisma/client").PrismaClient
-      )
+        tx as unknown as PrismaClient,
+      ),
     ).rejects.toThrow('Simulated persistence failure');
 
     expect(tx.inventoryItem.upsert).toHaveBeenCalledTimes(1);

@@ -1,3 +1,4 @@
+export * from './dto/inventory-events.js';
 // Automation Observability Binding (Phase C.6 Step 4)
 export * from "./dto/automation-observability-binding.js";
 // Automation Observability Projection & Aggregation (Phase C.6 Step 3)
@@ -40,6 +41,7 @@ export * from "./dto/pricing.js";
 
 // Inventory
 export * from "./dto/inventory.js";
+export * from "./dto/inventory-events.js";
 
 // Finance
 export * from "./dto/finance/index.js";

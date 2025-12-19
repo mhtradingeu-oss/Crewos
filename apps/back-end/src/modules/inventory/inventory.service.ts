@@ -18,7 +18,9 @@ import {
   assertNonNegativeQuantity,
   assertTenantOwnership,
   InventoryInvariantError,
+  InventoryConcurrencyError,
 } from "./inventory.invariants.js";
+import type { InventoryAdjustmentExecutionResult } from "./inventory.events.emitter.js";
 
 type LegacyInventoryAdjustmentInput = {
   inventoryItemId: string;
@@ -86,7 +88,7 @@ const inventoryService = {
     });
     const inventoryItem = await client.inventoryItem.findUnique({
       where: { id: input.inventoryItemId },
-      select: { id: true, companyId: true, brandId: true, productId: true },
+      select: { id: true, companyId: true, brandId: true, productId: true, quantityOnHand: true },
     });
     if (!inventoryItem) {
       throw notFound("Inventory item not found");
@@ -118,6 +120,27 @@ const inventoryService = {
           resultSnapshot: result,
           tx: client,
         });
+        // STRICT: Emit event ONLY after transaction completes
+        const quantityBefore = typeof inventoryItem.quantityOnHand === 'number' ? inventoryItem.quantityOnHand : 0;
+        const quantityAfter = typeof result.item.quantityOnHand === 'number' ? result.item.quantityOnHand : quantityBefore + input.delta;
+        const occurredAt = new Date().toISOString();
+        const eventResult: InventoryAdjustmentExecutionResult = {
+          eventId: `${input.idempotencyKey}`,
+          companyId: inventoryItem.companyId,
+          brandId: inventoryItem.brandId ?? undefined,
+          productId: inventoryItem.productId,
+          inventoryItemId: inventoryItem.id,
+          delta: input.delta,
+          quantityBefore,
+          quantityAfter,
+          idempotencyKey: input.idempotencyKey,
+          actorId: input.actorId ?? 'system',
+          source: 'API', // or 'AUTOMATION'/'SYSTEM' if needed
+          occurredAt,
+        };
+        // Import emitter
+        const { emitInventoryStockAdjustedEvent } = await import('./inventory.events.emitter.js');
+        await emitInventoryStockAdjustedEvent({ executionResult: eventResult });
         return result;
       } catch (err) {
         if (err instanceof InventoryConcurrencyError) {
