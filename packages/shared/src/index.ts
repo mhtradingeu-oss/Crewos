@@ -38,6 +38,8 @@ export * from "./dto/users/index.js";
 
 // Pricing
 export * from "./dto/pricing.js";
+// Automation Event Trigger (Unified Contract)
+export * from "./dto/automation/automation-event-trigger.js";
 
 // Inventory
 export * from "./dto/inventory.js";
