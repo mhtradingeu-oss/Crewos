@@ -1,48 +1,65 @@
-export interface AutomationExecutionStep {
-  executionId: string;
-  ruleId: string;
-  triggerIdempotencyKey: string;
-  status: "PENDING";
-  // The actual execution logic is injected via context
+import type {
+  AutomationActionContext,
+  AutomationActionResult,
+} from "@mh-os/shared";
+import { resolveAction } from "./actions/action.registry.js";
+
+export interface AutomationActionInvocation<TPayload = unknown> {
+  readonly actionKey: string;
+  readonly payload: TPayload;
 }
 
-export interface AutomationExecutionContext {
-  executeStep: (step: AutomationExecutionStep) => Promise<AutomationStepResult>;
-}
+export class AutomationExecutionEngine {
+  async execute<TPayload>(
+    actions: ReadonlyArray<AutomationActionInvocation<TPayload>>,
+    context: AutomationActionContext
+  ): Promise<AutomationActionResult[]> {
+    const results: AutomationActionResult[] = [];
+    for (const action of actions) {
+      const executionResult = await this.executeAction(action, context);
+      results.push(executionResult);
+    }
+    return results;
+  }
 
-export interface AutomationStepResult {
-  executionId: string;
-  ruleId: string;
-  triggerIdempotencyKey: string;
-  status: "SUCCESS" | "FAILED";
-  error?: string;
-}
-
-export interface AutomationExecutionResult {
-  results: AutomationStepResult[];
-}
-
-export async function executeAutomationPlan(input: {
-  plan: AutomationExecutionStep[];
-  context: AutomationExecutionContext;
-}): Promise<AutomationExecutionResult> {
-  const { plan, context } = input;
-  const results: AutomationStepResult[] = [];
-  for (const step of plan) {
-    let result: AutomationStepResult;
-    try {
-      result = await context.executeStep(step);
-      if (!result.status) result.status = "SUCCESS";
-    } catch (err: any) {
-      result = {
-        executionId: step.executionId,
-        ruleId: step.ruleId,
-        triggerIdempotencyKey: step.triggerIdempotencyKey,
-        status: "FAILED",
-        error: err?.message || String(err),
+  private async executeAction<TPayload>(
+    action: AutomationActionInvocation<TPayload>,
+    context: AutomationActionContext
+  ): Promise<AutomationActionResult> {
+    const adapter = resolveAction(action.actionKey);
+    if (!adapter) {
+      return {
+        actionKey: action.actionKey,
+        status: "SKIPPED",
       };
     }
-    results.push(result);
+
+    try {
+      const adapterResult = await adapter.execute(action.payload, context);
+      return {
+        actionKey: adapter.key,
+        status: adapterResult.status ?? "SUCCESS",
+        error: adapterResult.error,
+      };
+    } catch (error) {
+      return {
+        actionKey: adapter.key,
+        status: "FAILED",
+        error: formatErrorMessage(error),
+      };
+    }
   }
-  return { results };
 }
+
+const formatErrorMessage = (value: unknown): string => {
+  if (value instanceof Error) {
+    return value.message;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined || value === null) {
+    return "Unknown automation action error";
+  }
+  return String(value);
+};

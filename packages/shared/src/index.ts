@@ -38,8 +38,21 @@ export * from "./dto/users/index.js";
 
 // Pricing
 export * from "./dto/pricing.js";
+
+// Automation Conditional Action DTOs
+export * from "./dto/automation/conditional-action.js";
+export type {
+  ConditionalActionPayload,
+  ConditionalPredicate,
+} from "./dto/automation/conditional-action.js";
+export type {
+  AutomationActionAdapter,
+  AutomationActionContext,
+  AutomationActionResult,
+} from "./dto/automation/automation-action.js";
 // Automation Event Trigger (Unified Contract)
 export * from "./dto/automation/automation-event-trigger.js";
+export * from "./dto/automation/automation-action.js";
 
 // Inventory
 export * from "./dto/inventory.js";
