@@ -24,7 +24,8 @@
     "seed:tenants": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/tenants.seed.ts",
     "seed:all": "npm run seed:core && npm run seed:tenants",
     "smoke:phase5": "node --loader ts-node/esm --experimental-specifier-resolution=node ./scripts/phase5-automation-smoke.ts",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.config.cjs --passWithNoTests"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.config.cjs --passWithNoTests",
+    "test:automation": "jest --runTestsByPath src/core/automation/engine/engine.test.ts -c jest.config.cjs --testMatch '**/engine.test.ts'"
   },
   "dependencies": {
     "@mh-os/shared": "file:../../packages/shared",

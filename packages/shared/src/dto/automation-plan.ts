@@ -15,7 +15,7 @@ export type ActionPlanItem = {
 };
 
 export type AutomationPlan = {
-  event: AutomationEvent;
+  event: AutomationEvent & { companyId: string }; // companyId is required
 
   matchedRules: Array<{
     ruleId: string;

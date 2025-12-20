@@ -70,12 +70,13 @@ export async function buildProductContext(
     id: item.id,
     warehouseId: item.warehouseId,
     warehouse: item.warehouse?.name,
-    quantity: item.quantity,
+    quantityOnHand: item.quantityOnHand,
+    quantity: item.quantityOnHand,
     updatedAt: item.updatedAt,
   })) ?? [];
 
   const signals = {
-    stockRisk: Math.min(...inventorySnapshot.map((i) => i.quantity ?? 0), Infinity),
+    stockRisk: Math.min(...inventorySnapshot.map((i) => i.quantityOnHand ?? 0), Infinity),
     competitorPressure: competitorSignals.length,
     lastAiPricingSummary: product.aiPricingHistory?.[0]?.summary,
   };
@@ -189,8 +190,10 @@ export async function buildInventoryContext(
   assertScopeOwnership(primary.brandId ?? primary.product?.brandId, primary.brand?.tenantId, options);
 
   const signals = {
-    lowStock: items.filter((i) => i.quantity <= 5).map((i) => ({ id: i.id, quantity: i.quantity })),
-    totalUnits: items.reduce((sum, i) => sum + (i.quantity ?? 0), 0),
+    lowStock: items
+      .filter((i) => i.quantityOnHand <= 5)
+      .map((i) => ({ id: i.id, quantity: i.quantityOnHand })),
+    totalUnits: items.reduce((sum, i) => sum + (i.quantityOnHand ?? 0), 0),
   };
 
   const indexRecord = await maybeEmbed(() => aiIndexers.inventoryItem(primary.id, options), options);
@@ -210,7 +213,8 @@ export async function buildInventoryContext(
       warehouseId: i.warehouseId,
       warehouse: i.warehouse?.name,
       location: i.warehouse?.location,
-      quantity: i.quantity,
+      quantity: i.quantityOnHand,
+      quantityOnHand: i.quantityOnHand,
       updatedAt: i.updatedAt,
     })),
     signals,

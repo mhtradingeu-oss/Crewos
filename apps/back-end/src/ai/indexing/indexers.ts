@@ -318,7 +318,7 @@ export async function indexInventoryItem(itemId: string, scope?: IndexingScope):
 
   const content = [
     `Inventory for ${item.product?.name ?? item.productId}`,
-    `Quantity ${item.quantity}`,
+    `Quantity ${item.quantityOnHand}`,
     item.warehouse ? `Warehouse ${item.warehouse.name}` : undefined,
   ]
     .filter(Boolean)
@@ -331,7 +331,7 @@ export async function indexInventoryItem(itemId: string, scope?: IndexingScope):
     brandId: item.brandId ?? item.product?.brandId,
     tenantId: item.brand?.tenantId,
     title: `${item.product?.name ?? item.productId} @ ${item.warehouse?.name ?? "warehouse"}`,
-    description: `Quantity ${item.quantity}`,
+    description: `Quantity ${item.quantityOnHand}`,
     tags: [item.warehouse?.name ?? "", item.product?.sku ?? ""].filter(Boolean),
     content,
     source: "inventory",
@@ -341,7 +341,7 @@ export async function indexInventoryItem(itemId: string, scope?: IndexingScope):
       productName: item.product?.name,
       sku: item.product?.sku,
       warehouseId: item.warehouseId,
-      quantity: item.quantity,
+      quantity: item.quantityOnHand,
       warehouse: item.warehouse?.name,
       location: item.warehouse?.location,
     },

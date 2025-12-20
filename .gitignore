@@ -28,3 +28,18 @@ apps/back-end/.turbo/
 apps/front-end/.turbo/
 packages/shared/.turbo/
 apps/front-end/tsconfig.tsbuildinfo
+mh-os-superapp-backend@*
+.vscode/
+jest.config.cjs
+
+# Phase0: kill stray workspace artifacts
+mh-os-superapp-backend@0.1.0/
+
+# Phase0: never commit dependencies
+node_modules/
+
+# Phase0: build outputs
+**/dist/
+**/.turbo/
+**/.next/
+**/coverage/

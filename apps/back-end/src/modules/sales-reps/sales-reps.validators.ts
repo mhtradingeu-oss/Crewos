@@ -27,7 +27,7 @@ export const updateSalesRepsSchema = createSalesRepsSchema.partial();
 
 export const createLeadSchema = z.object({
   leadId: z.string().optional(),
-  companyId: z.string().optional(),
+  companyId: z.string({ required_error: 'companyId is required' }),
   territoryId: z.string().optional(),
   source: z.string().optional(),
   score: z.number().positive().optional(),

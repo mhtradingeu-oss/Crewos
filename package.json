@@ -28,6 +28,7 @@
     "seed:core": "cd apps/back-end && npm run seed:core"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/next": "8.0.7",
     "@types/node": "^20.11.17",
     "@types/supertest": "^6.0.3",
@@ -39,14 +40,18 @@
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
     "rimraf": "^5.0.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "turbo": "^2.6.1",
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "cuid": "^3.0.0",
     "next": "16.0.10",
+    "openai": "^6.9.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "openai": "^6.9.1",
     "uuid": "^13.0.0"
   },
   "overrides": {

@@ -1,4 +1,5 @@
 
+
 import { Router } from "express";
 import * as controller from "./automation.explain.controller.js";
 import {
@@ -6,10 +7,31 @@ import {
 	explainRunParams,
 	explainActionRunParams,
 	explainQuery,
+	explainabilityBodyValidator,
 } from "./automation.explain.validators.js";
 import { validateQuery, validateParams } from "../../core/http/middleware/validate.js";
 
 const automationExplainRouter = Router();
+
+// POST / (Phase C.5 Step 1)
+automationExplainRouter.post(
+	"/",
+	explainabilityBodyValidator,
+	controller.explainEvent,
+);
+
+// Snapshot lookup (Phase 7.4)
+automationExplainRouter.get(
+	"/by-rule/:ruleVersionId",
+	validateParams(explainRuleVersionParams),
+	controller.getExplainSnapshotsByRuleVersion,
+);
+
+automationExplainRouter.get(
+	"/:runId",
+	validateParams(explainRunParams),
+	controller.getExplainSnapshotByRunId,
+);
 
 // GET /rule-versions/:ruleVersionId
 automationExplainRouter.get(

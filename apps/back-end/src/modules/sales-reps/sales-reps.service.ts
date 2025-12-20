@@ -165,7 +165,7 @@ class SalesRepsService {
         repId,
         brandId: rep.brandId ?? null,
         leadId: input.leadId ?? null,
-        companyId: input.companyId ?? null,
+        companyId: input.companyId, // required string
         territoryId: input.territoryId ?? null,
         source: input.source,
         score: input.score ? new PrismaNamespace.Decimal(input.score) : undefined,
@@ -523,6 +523,8 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
   if (!inventoryItem) throw notFound("Inventory item not found for product");
   if (inventoryItem.quantity < input.quantity) throw new Error("Insufficient stock");
 
+  const inventoryIdempotencyKey = `salesrep-${input.repId}-${brandId}-${input.productId}-${input.quantity}`;
+
   // استخدم تقريب آمن للمبالغ المالية (2 منازل عشرية)
   const unitPrice = Number(pricing.basePrice);
   const rawAmount = unitPrice * input.quantity;
@@ -538,6 +540,8 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
         brandId,
         delta: -input.quantity,
         reason: `Order placed by sales rep ${input.repId}`,
+        actorId: input.repId,
+        idempotencyKey: inventoryIdempotencyKey,
       },
       tx,
     );

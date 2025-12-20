@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { AutomationPlan } from '../runtime/types.js';
+import type { AutomationPlan } from '@mh-os/shared';
 
 export type AutomationAuditRecord = {
   id: string;
@@ -11,6 +11,7 @@ export type AutomationAuditRecord = {
  * Phase C: in-memory audit store (safe).
  * Later: persist to DB (AutomationRun + ActionRun).
  */
+// Module stability: In-memory audit remains fixed for PHASE 9.2 (final GA documentation only).
 export class AutomationAudit {
   private store = new Map<string, AutomationAuditRecord>();
 
@@ -28,4 +29,11 @@ export class AutomationAudit {
   read(id: string): AutomationAuditRecord | null {
     return this.store.get(id) ?? null;
   }
+}
+
+// Minimal runtime-safe audit function for engine orchestration
+const auditLog: any[] = [];
+export async function recordAudit(entry: any) {
+  // Only store safe, serializable audit entries
+  auditLog.push({ ...entry, at: new Date().toISOString() });
 }

@@ -2,6 +2,8 @@
 // Strictly read-only. See system prompt for architectural constraints.
 
 import type { Request, Response } from "express";
+import type { AuthenticatedRequest } from "../../core/http/http-types.js";
+import { automationMetricsCollector } from "../../core/automation/observability/automation-metrics.js";
 import * as service from "./automation.observability.service.js";
 import {
 	summaryQuerySchema,
@@ -9,6 +11,11 @@ import {
 	failuresQuerySchema,
 	topQuerySchema,
 } from "./automation.observability.validators.js";
+
+const missingCompanyIdPayload = {
+	code: "missing_companyId",
+	message: "Authenticated user context missing companyId (tenantId)",
+};
 
 export async function getSummary(req: Request, res: Response) {
 	const query = summaryQuerySchema.parse(req.query);
@@ -55,4 +62,14 @@ export async function getTop(req: Request, res: Response) {
 	const query = topQuerySchema.parse(req.query);
 	const data = await service.getTop(query);
 	res.json(data);
+}
+
+export function getMetricsSnapshot(req: AuthenticatedRequest, res: Response) {
+	const companyId = req.user?.tenantId;
+	if (!companyId) {
+		res.status(400).json(missingCompanyIdPayload);
+		return;
+	}
+	const snapshot = automationMetricsCollector.snapshot;
+	res.json(snapshot);
 }

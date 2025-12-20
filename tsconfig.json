@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "apps/back-end" },
+    { "path": "apps/front-end" }
+  ]
+}

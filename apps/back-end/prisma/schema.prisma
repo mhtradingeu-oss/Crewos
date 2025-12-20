@@ -1353,6 +1353,22 @@ model SalesRepPerformanceSnapshot {
   rep       SalesRep @relation(fields: [repId], references: [id])
 }
 
+model InventoryEvent {
+  id                String   @id
+  type              String
+  occurredAt         DateTime
+
+  companyId          String
+  inventoryItemId   String
+  idempotencyKey    String   @unique
+
+  payload            Json
+
+  @@index([companyId])
+  @@index([inventoryItemId])
+}
+
+
 model SalesRepCommissionScheme {
   id                String                     @id @default(cuid())
   brandId           String?
@@ -2203,19 +2219,46 @@ model Warehouse {
 }
 
 model InventoryItem {
-  id          String       @id @default(cuid())
-  brandId     String?
-  warehouseId String
-  productId   String
-  quantity    Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  brand       Brand?       @relation(fields: [brandId], references: [id])
-  product     BrandProduct @relation(fields: [productId], references: [id])
-  warehouse   Warehouse    @relation(fields: [warehouseId], references: [id])
+  id            String         @id @default(cuid())
+  companyId     String
+  brandId       String?
+  brandScopeKey String         @default("brandless")
+  warehouseId   String?
+  productId     String
+  quantityOnHand Int           @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  brand         Brand?         @relation(fields: [brandId], references: [id])
+  product       BrandProduct   @relation(fields: [productId], references: [id])
+  warehouse     Warehouse?     @relation(fields: [warehouseId], references: [id])
+  movements     InventoryMovement[]
 
+  @@unique([companyId, brandScopeKey, productId], name: "InventoryItem_company_brand_scope_product_unique")
+  @@index([companyId])
   @@index([brandId])
   @@index([warehouseId])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model InventoryMovement {
+  id              String       @id @default(cuid())
+  inventoryItemId String
+  companyId       String
+  brandId         String?
+  productId       String
+  delta           Int
+  reason          String
+  referenceId     String?
+  metadataJson    Json?
+  actorId         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([companyId])
+  @@index([brandId])
   @@index([productId])
   @@index([createdAt])
 }
@@ -2742,6 +2785,7 @@ model AutomationRun {
   rule              AutomationRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   ruleVersion       AutomationRuleVersion @relation(fields: [ruleVersionId], references: [id], onDelete: Cascade)
   actionRuns        AutomationActionRun[]
+  explainSnapshot   AutomationExplainSnapshot?
 
   @@index([ruleId])
   @@index([ruleVersionId])
@@ -2769,6 +2813,21 @@ model AutomationActionRun {
   run AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
+}
+
+model AutomationExplainSnapshot {
+  id            String       @id @default(cuid())
+  runId         String       @unique
+  ruleVersionId String
+  companyId     String
+  brandId       String?
+  snapshotJson  Json
+  createdAt     DateTime     @default(now())
+
+  run AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([ruleVersionId])
+  @@index([companyId])
 }
 
 model AutomationLog {

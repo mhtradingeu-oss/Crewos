@@ -15,16 +15,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  // Only build runtime entry, exclude type-only index.ts
-  "include": [
-    "src/index.runtime.ts",
-    "src/**/*.ts",
-    "!src/index.ts"
-  ],
-  "files": ["src/index.runtime.ts"],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "src/index.ts"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }

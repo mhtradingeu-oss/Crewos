@@ -1,24 +1,42 @@
 {
   "compilerOptions": {
-    "baseUrl": "./",
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "incremental": true,
-    "types": ["node"],
+    /* ===== Required for paths ===== */
+    "baseUrl": ".",
     "paths": {
       "@mh-os/shared": ["packages/shared/src/index.ts"],
-      "@mh-os/shared/*": ["packages/shared/src/*"],
-      "@/components/*": ["apps/front-end/components/*"],
-      "@/components": ["apps/front-end/components/index.ts"]
-    }
+      "@mh-os/shared/*": ["packages/shared/src/*"]
+    },
+
+    /* ===== Platform ===== */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* ===== Strictness ===== */
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
+
+    /* ===== Monorepo / Build ===== */
+    "composite": true,
+    "incremental": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    /* ===== Interop ===== */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ===== Misc ===== */
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    /* ===== Runtime ===== */
+    "types": ["node"]
   }
 }

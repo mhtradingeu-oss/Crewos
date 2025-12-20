@@ -10,7 +10,8 @@ import type { RulesLogic } from "json-logic-js";
 export type AutomationEvent = {
   name: string;
   occurredAt: string; // ISO string
-  tenantId: string;
+  companyId: string; // MANDATORY tenant context
+  tenantId: string; // legacy, still present for compatibility
   brandId?: string;
   actorUserId?: string;
   correlationId?: string;
@@ -158,4 +159,22 @@ export type AutomationActionRun = z.infer<typeof AutomationActionRunSchema>;
 export type ConditionEvalResult = {
   passed: boolean;
   reason?: string;
+};
+
+export type AutomationActionExecutionSummary = {
+  actionRunId: string;
+  index: number;
+  actionType: string;
+  status: "SUCCESS" | "FAILED";
+  output?: unknown;
+  error?: string;
+};
+
+export type AutomationExecutionResult = {
+  runId: string;
+  status: "SUCCESS" | "FAILED";
+  actions: AutomationActionExecutionSummary[];
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
 };

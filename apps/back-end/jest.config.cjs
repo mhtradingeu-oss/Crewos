@@ -1,19 +1,25 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  testEnvironment: "node",
-  roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.test.ts"],
-  extensionsToTreatAsEsm: [".ts"],
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
+
+  testMatch: ['**/*.test.ts'],
+
+  extensionsToTreatAsEsm: ['.ts'],
+
   transform: {
-    "^.+\\.(ts|tsx)$": [
-      "ts-jest",
+    '^.+\\.ts$': [
+      'ts-jest',
       {
         useESM: true,
-        tsconfig: "<rootDir>/tsconfig.json",
+        tsconfig: '<rootDir>/tsconfig.json',
       },
     ],
   },
+
   moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+
+  clearMocks: true,
 };
