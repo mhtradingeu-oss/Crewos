@@ -138,7 +138,6 @@ export class AutomationRuntime {
     };
     const sink = new NoopAutomationAuditSink();
     // Await the NOOP sink (no side effects)
-    // eslint-disable-next-line no-void
     void sink.capture(envelope);
 
     return {
