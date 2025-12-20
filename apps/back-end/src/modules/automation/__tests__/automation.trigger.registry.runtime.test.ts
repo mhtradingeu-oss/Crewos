@@ -1,15 +1,15 @@
+// IMPORTANT: force trigger registration
+import "../../inventory/inventory.automation.trigger.js";
+
 import { resolveAutomationRules, AutomationRuleDescriptor } from "../automation.trigger.registry.js";
 import { AutomationEventTrigger } from "@mh-os/shared";
 
+
 describe("resolveAutomationRules", () => {
+  // Canonical AutomationEventTrigger mock
   const trigger: AutomationEventTrigger<any> = {
-    eventId: "evt-1",
-    source: "INVENTORY",
-    type: "INVENTORY_STOCK_ADJUSTED",
-    occurredAt: "2025-12-19T12:00:00Z",
-    companyId: "comp-1",
-    idempotencyKey: "idemp-1",
-    payload: {},
+    eventType: "INVENTORY_STOCK_ADJUSTED",
+    buildContext: () => ({ companyId: "comp-1" })
   };
 
   const rules: readonly AutomationRuleDescriptor[] = [
@@ -19,10 +19,12 @@ describe("resolveAutomationRules", () => {
     { ruleId: "r4", eventType: "OTHER_EVENT", companyId: "comp-1", enabled: true },
   ];
 
+
   it("returns only enabled rules", () => {
     const result = resolveAutomationRules(trigger, rules);
-    expect(result.every(r => r.enabled)).toBe(true);
+    expect(result.every((r: AutomationRuleDescriptor) => r.enabled)).toBe(true);
   });
+
 
   it("matches by eventType + companyId", () => {
     const result = resolveAutomationRules(trigger, rules);
@@ -31,9 +33,10 @@ describe("resolveAutomationRules", () => {
     ]);
   });
 
+
   it("ignores disabled rules", () => {
     const result = resolveAutomationRules(trigger, rules);
-    expect(result.find(r => r.ruleId === "r2")).toBeUndefined();
+    expect(result.find((r: AutomationRuleDescriptor) => r.ruleId === "r2")).toBeUndefined();
   });
 
   it("does not mutate input rules array", () => {

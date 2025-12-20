@@ -52,6 +52,7 @@ export class AICrewSessionService {
     const assumptionsSet = new Set<string>();
     const risksSet = new Set<string>();
     let totalConfidence = 0;
+    const aiCrewService = new AICrewService();
     // Sequential execution
     for (let i = 0; i < input.questions.length; ++i) {
       const q = input.questions[i];
@@ -59,7 +60,7 @@ export class AICrewSessionService {
       if (!q.scopes || q.scopes.length < 1 || q.scopes.length > 3) throw new Error('Each question must have 1-3 scopes');
       if (q.agentNames && q.agentNames.length > 3) throw new Error('Max 3 agents per question');
       if (!q.question || q.question.length < 10 || q.question.length > 2000) throw new Error('Question length 10-2000 chars');
-      const result = await (AICrewService as any).runAdvisory({
+      const result = await aiCrewService.runAdvisory({
         scopes: q.scopes,
         agentNames: q.agentNames,
         question: q.question,
@@ -68,10 +69,8 @@ export class AICrewSessionService {
       });
       perQuestion.push({ index: i, question: q.question, result });
       questionHashes.push({ hash: hashQuestion(q.question), length: q.question.length });
-      (result.agents ?? []).forEach((a: string) => agentsUsedSet.add(a));
-      (result.contexts ?? []).forEach((c: string) => contextsUsedSet.add(c));
-      (result.assumptions ?? []).forEach((a: string) => assumptionsSet.add(a));
-      (result.risks ?? []).forEach((r: string) => risksSet.add(r));
+      (result.agentsUsed ?? []).forEach((a: string) => agentsUsedSet.add(a));
+      (result.evidence ?? []).forEach((e: any) => (e.contextUsed ?? []).forEach((c: string) => contextsUsedSet.add(c)));
       totalConfidence += result.confidence;
     }
     // Cross-insights merge

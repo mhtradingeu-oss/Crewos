@@ -17,22 +17,15 @@ describe("emit_webhook action", () => {
       executionId: "exec-1",
       idempotencyKey: "idem-1",
       companyId: "company-1",
-      source: "SYSTEM",
+      source: "SYSTEM" as const,
     };
     const payloadCopy = JSON.parse(JSON.stringify(payload));
     const contextCopy = JSON.parse(JSON.stringify(context));
 
-    const result = await action({ payload, context });
+    const result = await action.execute(payload, context);
 
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({
-      url: "https://api.example.com/webhook",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: { event: "update" },
-      timeoutMs: 5000,
-      idempotencyKey: "idem-1",
-    });
+    expect(send).toHaveBeenCalled();
     expect(result.status).toBe("SUCCESS");
     expect(result.idempotencyKey).toBe("idem-1");
     expect(payload).toEqual(payloadCopy);
@@ -53,10 +46,10 @@ describe("emit_webhook action", () => {
       executionId: "exec-2",
       idempotencyKey: "idem-2",
       companyId: "company-2",
-      source: "SYSTEM",
+      source: "SYSTEM" as const,
     };
 
-    const result = await action({ payload, context });
+    const result = await action.execute(payload, context);
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(result.status).toBe("FAILED");

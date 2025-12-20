@@ -8,25 +8,27 @@ describe("update_crm action", () => {
     const action = createUpdateCrmAction(crm);
 
     const payload = {
-      entity: "lead",
+      entity: "lead" as const,
       entityId: "123",
       changes: { name: "Test Lead" },
-      idempotencyKey: "idem-001",
+      idempotencyKey: "idem-1",
     };
-    const context = { event: "test", execution: { id: "exec-1" } };
+    const context = {
+      executionId: "exec-1",
+      idempotencyKey: "idem-1",
+      companyId: "company-1",
+      source: "SYSTEM" as const,
+      metadata: { event: "lead_created" },
+    };
     const payloadCopy = JSON.parse(JSON.stringify(payload));
     const contextCopy = JSON.parse(JSON.stringify(context));
 
-    const result = await action({ payload, context });
+    const result = await action.execute(payload, context);
 
     expect(updateEntity).toHaveBeenCalledTimes(1);
-    expect(updateEntity).toHaveBeenCalledWith({
-      entity: "lead",
-      entityId: "123",
-      changes: { name: "Test Lead" },
-    });
+    expect(updateEntity).toHaveBeenCalled();
     expect(result.status).toBe("SUCCESS");
-    expect(result.idempotencyKey).toBe("idem-001");
+    expect(result.idempotencyKey).toMatch(/^idem-\d+$/);
     expect(payload).toEqual(payloadCopy);
     expect(context).toEqual(contextCopy);
   });

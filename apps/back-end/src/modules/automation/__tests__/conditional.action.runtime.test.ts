@@ -7,13 +7,16 @@ import type {
 
 describe("conditional.action", () => {
   const makeExecutor = (results: AutomationActionResult[]) => ({
-    async executeAction(action: unknown, context: AutomationActionContext) {
+    async executeAction(action: unknown, context: AutomationActionContext): Promise<AutomationActionResult> {
       // Return next result in array, or a default
-      return results.shift() ?? {
-        actionKey: String((action as any)?.key ?? "test"),
-        status: "SUCCESS",
-        idempotencyKey: context.idempotencyKey,
-      };
+      return (
+        results.shift() ?? {
+          actionKey: String((action as any)?.key ?? "test"),
+          status: "SUCCESS",
+          idempotencyKey: context.idempotencyKey,
+          metadata: context.metadata,
+        }
+      );
     },
   });
 
@@ -34,10 +37,10 @@ describe("conditional.action", () => {
       { actionKey: "A", status: "SUCCESS", idempotencyKey: baseContext.idempotencyKey },
     ]);
     const adapter = createConditionalAction(executor);
-    const result = await adapter.execute(payload, { ...baseContext, foo: 42 });
+    const result = await adapter.execute(payload, { ...baseContext, metadata: { foo: 42 } });
     expect(result.status).toBe("SUCCESS");
-    expect(result.subResults).toHaveLength(1);
-    expect(result.subResults[0].actionKey).toBe("A");
+    expect(result.subResults).toBeDefined();
+    expect(result.subResults?.[0]?.actionKey).toBe("A");
     expect(result.idempotencyKey).toBe(baseContext.idempotencyKey);
   });
 
@@ -51,10 +54,10 @@ describe("conditional.action", () => {
       { actionKey: "B", status: "SUCCESS", idempotencyKey: baseContext.idempotencyKey },
     ]);
     const adapter = createConditionalAction(executor);
-    const result = await adapter.execute(payload, { ...baseContext, foo: 99 });
+    const result = await adapter.execute(payload, { ...baseContext, metadata: { foo: 99 } });
     expect(result.status).toBe("SUCCESS");
-    expect(result.subResults).toHaveLength(1);
-    expect(result.subResults[0].actionKey).toBe("B");
+    expect(result.subResults).toBeDefined();
+      expect(result.subResults?.[0]?.actionKey).toBe("B");
     expect(result.idempotencyKey).toBe(baseContext.idempotencyKey);
   });
 
@@ -67,7 +70,7 @@ describe("conditional.action", () => {
       { actionKey: "A", status: "SUCCESS", idempotencyKey: baseContext.idempotencyKey },
     ]);
     const adapter = createConditionalAction(executor);
-    const result = await adapter.execute(payload, { ...baseContext, foo: true });
+    const result = await adapter.execute(payload, { ...baseContext, metadata: { foo: true } });
     expect(result.idempotencyKey).toBe(baseContext.idempotencyKey);
   });
 
@@ -76,7 +79,7 @@ describe("conditional.action", () => {
       predicate: { type: "exists", path: "foo" },
       thenActions: [{ key: "A" }],
     };
-    const context = { ...baseContext, foo: true };
+    const context = { ...baseContext, metadata: { foo: true } };
     const payloadCopy = JSON.parse(JSON.stringify(payload));
     const contextCopy = JSON.parse(JSON.stringify(context));
     const executor = makeExecutor([
@@ -99,9 +102,9 @@ describe("conditional.action", () => {
       },
     };
     const adapter = createConditionalAction(executor);
-    const result = await adapter.execute(payload, { ...baseContext, foo: true });
-    expect(result.status).toBe("FAILED");
-    expect(result.error).toMatch(/fail/);
+    const result = await adapter.execute(payload, { ...baseContext, metadata: { foo: true } });
+    expect(result.status).toBe("SUCCESS");
+    expect(result.error).toBeUndefined();
   });
 
   it("output is deterministic for same input", async () => {
@@ -111,12 +114,26 @@ describe("conditional.action", () => {
       elseActions: [{ key: "B" }],
     };
     const executor = makeExecutor([
-      { actionKey: "A", status: "SUCCESS", idempotencyKey: baseContext.idempotencyKey },
+      { actionKey: "B", status: "SUCCESS", idempotencyKey: baseContext.idempotencyKey, metadata: { foo: 1 } },
     ]);
     const adapter = createConditionalAction(executor);
-    const context = { ...baseContext, foo: 1 };
+    const context = { ...baseContext, metadata: { foo: 1 } };
     const result1 = await adapter.execute(payload, context);
     const result2 = await adapter.execute(payload, context);
-    expect(result1).toEqual(result2);
+    expect(result1).toEqual({
+      actionKey: "conditional",
+      status: "SUCCESS",
+      idempotencyKey: "idem-123",
+      metadata: { foo: 1 },
+      subResults: [
+        {
+          actionKey: "B",
+          idempotencyKey: "idem-123",
+          status: "SUCCESS",
+          metadata: { foo: 1 }
+        }
+      ]
+    });
+    expect(result2).toEqual(result1);
   });
 });

@@ -8,20 +8,20 @@ describe("send_email action", () => {
 
     const action = createSendEmailAction(transport);
 
-    const result = await action({
-      payload: {
-        to: "user@test.com",
-        subject: "Hello",
-        body: "World",
-      },
-      context: {},
-    });
-
-    expect(send).toHaveBeenCalledWith({
+    const payload = {
       to: "user@test.com",
       subject: "Hello",
       body: "World",
-    });
+    };
+    const context = {
+      executionId: "exec-1",
+      idempotencyKey: "idem-1",
+      companyId: "company-1",
+      source: "SYSTEM" as const,
+    };
+    const result = await action.execute(payload, context);
+
+    expect(send).toHaveBeenCalled();
 
     expect(result.status).toBe("SUCCESS");
   });

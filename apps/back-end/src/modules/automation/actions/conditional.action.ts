@@ -8,10 +8,12 @@ import type {
 
 // Utility: safely get value at path (dot notation) from object
 function getByPath(obj: unknown, path: string): unknown {
-  return path.split(".").reduce((acc, key) =>
-    acc && typeof acc === "object" && key in acc ? (acc as any)[key] : undefined,
-    obj
-  );
+  return path.split(".").reduce<unknown>((acc, key) => {
+    if (acc !== null && typeof acc === "object" && Object.prototype.hasOwnProperty.call(acc, key)) {
+      return (acc as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
 }
 
 function evaluatePredicate(predicate: ConditionalPredicate, context: unknown): boolean {
@@ -31,7 +33,8 @@ function evaluatePredicate(predicate: ConditionalPredicate, context: unknown): b
   }
 }
 
-interface ActionExecutor {
+
+export interface ActionExecutor {
   executeAction(
     action: unknown,
     context: AutomationActionContext
@@ -49,8 +52,18 @@ export function createConditionalAction(
         const branch = evaluatePredicate(predicate, context)
           ? thenActions
           : elseActions ?? [];
+        // Ensure deterministic execution order by sorting actions by key
+        const sortedBranch = [...branch].sort((a, b) => {
+          if (
+            typeof a === 'object' && a !== null && 'key' in a &&
+            typeof b === 'object' && b !== null && 'key' in b
+          ) {
+            return String(a.key).localeCompare(String(b.key));
+          }
+          return 0;
+        });
         const subResults: AutomationActionResult[] = [];
-        for (const action of branch) {
+        for (const action of sortedBranch) {
           // Each action is executed with the same context (read-only)
           const result = await executor.executeAction(action, context);
           subResults.push(result);
@@ -60,6 +73,7 @@ export function createConditionalAction(
           status: "SUCCESS",
           idempotencyKey: context.idempotencyKey,
           subResults,
+          metadata: context.metadata,
         };
       } catch (error) {
         return {
@@ -67,6 +81,7 @@ export function createConditionalAction(
           status: "FAILED",
           idempotencyKey: context.idempotencyKey,
           error: error instanceof Error ? error.message : String(error),
+          metadata: context.metadata,
         };
       }
     },

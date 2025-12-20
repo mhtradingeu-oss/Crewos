@@ -51,7 +51,7 @@ export type {
   AutomationActionResult,
 } from "./dto/automation/automation-action.js";
 // Automation Event Trigger (Unified Contract)
-export * from "./dto/automation/automation-event-trigger.js";
+export * from "./dto/automation/automation-trigger.js";
 export * from "./dto/automation/automation-action.js";
 
 // Inventory

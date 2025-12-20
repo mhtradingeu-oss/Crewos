@@ -16,7 +16,7 @@ describe("AutomationExecutionEngine", () => {
     registerAction({
       key: "ACTION_ONCE",
       async execute(payload) {
-        calls.push(payload?.marker ?? "missing");
+        calls.push((payload as any)?.marker ?? "missing");
         return { actionKey: "ACTION_ONCE", status: "SUCCESS" };
       },
     });
@@ -37,7 +37,7 @@ describe("AutomationExecutionEngine", () => {
     registerAction({
       key: "ACTION_FAIL",
       async execute(payload) {
-        if (payload?.shouldFail) {
+        if ((payload as any)?.shouldFail) {
           throw new Error("boom");
         }
         return { actionKey: "ACTION_FAIL", status: "SUCCESS" };
@@ -51,9 +51,9 @@ describe("AutomationExecutionEngine", () => {
 
     const results = await engine.execute(plan, baseContext);
 
-    expect(results[0].status).toBe("FAILED");
-    expect(results[1].status).toBe("SUCCESS");
-    expect(results[0].error).toBe("boom");
+    expect(results[0]?.status).toBe("FAILED");
+    expect(results[1]?.status).toBe("SUCCESS");
+    expect(results[0]?.error).toBe("boom");
   });
 
   it("preserves the idempotency key for every action", async () => {

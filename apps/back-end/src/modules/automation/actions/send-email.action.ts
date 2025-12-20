@@ -1,7 +1,19 @@
-import { registerAction } from "./action.registry.js";
-import type { AutomationActionAdapter } from "@mh-os/shared";
-import type { EmailTransport } from "./ports/email.transport.js";
+import type {
+  AutomationActionAdapter,
+  AutomationActionContext,
+  AutomationActionResult,
+} from "@mh-os/shared";
 
+import type { EmailTransport } from "./ports/email.transport.js";
+import { registerAction } from "./action.registry.js";
+
+/**
+ * Factory to create the send_email automation action
+ * - Pure adapter
+ * - No IO except via injected transport
+ * - No Prisma
+ * - Deterministic
+ */
 export function createSendEmailAction(
   transport: EmailTransport
 ): AutomationActionAdapter<{
@@ -9,24 +21,33 @@ export function createSendEmailAction(
   subject: string;
   body: string;
 }> {
-  return async ({ payload }) => {
-    await transport.send({
-      to: payload.to,
-      subject: payload.subject,
-      body: payload.body,
-    });
+  return {
+    key: "send_email",
 
-    return {
-      status: "SUCCESS",
-    };
+    async execute(
+      payload,
+      context: AutomationActionContext
+    ): Promise<AutomationActionResult> {
+      await transport.send({
+        to: payload.to,
+        subject: payload.subject,
+        body: payload.body,
+      });
+
+      return {
+        actionKey: "send_email",
+        status: "SUCCESS",
+        idempotencyKey: context.idempotencyKey,
+      };
+    },
   };
 }
 
+/**
+ * Registration helper
+ */
 export function registerSendEmailAction(
   transport: EmailTransport
-) {
-  registerAction(
-    "send_email",
-    createSendEmailAction(transport)
-  );
+): void {
+  registerAction(createSendEmailAction(transport));
 }
