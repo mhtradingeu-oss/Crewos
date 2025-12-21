@@ -4,7 +4,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": ["ES2022"],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -16,9 +16,7 @@
     "types": ["node"],
     "paths": {
       "@mh-os/shared": ["packages/shared/src/index.ts"],
-      "@mh-os/shared/*": ["packages/shared/src/*"],
-      "@/components/*": ["apps/front-end/components/*"],
-      "@/components": ["apps/front-end/components/index.ts"]
+      "@mh-os/shared/*": ["packages/shared/src/*"]
     }
   }
 }
