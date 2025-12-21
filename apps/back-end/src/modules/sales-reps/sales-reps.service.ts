@@ -1,7 +1,4 @@
-import pkg from "@prisma/client";
-import type { Prisma } from "@prisma/client";
 import { aiOrchestrator } from "../../core/ai/orchestrator.js";
-import { prisma } from "../../core/prisma.js";
 import { publish } from "../../core/events/event-bus.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
@@ -32,11 +29,29 @@ import type {
   SalesRepAiPlanRequest,
   SalesRepAiPlanDto,
 } from "./sales-reps.types.js";
-
-const { Prisma: PrismaNamespace } = pkg;
+import {
+  createCrmTask,
+  createSalesLead,
+  createSalesPlanInsight,
+  createSalesRep,
+  createSalesRepKpiSnapshot,
+  createSalesVisit,
+  findSalesRepId,
+  getSalesKpiStats,
+  getSalesRepDetails,
+  listRecentSalesLeads,
+  listRecentSalesVisits,
+  listSalesLeads,
+  listSalesReps,
+  listSalesVisits,
+  updateSalesRep,
+} from "../../core/db/repositories/sales-reps.repository.js";
+import {
+  createSalesOrderTransaction,
+  findDuplicateSalesOrder,
+} from "../../core/db/repositories/sales-orders.repository.js";
 
 class SalesRepsService {
-  constructor(private readonly db = prisma) {}
 
   private resolvePagination(filters: { page?: number; pageSize?: number }) {
     const page = Math.max(1, filters.page ?? 1);
@@ -47,23 +62,7 @@ class SalesRepsService {
 
   async list(filters: SalesRepListFilters): Promise<SalesRepListResult> {
     const { page, pageSize, skip, take } = this.resolvePagination(filters);
-    const where: Prisma.SalesRepWhereInput = {};
-    if (filters.brandId) where.brandId = filters.brandId;
-    if (filters.region) where.region = filters.region;
-    if (filters.status) where.status = filters.status;
-
-    const [total, reps] = await this.db.$transaction([
-      this.db.salesRep.count({ where }),
-      this.db.salesRep.findMany({
-        where,
-        include: {
-          territories: { select: { id: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, reps] = await listSalesReps(filters, { skip, take });
 
     const data: SalesRepListItem[] = reps.map((rep: any) => ({
       id: rep.id,
@@ -79,16 +78,7 @@ class SalesRepsService {
   }
 
   async getById(id: string) {
-    const rep = await this.db.salesRep.findUnique({
-      where: { id },
-      include: {
-        territories: { include: { territory: true } },
-        leads: true,
-        visits: true,
-        quotes: true,
-        orders: true,
-      },
-    });
+    const rep = await getSalesRepDetails(id);
     if (!rep) {
       throw notFound("Sales rep not found");
     }
@@ -96,29 +86,24 @@ class SalesRepsService {
   }
 
   async create(input: SalesRepCreateInput) {
-    const rep = await this.db.salesRep.create({
-      data: {
-        brandId: input.brandId ?? null,
-        userId: input.userId ?? null,
-        code: input.code,
-        region: input.region,
-        status: input.status ?? "ACTIVE",
-      },
+    const rep = await createSalesRep({
+      brandId: input.brandId ?? null,
+      userId: input.userId ?? null,
+      code: input.code,
+      region: input.region,
+      status: input.status ?? "ACTIVE",
     });
     await publish("sales-reps.rep.created", { repId: rep.id }, { module: "sales-reps" });
     return rep;
   }
 
   async update(id: string, input: SalesRepUpdateInput) {
-    const rep = await this.db.salesRep.update({
-      where: { id },
-      data: {
-        brandId: input.brandId ?? undefined,
-        userId: input.userId ?? undefined,
-        code: input.code ?? undefined,
-        region: input.region ?? undefined,
-        status: input.status ?? undefined,
-      },
+    const rep = await updateSalesRep(id, {
+      brandId: input.brandId ?? undefined,
+      userId: input.userId ?? undefined,
+      code: input.code ?? undefined,
+      region: input.region ?? undefined,
+      status: input.status ?? undefined,
     });
     await publish("sales-reps.rep.updated", { repId: rep.id }, { module: "sales-reps" });
     return rep;
@@ -127,18 +112,10 @@ class SalesRepsService {
   async listLeads(repId: string, filters: SalesLeadListFilters): Promise<SalesLeadListResult> {
     await this.ensureRepExists(repId);
     const { page, pageSize, skip, take } = this.resolvePagination(filters);
-    const where: Prisma.SalesLeadWhereInput = { repId };
-    if (filters.status) where.status = filters.status;
-
-    const [total, leads] = await this.db.$transaction([
-      this.db.salesLead.count({ where }),
-      this.db.salesLead.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, leads] = await listSalesLeads(
+      { repId, status: filters.status },
+      { skip, take },
+    );
 
     const data: SalesLeadRecord[] = leads.map((lead: any) => ({
       id: lead.id,
@@ -155,25 +132,19 @@ class SalesRepsService {
   }
 
   async createLead(repId: string, input: SalesLeadInput): Promise<SalesLeadRecord> {
-    const rep = await this.db.salesRep.findUnique({ where: { id: repId } });
-    if (!rep) {
-      throw notFound("Sales rep not found");
-    }
-
-    const lead = await this.db.salesLead.create({
-      data: {
-        repId,
-        brandId: rep.brandId ?? null,
-        leadId: input.leadId ?? null,
-        companyId: input.companyId ?? null,
-        territoryId: input.territoryId ?? null,
-        source: input.source,
-        score: input.score ? new PrismaNamespace.Decimal(input.score) : undefined,
-        stage: input.stage,
-        status: input.status ?? "OPEN",
-        nextAction: input.nextAction,
-        notes: input.notes,
-      },
+    const rep = await this.ensureRepExists(repId);
+    const lead = await createSalesLead({
+      repId,
+      brandId: rep.brandId ?? null,
+      leadId: input.leadId ?? null,
+      companyId: input.companyId ?? null,
+      territoryId: input.territoryId ?? null,
+      source: input.source,
+      score: input.score,
+      stage: input.stage,
+      status: input.status ?? "OPEN",
+      nextAction: input.nextAction,
+      notes: input.notes,
     });
 
     await publish("sales-reps.lead.created", { repId, leadId: lead.id }, { module: "sales-reps" });
@@ -194,15 +165,10 @@ class SalesRepsService {
   async listVisits(repId: string, filters: SalesVisitListFilters): Promise<SalesVisitListResult> {
     await this.ensureRepExists(repId);
     const { page, pageSize, skip, take } = this.resolvePagination(filters);
-    const [total, visits] = await this.db.$transaction([
-      this.db.salesVisit.count({ where: { repId } }),
-      this.db.salesVisit.findMany({
-        where: { repId },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, visits] = await listSalesVisits(
+      { repId },
+      { skip, take },
+    );
 
     const data: SalesVisitRecord[] = visits.map((visit: any) => ({
       id: visit.id,
@@ -218,20 +184,14 @@ class SalesRepsService {
   }
 
   async createVisit(repId: string, input: SalesVisitInput): Promise<SalesVisitRecord> {
-    const rep = await this.db.salesRep.findUnique({ where: { id: repId } });
-    if (!rep) {
-      throw notFound("Sales rep not found");
-    }
-
-    const visit = await this.db.salesVisit.create({
-      data: {
-        repId,
-        brandId: rep.brandId ?? null,
-        partnerId: input.partnerId ?? null,
-        purpose: input.purpose,
-        result: input.result,
-        date: input.date ? new Date(input.date) : undefined,
-      },
+    const rep = await this.ensureRepExists(repId);
+    const visit = await createSalesVisit({
+      repId,
+      brandId: rep.brandId ?? null,
+      partnerId: input.partnerId ?? null,
+      purpose: input.purpose,
+      result: input.result,
+      date: input.date ? new Date(input.date) : undefined,
     });
 
     await publish(
@@ -264,23 +224,14 @@ class SalesRepsService {
   }
 
   async getKpis(repId: string): Promise<SalesKpiSummary> {
-    const rep = await this.db.salesRep.findUnique({ where: { id: repId } });
-    if (!rep) {
-      throw notFound("Sales rep not found");
-    }
+    const rep = await this.ensureRepExists(repId);
+    const { leadCount, visitCount, orderAggregate } = await getSalesKpiStats(repId);
 
-    const [leadCount, visitCount, orderStats] = await this.db.$transaction([
-      this.db.salesLead.count({ where: { repId } }),
-      this.db.salesVisit.count({ where: { repId } }),
-      this.db.salesOrder.aggregate({
-        where: { repId },
-        _count: { id: true },
-        _sum: { total: true },
-      }),
-    ]);
-
-    const totalOrders = orderStats._count?.id ?? 0;
-    const totalRevenue = Number(orderStats._sum?.total ?? 0);
+    const totalOrders =
+      typeof orderAggregate._count === "object" ? orderAggregate._count.id ?? 0 : 0;
+    const totalRevenue = Number(
+      typeof orderAggregate._sum === "object" ? orderAggregate._sum.total ?? 0 : 0,
+    );
     const summary: SalesKpiSummary = {
       repId,
       totalLeads: leadCount,
@@ -290,18 +241,16 @@ class SalesRepsService {
       lastUpdated: new Date(),
     };
 
-    await this.db.salesRepKpiSnapshot.create({
-      data: {
-        brandId: rep.brandId ?? null,
-        repId,
-        period: new Date().toISOString(),
-        metricsJson: JSON.stringify({
-          totalLeads: leadCount,
-          totalVisits: visitCount,
-          totalOrders,
-          totalRevenue,
-        }),
-      },
+    await createSalesRepKpiSnapshot({
+      brandId: rep.brandId ?? null,
+      repId,
+      period: new Date().toISOString(),
+      metricsJson: JSON.stringify({
+        totalLeads: leadCount,
+        totalVisits: visitCount,
+        totalOrders,
+        totalRevenue,
+      }),
     });
 
     await publish("sales-reps.kpi.snapshot", { repId }, { module: "sales-reps" });
@@ -311,22 +260,11 @@ class SalesRepsService {
   }
 
   async getAiPlan(repId: string, input: SalesRepAiPlanRequest): Promise<SalesRepAiPlanDto> {
-    const rep = await this.db.salesRep.findUnique({ where: { id: repId } });
-    if (!rep) {
-      throw notFound("Sales rep not found");
-    }
+    const rep = await this.ensureRepExists(repId);
 
-    const [leads, visits] = await this.db.$transaction([
-      this.db.salesLead.findMany({
-        where: { repId },
-        orderBy: { updatedAt: "desc" },
-        take: 8,
-      }),
-      this.db.salesVisit.findMany({
-        where: { repId },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
+    const [leads, visits] = await Promise.all([
+      listRecentSalesLeads(repId, 8),
+      listRecentSalesVisits(repId, 5),
     ]);
 
     const kpis = await this.getKpis(repId);
@@ -395,13 +333,12 @@ class SalesRepsService {
   }
 
   private async ensureRepExists(repId: string) {
-    const exists = await this.db.salesRep.findUnique({
-      where: { id: repId },
-      select: { id: true },
-    });
-    if (!exists) {
+    const rep = await findSalesRepId(repId);
+    if (!rep) {
       throw notFound("Sales rep not found");
     }
+
+    return rep;
   }
 
   private async createCrmTasksFromPlan(
@@ -415,14 +352,12 @@ class SalesRepsService {
     for (const action of actions) {
       if (!action.leadId) continue;
       const title = action.description?.trim() || `Follow up ${action.type}`;
-      const task = await this.db.cRMTask.create({
-        data: {
-          brandId,
-          leadId: action.leadId,
-          title,
-          status: "OPEN",
-          assignedToId: rep.userId ?? undefined,
-        },
+      const task = await createCrmTask({
+        brandId,
+        leadId: action.leadId,
+        title,
+        status: "OPEN",
+        assignedToId: rep.userId ?? undefined,
       });
       await publish(
         "crm.task.created",
@@ -441,19 +376,17 @@ class SalesRepsService {
     leads: Array<{ leadId: string; name?: string }>,
     createdTasks: Array<{ taskId: string; leadId: string }>,
   ) {
-    await this.db.aIInsight.create({
-      data: {
-        brandId: rep.brandId ?? null,
-        os: "sales",
-        entityType: "sales-plan",
-        entityId: rep.id,
-        summary: plan.summary ?? "AI sales plan summary",
-        details: JSON.stringify({
-          plan,
-          leads,
-          tasks: createdTasks,
-        }),
-      },
+    await createSalesPlanInsight({
+      brandId: rep.brandId ?? null,
+      os: "sales",
+      entityType: "sales-plan",
+      entityId: rep.id,
+      summary: plan.summary ?? "AI sales plan summary",
+      details: JSON.stringify({
+        plan,
+        leads,
+        tasks: createdTasks,
+      }),
     });
   }
 }
@@ -485,19 +418,12 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
   // 0. Idempotency guard: check for duplicate order in last 60s
   const now = new Date();
   const windowStart = new Date(now.getTime() - 60 * 1000);
-  const duplicate = await prisma.salesOrder.findFirst({
-    where: {
-      repId: input.repId,
-      brandId,
-      status: { not: "CANCELLED" },
-      createdAt: { gte: windowStart },
-      items: {
-        some: {
-          productId: input.productId,
-          quantity: input.quantity,
-        },
-      },
-    },
+  const duplicate = await findDuplicateSalesOrder({
+    repId: input.repId,
+    brandId,
+    productId: input.productId,
+    quantity: input.quantity,
+    windowStart,
   });
   if (duplicate) {
     throw new Error("Duplicate order detected: similar order already exists within 60 seconds");
@@ -530,61 +456,26 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
   const roundedUnitPrice = Math.round(unitPrice * 100) / 100;
 
   // 3. Transaction: create order, adjust inventory, create invoice, revenue record
-  const result = await prisma.$transaction(async (tx) => {
-    // 3.1. Adjust inventory (decrement)
-    await inventoryService.createInventoryAdjustment(
-      {
-        inventoryItemId: inventoryItem.id,
-        brandId,
-        delta: -input.quantity,
-        reason: `Order placed by sales rep ${input.repId}`,
-      },
-      tx,
-    );
-
-    // 3.2. Create order
-    const order = await tx.salesOrder.create({
-      data: {
-        repId: input.repId,
-        brandId,
-        status: "PLACED",
-        total: new PrismaNamespace.Decimal(amount),
-        items: {
-          create: {
-            productId: input.productId,
-            quantity: input.quantity,
-            price: new PrismaNamespace.Decimal(roundedUnitPrice),
-          },
-        },
-      },
-    });
-
-    // 3.3. Create FinanceInvoice (core revenue flow)
-    const invoice = await tx.financeInvoice.create({
-      data: {
-        brandId,
-        customerId: undefined, // Extend as needed
-        amount,
-        currency: pricing.currency ?? "EUR",
-        status: "draft",
-        issuedAt: new Date(),
-      },
-    });
-
-    // 3.4. Create RevenueRecord
-    const revenueRecord = await tx.revenueRecord.create({
-      data: {
-        brandId,
-        productId: input.productId,
-        amount,
-        currency: pricing.currency ?? "EUR",
-        periodStart: new Date(),
-        periodEnd: null,
-      },
-    });
-
-    return { order, pricingSnapshot: pricing, invoice, revenueRecord };
+  const transactionResult = await createSalesOrderTransaction({
+    repId: input.repId,
+    brandId,
+    productId: input.productId,
+    quantity: input.quantity,
+    total: amount,
+    unitPrice: roundedUnitPrice,
+    invoiceCurrency: pricing.currency ?? "EUR",
+    invoiceStatus: "draft",
+    invoiceIssuedAt: new Date(),
+    revenueCurrency: pricing.currency ?? "EUR",
+    revenuePeriodStart: new Date(),
+    revenuePeriodEnd: null,
+    inventoryAdjustment: {
+      inventoryItemId: inventoryItem.id,
+      delta: -input.quantity,
+      reason: `Order placed by sales rep ${input.repId}`,
+    },
   });
+  const result = { ...transactionResult, pricingSnapshot: pricing };
 
   const invoiceAmount = Number(result.invoice.amount ?? amount);
   const invoiceCurrency = result.invoice.currency ?? pricing.currency ?? "EUR";
