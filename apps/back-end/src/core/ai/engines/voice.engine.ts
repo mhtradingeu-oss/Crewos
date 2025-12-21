@@ -1,4 +1,10 @@
-import { prisma } from "../../prisma.js";
+import {
+  createVoiceSession,
+  createVoiceTranscript,
+  findVoiceSessionWithDetails,
+  findVoiceSessionWithTranscripts,
+  updateVoiceSession,
+} from "../../db/repositories/voice.repository.js";
 import { runAIRequest, type AIMessage } from "../../ai-service/ai-client.js";
 import { createRunId, recordMonitoringEvent } from "../ai-monitoring.js";
 import { applySafetyLayers } from "../ai-safety.js";
@@ -35,15 +41,13 @@ export type EndVoiceSessionParams = {
 
 export async function startVoiceSession(params: StartVoiceSessionParams) {
   registerVoiceProviders();
-  const session = await prisma.voiceSession.create({
-    data: {
-      brandId: params.brandId ?? null,
-      tenantId: params.tenantId ?? null,
-      ticketId: params.ticketId ?? null,
-      channel: params.channel ?? "voice",
-      locale: params.locale ?? "en",
-      status: "ONGOING",
-    },
+  const session = await createVoiceSession({
+    brandId: params.brandId ?? null,
+    tenantId: params.tenantId ?? null,
+    ticketId: params.ticketId ?? null,
+    channel: params.channel ?? "voice",
+    locale: params.locale ?? "en",
+    status: "ONGOING",
   });
   await recordMonitoringEvent({
     category: "AGENT_ACTIVITY",
@@ -64,23 +68,18 @@ async function persistTranscript(params: {
   actionJson?: Record<string, unknown> | null;
   audioUrl?: string;
 }) {
-  await prisma.voiceTranscript.create({
-    data: {
-      sessionId: params.sessionId,
-      role: params.role,
-      text: params.text,
-      locale: params.locale ?? null,
-      actionJson: params.actionJson ? JSON.stringify(params.actionJson) : null,
-      audioUrl: params.audioUrl ?? null,
-    },
+  await createVoiceTranscript({
+    sessionId: params.sessionId,
+    role: params.role,
+    text: params.text,
+    locale: params.locale ?? null,
+    actionJson: params.actionJson ? JSON.stringify(params.actionJson) : null,
+    audioUrl: params.audioUrl ?? null,
   });
 }
 
 async function loadSession(sessionId: string) {
-  return prisma.voiceSession.findUnique({
-    where: { id: sessionId },
-    include: { transcripts: { orderBy: { createdAt: "asc" } } },
-  });
+  return findVoiceSessionWithTranscripts(sessionId);
 }
 
 export async function processVoiceInput(
@@ -235,15 +234,12 @@ export async function endVoiceSession(params: EndVoiceSessionParams) {
     }
   }
 
-  await prisma.voiceSession.update({
-    where: { id: session.id },
-    data: {
-      status: "ENDED",
-      endedAt: new Date(),
-      summary,
-      sentiment,
-      tagsJson: tags.length ? JSON.stringify(tags) : null,
-    },
+  await updateVoiceSession(session.id, {
+    status: "ENDED",
+    endedAt: new Date(),
+    summary,
+    sentiment,
+    tagsJson: tags.length ? JSON.stringify(tags) : null,
   });
 
   await recordMonitoringEvent({
@@ -265,11 +261,5 @@ export async function endVoiceSession(params: EndVoiceSessionParams) {
 }
 
 export async function getVoiceSession(sessionId: string) {
-  return prisma.voiceSession.findUnique({
-    where: { id: sessionId },
-    include: {
-      transcripts: { orderBy: { createdAt: "asc" } },
-      ticket: true,
-    },
-  });
+  return findVoiceSessionWithDetails(sessionId);
 }

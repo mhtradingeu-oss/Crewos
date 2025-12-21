@@ -1,5 +1,9 @@
 import { forbidden } from "../http/errors.js";
-import { prisma } from "../prisma.js";
+import {
+  findActiveFirewallRules,
+  findActiveSafetyConstraints,
+  findBannedActions,
+} from "../db/repositories/ai-safety.repository.js";
 import type { AIMessage } from "../ai-service/ai-client.js";
 import { recordSafetyEvent, type RiskLevel } from "./ai-monitoring.js";
 
@@ -56,7 +60,7 @@ export async function applyPromptFirewall(
   messages: AIMessage[],
   context: SafetyContext,
 ): Promise<{ messages: AIMessage[]; riskLevel: RiskLevel }> {
-  const rules = await prisma.aIPromptFirewallRule.findMany({ where: { active: true } });
+  const rules = await findActiveFirewallRules();
   if (!rules.length) return { messages, riskLevel: classifyRisk(messages, context.requestedActions) };
   let updated = [...messages];
   for (const rule of rules) {
@@ -103,7 +107,7 @@ export async function applyPromptFirewall(
 }
 
 export async function enforceSafetyConstraints(context: SafetyContext) {
-  const constraints = await prisma.aISafetyConstraint.findMany({ where: { active: true } });
+  const constraints = await findActiveSafetyConstraints();
   if (!constraints.length) return;
   for (const constraint of constraints) {
     const scopeMatches = constraint.scope ? context.namespace?.startsWith(constraint.scope) : true;
@@ -137,7 +141,7 @@ export async function enforceSafetyConstraints(context: SafetyContext) {
 }
 
 export async function enforceBannedActions(context: SafetyContext) {
-  const banned = await prisma.aIBannedAction.findMany();
+  const banned = await findBannedActions();
   if (!banned.length) return;
   const actions = context.requestedActions ?? (context.namespace ? [context.namespace] : []);
   for (const action of actions) {

@@ -1,6 +1,7 @@
 import { badRequest } from "../../http/errors.js";
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import {
   buildBrandContext,
   buildInventoryContext,
@@ -102,12 +103,15 @@ export async function runEngine(input: EngineInput, options?: EngineRunOptions):
   }
 
   const contextOptions = buildContextOptions(input, options);
-  const inventoryCtx = await buildInventoryContext({ productId: input.productId, warehouseId: input.warehouseId }, contextOptions);
-  const productCtx = input.productId ? await buildProductContext(input.productId, contextOptions) : null;
+  const dbGateway = getDbGateway();
+  const inventoryCtx = await buildInventoryContext(dbGateway, { productId: input.productId, warehouseId: input.warehouseId }, contextOptions);
+  const productCtx = input.productId ? await buildProductContext(dbGateway, input.productId, contextOptions) : null;
   const brandFromCtx = (inventoryCtx as { scope?: { brandId?: string } } | null | undefined)?.scope?.brandId
     ?? (productCtx as { scope?: { brandId?: string } } | null | undefined)?.scope?.brandId
     ?? input.brandId;
-  const brandCtx = brandFromCtx ? await buildBrandContext(brandFromCtx, contextOptions).catch(() => null) : null;
+  const brandCtx = brandFromCtx
+    ? await buildBrandContext(dbGateway, brandFromCtx, contextOptions).catch(() => null)
+    : null;
 
   const pipeline = await runAIPipeline({
     agentId: options?.agentIdOverride ?? AGENT_ID,

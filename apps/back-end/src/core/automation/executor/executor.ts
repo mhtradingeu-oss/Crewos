@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import type { AutomationActionRunStatus, AutomationRunStatus } from "@prisma/client";
+import type { AutomationActionRunStatus, AutomationRunStatus } from "../../db/repositories/automation-run.repository.js";
 import type { DomainEvent } from "../../events/domain/types.js";
 import type { AutomationRuleMatch } from "../engine/rule-matcher.js";
 import "../actions/index.js";
@@ -14,7 +14,7 @@ import {
   markRunRunning,
   updateActionRun,
   updateRuleLastRun,
-} from "../engine/run-repository.js";
+} from "../../db/repositories/automation-run.repository.js";
 
 const ACTION_TIMEOUT_MS = 5000;
 const MAX_BACKOFF_MULTIPLIER = 5;

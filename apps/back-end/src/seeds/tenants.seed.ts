@@ -4,6 +4,7 @@ import type { PlanKey } from "../core/plans.js";
 import { seedHairoticmen } from "../modules/brand/hairoticmen.seed.js";
 import { seedAutomationRules } from "./automation.seed.js";
 import type { Plan } from "@prisma/client";
+import { runSeedCli } from "./run-seed-cli.js";
 
 type SeedUserInput = {
   email: string;
@@ -247,15 +248,5 @@ export async function seedTenantsAndBrands() {
 }
 
 if (process.argv[1]?.includes("tenants.seed")) {
-  seedTenantsAndBrands()
-    .then(async () => {
-      await prisma.$disconnect();
-      console.log("✅ Tenant seed run finished");
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ Tenant seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("tenants and brands", seedTenantsAndBrands).then((code) => process.exit(code));
 }

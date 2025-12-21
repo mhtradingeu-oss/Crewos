@@ -1,30 +1,46 @@
-import { registerActivityLogSubscriber } from "../../modules/activity-log/activity-log.subscriber.js";
-import { registerAutomationEventHandlers } from "../../modules/automation/automation.subscriber.js";
-import { registerAutomationEngineSubscriber } from "../automation/engine/subscriber.js";
-import { registerNotificationSubscribers } from "../../modules/notification/notification.subscriber.js";
-import { subscribe } from "./event-bus.js";
-import { PricingEvents } from "../../modules/pricing/pricing.events.js";
-import { registerPricingAutomationSubscriber } from "../../modules/pricing/pricing.subscriber.js";
-import { AuthEvents } from "../../modules/auth/auth.events.js";
-import { InventoryEvents } from "../../modules/inventory/inventory.events.js";
-import { CrmLeadEvents } from "../../modules/crm/crm.events.js";
-import { MarketingEvents } from "../../modules/marketing/marketing.events.js";
-import { registerDomainEventSubscribers } from "./domain-subscribers.js";
-import { BrandEvents } from "../../modules/brand/brand.events.js";
-import { SecurityGovernanceEvents } from "../../modules/security-governance/security-governance.events.js";
+import { subscribe } from "../core/events/event-bus.js";
+import { registerDomainEventSubscribers } from "../core/events/domain-subscribers.js";
 
+// ─────────────────────────────────────────────
+// Module subscribers (composition root ONLY)
+// ─────────────────────────────────────────────
+import { registerActivityLogSubscriber } from "../modules/activity-log/activity-log.subscriber.js";
+import { registerAutomationEventHandlers } from "../modules/automation/automation.subscriber.js";
+import { registerAutomationEngineSubscriber } from "../core/automation/engine/subscriber.js";
+import { registerNotificationSubscribers } from "../modules/notification/notification.subscriber.js";
+import { registerPricingAutomationSubscriber } from "../modules/pricing/pricing.subscriber.js";
+
+// ─────────────────────────────────────────────
+// Event enums (used ONLY for guard registration)
+// ─────────────────────────────────────────────
+import { PricingEvents } from "../modules/pricing/pricing.events.js";
+import { AuthEvents } from "../modules/auth/auth.events.js";
+import { InventoryEvents } from "../modules/inventory/inventory.events.js";
+import { CrmLeadEvents } from "../modules/crm/crm.events.js";
+import { MarketingEvents } from "../modules/marketing/marketing.events.js";
+import { BrandEvents } from "../modules/brand/brand.events.js";
+import { SecurityGovernanceEvents } from "../modules/security-governance/security-governance.events.js";
+
+// ─────────────────────────────────────────────
+// Internal state
+// ─────────────────────────────────────────────
 let initialized = false;
 let domainGuardsRegistered = false;
 
+// ─────────────────────────────────────────────
+// Domain guards (payload presence checks)
+// ─────────────────────────────────────────────
 function registerDomainEventGuards() {
   if (domainGuardsRegistered) return;
 
-  const ensurePayload = (eventName: string) => (event: unknown) => {
-    const payload = (event as { payload?: unknown })?.payload;
-    if (!payload) {
-      console.warn(`[events] Missing payload for ${eventName}`);
-    }
-  };
+  const ensurePayload =
+    (eventName: string) =>
+    (event: unknown): void => {
+      const payload = (event as { payload?: unknown })?.payload;
+      if (!payload) {
+        console.warn(`[events] Missing payload for ${eventName}`);
+      }
+    };
 
   [
     PricingEvents.CREATED,
@@ -90,8 +106,12 @@ function registerDomainEventGuards() {
   domainGuardsRegistered = true;
 }
 
-export function initEventHub() {
+// ─────────────────────────────────────────────
+// Public bootstrap entry
+// ─────────────────────────────────────────────
+export function initEventHub(): void {
   if (initialized) return;
+
   registerActivityLogSubscriber();
   registerAutomationEventHandlers();
   registerAutomationEngineSubscriber();
@@ -99,5 +119,6 @@ export function initEventHub() {
   registerPricingAutomationSubscriber();
   registerDomainEventSubscribers();
   registerDomainEventGuards();
+
   initialized = true;
 }

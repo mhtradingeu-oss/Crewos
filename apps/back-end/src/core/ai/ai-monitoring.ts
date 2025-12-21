@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../prisma.js";
+import {
+  aggregateExecutionCosts,
+  createExecutionLog,
+  createMonitoringEvent,
+  createSafetyEvent,
+  findActiveAgentBudgets,
+} from "../db/repositories/ai-monitoring.repository.js";
+import type { InputJsonValue } from "../db/repositories/ai-monitoring.repository.js";
 import { logger } from "../logger.js";
 import { forbidden } from "../http/errors.js";
 import type { AIMessage } from "../ai-service/ai-client.js";
@@ -57,30 +63,28 @@ export async function logExecution(params: {
   errorMessage?: string;
   brandId?: string | null;
   tenantId?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: InputJsonValue;
 }) {
   try {
-    await prisma.aIExecutionLog.create({
-      data: {
-        runId: params.runId,
-        namespace: params.namespace,
-        agentName: params.agentName,
-        model: params.model,
-        provider: params.provider ?? "openai",
-        status: params.status as any,
-        riskLevel: params.riskLevel as any,
-        latencyMs: params.latencyMs ?? undefined,
-        promptTokens: params.promptTokens ?? undefined,
-        completionTokens: params.completionTokens ?? undefined,
-        totalTokens: params.totalTokens ?? undefined,
-        costUsd: params.costUsd ?? undefined,
-        promptPreview: params.promptPreview?.slice(0, 1000),
-        outputPreview: params.outputPreview?.slice(0, 2000),
-        errorMessage: params.errorMessage?.slice(0, 2000),
-        brandId: params.brandId ?? null,
-        tenantId: params.tenantId ?? null,
-        metadata: params.metadata as Prisma.InputJsonValue | undefined,
-      },
+    await createExecutionLog({
+      runId: params.runId,
+      namespace: params.namespace,
+      agentName: params.agentName,
+      model: params.model,
+      provider: params.provider ?? "openai",
+      status: params.status as any,
+      riskLevel: params.riskLevel as any,
+      latencyMs: params.latencyMs ?? undefined,
+      promptTokens: params.promptTokens ?? undefined,
+      completionTokens: params.completionTokens ?? undefined,
+      totalTokens: params.totalTokens ?? undefined,
+      costUsd: params.costUsd ?? undefined,
+      promptPreview: params.promptPreview?.slice(0, 1000),
+      outputPreview: params.outputPreview?.slice(0, 2000),
+      errorMessage: params.errorMessage?.slice(0, 2000),
+      brandId: params.brandId ?? null,
+      tenantId: params.tenantId ?? null,
+      metadata: params.metadata,
     });
   } catch (err) {
     logger.error(`[AI][monitoring] failed to log execution ${params.runId}: ${String(err)}`);
@@ -90,7 +94,7 @@ export async function logExecution(params: {
 export async function recordMonitoringEvent(params: {
   category: MonitoringCategory;
   status?: string;
-  metric?: Record<string, unknown>;
+  metric?: InputJsonValue;
   agentName?: string;
   engine?: string;
   namespace?: string;
@@ -99,18 +103,16 @@ export async function recordMonitoringEvent(params: {
   tenantId?: string | null;
 }) {
   try {
-    await prisma.aIMonitoringEvent.create({
-      data: {
-        category: params.category as any,
-        status: params.status,
-        metric: params.metric as Prisma.InputJsonValue | undefined,
-        agentName: params.agentName,
-        engine: params.engine,
-        namespace: params.namespace,
-        riskLevel: params.riskLevel as any,
-        brandId: params.brandId ?? null,
-        tenantId: params.tenantId ?? null,
-      },
+    await createMonitoringEvent({
+      category: params.category as any,
+      status: params.status,
+      metric: params.metric,
+      agentName: params.agentName,
+      engine: params.engine,
+      namespace: params.namespace,
+      riskLevel: params.riskLevel as any,
+      brandId: params.brandId ?? null,
+      tenantId: params.tenantId ?? null,
     });
   } catch (err) {
     logger.error(`[AI][monitoring] failed to record event: ${String(err)}`);
@@ -126,25 +128,23 @@ export async function recordSafetyEvent(params: {
   namespace?: string;
   riskLevel?: RiskLevel;
   decision?: string;
-  detail?: Record<string, unknown>;
+  detail?: InputJsonValue;
   brandId?: string | null;
   tenantId?: string | null;
 }) {
   try {
-    await prisma.aISafetyEvent.create({
-      data: {
-        type: params.type as any,
-        action: params.action,
-        ruleId: params.ruleId,
-        runId: params.runId,
-        agentName: params.agentName,
-        namespace: params.namespace,
-        riskLevel: params.riskLevel as any,
-        decision: params.decision,
-        detail: params.detail as any,
-        brandId: params.brandId ?? null,
-        tenantId: params.tenantId ?? null,
-      },
+    await createSafetyEvent({
+      type: params.type as any,
+      action: params.action,
+      ruleId: params.ruleId,
+      runId: params.runId,
+      agentName: params.agentName,
+      namespace: params.namespace,
+      riskLevel: params.riskLevel as any,
+      decision: params.decision,
+      detail: params.detail,
+      brandId: params.brandId ?? null,
+      tenantId: params.tenantId ?? null,
     });
   } catch (err) {
     logger.error(`[AI][safety] failed to record safety event: ${String(err)}`);
@@ -162,23 +162,24 @@ export async function enforceAgentBudget(params: {
   const { agentName } = params;
   const brandId = params.brandId ?? null;
   const tenantId = params.tenantId ?? null;
-  const [budget] = await prisma.aIAgentBudget.findMany({
-    where: { agentName, brandId, tenantId, active: true },
-    take: 1,
-  });
+  const [budget] = await findActiveAgentBudgets({ agentName, brandId, tenantId });
   if (!budget) return;
 
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const daily = await prisma.aIExecutionLog.aggregate({
-    _sum: { costUsd: true, totalTokens: true },
-    where: { agentName, brandId, tenantId, createdAt: { gte: startOfDay } },
+  const daily = await aggregateExecutionCosts({
+    agentName,
+    brandId,
+    tenantId,
+    createdAt: { gte: startOfDay },
   });
-  const monthly = await prisma.aIExecutionLog.aggregate({
-    _sum: { costUsd: true, totalTokens: true },
-    where: { agentName, brandId, tenantId, createdAt: { gte: startOfMonth } },
+  const monthly = await aggregateExecutionCosts({
+    agentName,
+    brandId,
+    tenantId,
+    createdAt: { gte: startOfMonth },
   });
 
   const projectedCostDaily = (daily._sum.costUsd ?? 0) + (params.estimatedCostUsd ?? 0);

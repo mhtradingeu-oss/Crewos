@@ -4,6 +4,7 @@ import { seedPlans } from "./plans.seed.js";
 import { seedTenantsAndBrands } from "./tenants.seed.js";
 import { seedUsers } from "./users.seed.js";
 import { seedPricing } from "./pricing.seed.js";
+import { runSeedCli } from "./run-seed-cli.js";
 
 // Seeded accounts (plain text "MhOs!2025" for local/dev use only):
 // - root@mhos.local (SUPER_ADMIN)
@@ -17,15 +18,5 @@ export async function seedCore() {
 }
 
 if (process.argv[1]?.includes("core.seed")) {
-  seedCore()
-    .then(async () => {
-      console.log("✅ Core seed completed");
-      await prisma.$disconnect();
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ Core seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("core seeds", seedCore).then((code) => process.exit(code));
 }

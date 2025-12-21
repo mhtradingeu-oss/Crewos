@@ -13,23 +13,33 @@ import type {
   AdvisoryEvidence,
   AdvisoryResponse,
 } from './ai-crew.types.js';
+import type { DbGateway } from '../../core/db/db-gateway.js';
+
+export type RunAdvisoryInput = {
+  scopes: string[];
+  agentNames?: string[];
+  question: string;
+  contextRefs?: string[];
+  requestedBy: {
+    userId: string;
+    role: string;
+  };
+};
 
 
 
 export class AICrewService {
+  constructor(private readonly dbGateway?: DbGateway) {}
+
+  static async runAdvisory(input: RunAdvisoryInput, dbGateway?: DbGateway): Promise<AdvisoryResponse> {
+    const service = new AICrewService(dbGateway);
+    return service.runAdvisory(input);
+  }
+
   /**
    * Run an advisory-only multi-agent analysis and recommendation.
    */
-  async runAdvisory(input: {
-    scopes: string[];
-    agentNames?: string[];
-    question: string;
-    contextRefs?: string[];
-    requestedBy: {
-      userId: string;
-      role: string;
-    };
-  }): Promise<AdvisoryResponse> {
+  async runAdvisory(input: RunAdvisoryInput): Promise<AdvisoryResponse> {
     // 1. Strict action gating: skip agents with forbidden actions
     // 2. Deterministic selection: sort by priority ASC, then name ASC, enforce max 3
     // 3. Context guard: wrap context builders, never throw
@@ -113,10 +123,14 @@ export class AICrewService {
       for (const ctx of contextRefs) {
         const builderFn = (ContextBuilders as any)[ctx.builder];
         if (typeof builderFn === 'function') {
+          if (!this.dbGateway) {
+            contextUsed.push(ctx.name + ':unavailable');
+            continue;
+          }
           try {
             // For demo: use dummy IDs, in real use, map input.contextRefs or input data
             const arg = 'demo-id';
-            const result = await Promise.resolve(builderFn(arg, { role: input.requestedBy.role }));
+            const result = await builderFn(this.dbGateway, arg, { role: input.requestedBy.role });
             if (result) {
               builtContexts[ctx.name] = result;
               contextUsed.push(ctx.name);

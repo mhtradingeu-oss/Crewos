@@ -12,6 +12,7 @@ import { runEngine, type EInvoiceEngineOutput } from "../../core/ai/engines/einv
 import { runAIPipeline } from "../../core/ai/pipeline/pipeline-runner.js";
 import { buildValidationPromptPayload } from "../../core/ai/engines/einvoice.prompts.js";
 import { buildInvoiceContext } from "../../ai/context/context-builders.js";
+import { getDbGateway } from "../../bootstrap/db.js";
 
 const SUPPORTED_FORMATS: EInvoiceFormat[] = ["XRECHNUNG", "ZUGFERD"];
 const PEPPOL_HIGH_RISK_THRESHOLD = 10000;
@@ -120,7 +121,8 @@ class EInvoiceService {
   async validate(input: ValidateEInvoiceDto, actor?: PipelineActor) {
     const format = normalizeFormat(input.format);
     const invoice = await this.loadInvoice(input.invoiceId);
-    const invoiceContext = await buildInvoiceContext(input.invoiceId, {
+    const dbGateway = getDbGateway();
+    const invoiceContext = await buildInvoiceContext(dbGateway, input.invoiceId, {
       brandId: invoice.brandId ?? undefined,
       tenantId: invoice.brand?.tenantId ?? undefined,
       role: actor?.role ?? undefined,

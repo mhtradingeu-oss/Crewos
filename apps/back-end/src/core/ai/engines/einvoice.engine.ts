@@ -1,5 +1,6 @@
 import { badRequest } from "../../http/errors.js";
-import { prisma } from "../../prisma.js";
+import { createInsight } from "../../db/repositories/ai-insight.repository.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
 import {
@@ -52,8 +53,8 @@ function normalizeFormat(format: string): SupportedFormat {
 }
 
 function computeLineTotals(ctx: InvoiceContext) {
-  const lineNetTotal = ctx.items.reduce((sum, line) => sum + line.quantity * Number(line.unitPriceNet), 0);
-  const taxTotal = ctx.items.reduce((sum, line) => {
+  const lineNetTotal = ctx.items.reduce((sum: number, line: any) => sum + line.quantity * Number(line.unitPriceNet), 0);
+  const taxTotal = ctx.items.reduce((sum: number, line: any) => {
     const vat = typeof line.vatPct === "number" ? line.vatPct : 0;
     return sum + (line.quantity * Number(line.unitPriceNet) * vat) / 100;
   }, 0);
@@ -80,7 +81,7 @@ function buildContextOptions(options: EngineRunOptions, scope: { brandId?: strin
 
 function renderLineItemsXml(ctx: InvoiceContext, currency: string) {
   return ctx.items
-    .map((item, index) => {
+    .map((item: any, index: number) => {
       const lineNet = item.quantity * Number(item.unitPriceNet);
       const vatPct = typeof item.vatPct === "number" ? item.vatPct : 0;
       const vatAmount = (lineNet * vatPct) / 100;
@@ -139,7 +140,7 @@ function buildXml(format: SupportedFormat, ctx: InvoiceContext): { xml: string; 
     .replace("{paymentReference}", ctx.invoice.id)
     .replace("{deliveryDate}", deliveryDate)
     .replace("{taxTotal}", totals.taxTotal.toFixed(2))
-    .replace("{vatRate}", ctx.items.find((i) => typeof i.vatPct === "number")?.vatPct?.toFixed(2) ?? "0.00")
+    .replace("{vatRate}", ctx.items.find((i: any) => typeof i.vatPct === "number")?.vatPct?.toFixed(2) ?? "0.00")
     .replace("{lineNetTotal}", declaredNet.toFixed(2))
     .replace("{grandTotal}", declaredGrandTotal.toFixed(2))
     .replace("<ram:IncludedSupplyChainTradeLineItem>... line items ...</ram:IncludedSupplyChainTradeLineItem>", renderLineItemsXml(ctx, currency));
@@ -256,16 +257,13 @@ async function persistInsight(
     reasoning: output.reasoning,
   };
 
-  const created = await prisma.aIInsight.create({
-    data: {
-      brandId: scope.brandId ?? null,
-      os: "finance",
-      entityType: "EInvoice",
-      entityId: input.invoiceId,
-      summary: `E-Invoice ${input.format} for ${input.invoiceId}`,
-      details: JSON.stringify(details),
-    },
-    select: { id: true },
+  const created = await createInsight({
+    brandId: scope.brandId ?? null,
+    os: "finance",
+    entityType: "EInvoice",
+    entityId: input.invoiceId,
+    summary: `E-Invoice ${input.format} for ${input.invoiceId}`,
+    details: JSON.stringify(details),
   });
 
   return created.id;
@@ -276,7 +274,8 @@ export async function runEngine(
   options: EngineRunOptions = {},
 ): Promise<EngineRunResponse<EInvoiceEngineOutput>> {
   const format = normalizeFormat(input.format);
-  const invoiceCtx = await buildInvoiceContext(input.invoiceId, buildContextOptions(options, {}));
+  const dbGateway = getDbGateway();
+  const invoiceCtx = await buildInvoiceContext(dbGateway, input.invoiceId, buildContextOptions(options, {}));
   if (!invoiceCtx) {
     throw badRequest("Invoice not found for e-invoice generation");
   }
@@ -285,8 +284,8 @@ export async function runEngine(
   const contextOptions = buildContextOptions(options, scope);
 
   const [brandCtx, financeCtx] = await Promise.all([
-    scope.brandId ? buildBrandContext(scope.brandId, contextOptions).catch(() => null) : Promise.resolve(null),
-    scope.brandId ? buildFinanceContext(scope.brandId, contextOptions).catch(() => null) : Promise.resolve(null),
+    scope.brandId ? buildBrandContext(dbGateway, scope.brandId, contextOptions).catch(() => null) : Promise.resolve(null),
+    scope.brandId ? buildFinanceContext(dbGateway, scope.brandId, contextOptions).catch(() => null) : Promise.resolve(null),
   ]);
 
   const { xml, reasoning } = buildXml(format, invoiceCtx);

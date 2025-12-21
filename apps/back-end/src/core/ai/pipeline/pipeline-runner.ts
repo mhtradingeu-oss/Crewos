@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { badRequest, forbidden } from "../../http/errors.js";
 import { runAIRequest, type AIMessage } from "../../ai-service/ai-client.js";
-import { prisma } from "../../prisma.js";
+import { createInsight } from "../../db/repositories/ai-insight.repository.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { activityLogService } from "../../../modules/activity-log/activity-log.service.js";
 import { AI_AGENTS_MANIFEST, AgentManifestByScope } from "../../../ai/schema/ai-agents-manifest.js";
 import { validateAgentOutput } from "../ai-validators.js";
@@ -31,7 +32,9 @@ import {
   buildProductContext,
   buildSalesRepContext,
   buildSupportContext,
+  type ContextBuilderOptions,
 } from "../../../ai/context/context-builders.js";
+import type { DbGateway } from "../../db/db-gateway.js";
 import { mergeContexts, buildPromptFromContexts, logStage, safeTruncate } from "./pipeline-utils.js";
 import type { PipelineContextMap, PipelineResult, RunAIPipelineParams } from "./pipeline-types.js";
 
@@ -87,95 +90,95 @@ async function triggerOversight(params: {
 
 const contextBuilders: Record<
   string,
-  (task: Record<string, any>, options: Parameters<typeof buildProductContext>[1]) => Promise<unknown>
+  (db: DbGateway, task: Record<string, any>, options?: ContextBuilderOptions) => Promise<unknown>
 > = {
-  buildProductContext: async (task, options) => {
+  buildProductContext: async (db, task, options) => {
     const productId = (task.input?.productId ?? task.productId ?? task.id) as string | undefined;
     if (!productId) throw badRequest("productId is required for product context");
-    return buildProductContext(productId, options);
+    return buildProductContext(db, productId, options);
   },
-  buildPricingContext: async (task, options) => {
+  buildPricingContext: async (db, task, options) => {
     const productId = (task.input?.productId ?? task.productId ?? task.id) as string | undefined;
     if (!productId) throw badRequest("productId is required for pricing context");
-    return buildPricingContext(productId, options);
+    return buildPricingContext(db, productId, options);
   },
-  buildInventoryContext: async (task, options) => {
+  buildInventoryContext: async (db, task, options) => {
     const productId = (task.input?.productId ?? task.productId) as string | undefined;
     const warehouseId = (task.input?.warehouseId ?? task.warehouseId) as string | undefined;
     if (!productId && !warehouseId) throw badRequest("productId or warehouseId required for inventory context");
-    return buildInventoryContext({ productId, warehouseId }, options);
+    return buildInventoryContext(db, { productId, warehouseId }, options);
   },
-  buildCRMClientContext: async (task, options) => {
+  buildCRMClientContext: async (db, task, options) => {
     const clientId = (task.input?.leadId ?? task.input?.clientId ?? task.leadId ?? task.clientId ?? task.id) as
       | string
       | undefined;
     if (!clientId) throw badRequest("leadId/clientId required for CRM context");
-    return buildCRMClientContext(clientId, options);
+    return buildCRMClientContext(db, clientId, options);
   },
-  buildPartnerContext: async (task, options) => {
+  buildPartnerContext: async (db, task, options) => {
     const partnerUserId = (task.input?.partnerUserId ?? task.input?.userId ?? task.userId) as string | undefined;
     const partnerId = (task.input?.partnerId ?? task.partnerId) as string | undefined;
     if (!partnerUserId && !partnerId) throw badRequest("partnerUserId or partnerId required for partner context");
-    return buildPartnerContext({ partnerUserId, partnerId }, options);
+    return buildPartnerContext(db, { partnerUserId, partnerId }, options);
   },
-  buildSalesRepContext: async (task, options) => {
+  buildSalesRepContext: async (db, task, options) => {
     const repId = (task.input?.salesRepId ?? task.input?.repId ?? task.repId ?? task.id) as string | undefined;
     if (!repId) throw badRequest("salesRepId required for sales context");
-    return buildSalesRepContext(repId, options);
+    return buildSalesRepContext(db, repId, options);
   },
-  buildBrandContext: async (task, options) => {
+  buildBrandContext: async (db, task, options) => {
     const brandId = (task.input?.brandId ?? task.brandId ?? options?.brandId) as string | undefined;
     if (!brandId) throw badRequest("brandId required for brand context");
-    return buildBrandContext(brandId, options);
+    return buildBrandContext(db, brandId, options);
   },
-  buildMarketingContext: async (task, options) => {
+  buildMarketingContext: async (db, task, options) => {
     const brandId = (task.input?.brandId ?? task.brandId ?? options?.brandId) as string | undefined;
     if (!brandId) throw badRequest("brandId required for marketing context");
-    return buildMarketingContext(brandId, options);
+    return buildMarketingContext(db, brandId, options);
   },
-  buildFinanceContext: async (task, options) => {
+  buildFinanceContext: async (db, task, options) => {
     const brandId = (task.input?.brandId ?? task.brandId ?? options?.brandId) as string | undefined;
     if (!brandId) throw badRequest("brandId required for finance context");
-    return buildFinanceContext(brandId, options);
+    return buildFinanceContext(db, brandId, options);
   },
-  buildInvoiceContext: async (task, options) => {
+  buildInvoiceContext: async (db, task, options) => {
     const invoiceId = (task.input?.invoiceId ?? task.invoiceId ?? task.id) as string | undefined;
     if (!invoiceId) throw badRequest("invoiceId required for invoice context");
-    return buildInvoiceContext(invoiceId, options);
+    return buildInvoiceContext(db, invoiceId, options);
   },
-  buildOperationsContext: async (task, options) => {
+  buildOperationsContext: async (db, task, options) => {
     const brandId = (task.input?.brandId ?? task.brandId ?? options?.brandId) as string | undefined;
     if (!brandId) throw badRequest("brandId required for operations context");
-    return buildOperationsContext(brandId, options);
+    return buildOperationsContext(db, brandId, options);
   },
-  buildKnowledgeBaseContext: async (task, options) => {
+  buildKnowledgeBaseContext: async (db, task, options) => {
     const documentId = (task.input?.documentId ?? task.input?.knowledgeId ?? task.documentId) as string | undefined;
     if (!documentId) throw badRequest("documentId required for knowledge context");
-    return buildKnowledgeBaseContext(documentId, options);
+    return buildKnowledgeBaseContext(db, documentId, options);
   },
-  buildSupportContext: async (task, options) => {
+  buildSupportContext: async (db, task, options) => {
     const ticketId = (task.input?.ticketId ?? task.ticketId ?? task.id) as string | undefined;
     if (!ticketId) throw badRequest("ticketId required for support context");
-    return buildSupportContext(ticketId, options);
+    return buildSupportContext(db, ticketId, options);
   },
-  buildLoyaltyAccountContext: async (task, options) => {
+  buildLoyaltyAccountContext: async (db, task, options) => {
     const loyaltyCustomerId = (task.input?.loyaltyCustomerId ?? task.input?.accountId ?? task.accountId) as
       | string
       | undefined;
     if (!loyaltyCustomerId) throw badRequest("loyaltyCustomerId required for loyalty context");
-    return buildLoyaltyAccountContext(loyaltyCustomerId, options);
+    return buildLoyaltyAccountContext(db, loyaltyCustomerId, options);
   },
-  buildAutomationContext: async (task, options) => {
+  buildAutomationContext: async (db, task, options) => {
     const ruleId = (task.input?.ruleId ?? task.input?.automationRuleId ?? task.ruleId ?? task.id) as
       | string
       | undefined;
     if (!ruleId) throw badRequest("ruleId required for automation context");
-    return buildAutomationContext(ruleId, options);
+    return buildAutomationContext(db, ruleId, options);
   },
-  buildAIInsightContext: async (task, options) => {
+  buildAIInsightContext: async (db, task, options) => {
     const insightId = (task.input?.insightId ?? task.insightId ?? task.id) as string | undefined;
     if (!insightId) throw badRequest("insightId required for AI insight context");
-    return buildAIInsightContext(insightId, options);
+    return buildAIInsightContext(db, insightId, options);
   },
 };
 
@@ -239,6 +242,7 @@ export async function runAIPipeline(params: RunAIPipelineParams): Promise<Pipeli
     };
   }
 
+  const db = getDbGateway();
   const contexts: Record<string, unknown> = {};
   for (const ctx of agent.inputContexts ?? []) {
     const builderName = ctx.builder as keyof typeof contextBuilders;
@@ -248,7 +252,7 @@ export async function runAIPipeline(params: RunAIPipelineParams): Promise<Pipeli
       continue;
     }
     try {
-      const context = await builder(params.task as Record<string, any>, {
+      const context = await builder(db, params.task as Record<string, any>, {
         brandId,
         tenantId,
         role: params.actor?.role ?? undefined,
@@ -401,17 +405,15 @@ Capabilities: ${(agent.capabilities ?? []).join(", ")}. Required contexts: ${(ag
 
   const insightEntityType = autonomyDecision.requireApproval ? "pending-approval" : "agent";
 
-  const insight = await prisma.aIInsight.create({
-    data: {
-      brandId: brandId ?? null,
-      os: agent.scope,
-      entityType: insightEntityType,
-      entityId: targetEntityId ?? agent.name,
-      summary: typeof validatedOutput === "object" && validatedOutput !== null && "summary" in (validatedOutput as Record<string, unknown>)
-        ? String((validatedOutput as Record<string, unknown>).summary)
-        : `${agent.name} output`,
-      details: safeTruncate({ output: validatedOutput, contexts, task: params.task, autonomy: autonomyDecision }, 4000),
-    },
+  const insight = await createInsight({
+    brandId: brandId ?? null,
+    os: agent.scope,
+    entityType: insightEntityType,
+    entityId: targetEntityId ?? agent.name,
+    summary: typeof validatedOutput === "object" && validatedOutput !== null && "summary" in (validatedOutput as Record<string, unknown>)
+      ? String((validatedOutput as Record<string, unknown>).summary)
+      : `${agent.name} output`,
+    details: safeTruncate({ output: validatedOutput, contexts, task: params.task, autonomy: autonomyDecision }, 4000),
   });
 
   logs.push(logStage("persistAIOutput", { insightId: insight.id }));

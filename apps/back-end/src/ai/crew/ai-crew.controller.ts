@@ -3,11 +3,12 @@
 
 import { Router, Request, Response } from 'express';
 import { AICrewService } from './ai-crew.service.js';
+import { getDbGateway } from '../../bootstrap/db.js';
 import { AdvisoryRequestSchema } from './ai-crew.types.js';
 import { authenticateRequest } from '../../core/security/auth-middleware.js';
 import { requirePermission } from '../../core/security/rbac.js';
 
-const aiCrewService = new AICrewService();
+const aiCrewService = new AICrewService(getDbGateway());
 
 export class AICrewController {
   static async advisory(req: Request, res: Response) {

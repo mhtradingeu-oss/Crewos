@@ -1,5 +1,6 @@
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { buildBrandContext, buildPartnerContext, type ContextBuilderOptions } from "../../../ai/context/context-builders.js";
 import type { EngineRunOptions } from "./engine-types.js";
 
@@ -76,9 +77,12 @@ function normalizeOutput(raw: unknown): {
 
 export async function runEngine(input: EngineInput, options?: EngineRunOptions): Promise<EngineOutput> {
   const contextOptions = buildContextOptions(input, options);
-  const partnerCtx = await buildPartnerContext(input.partnerUserId, contextOptions);
+  const dbGateway = getDbGateway();
+  const partnerCtx = await buildPartnerContext(dbGateway, input.partnerUserId, contextOptions);
   const brandFromCtx = (partnerCtx as { scope?: { brandId?: string } } | null | undefined)?.scope?.brandId ?? input.brandId;
-  const brandCtx = brandFromCtx ? await buildBrandContext(brandFromCtx, contextOptions).catch(() => null) : null;
+  const brandCtx = brandFromCtx
+    ? await buildBrandContext(dbGateway, brandFromCtx, contextOptions).catch(() => null)
+    : null;
 
   const pipeline = await runAIPipeline({
     agentId: options?.agentIdOverride ?? AGENT_ID,

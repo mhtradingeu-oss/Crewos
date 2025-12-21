@@ -1,4 +1,4 @@
-import { prisma } from "../../prisma.js";
+import { findTicketWithMessages } from "../../db/repositories/support.repository.js";
 import { runAIRequest, type AIMessage } from "../../ai-service/ai-client.js";
 import { createRunId, recordMonitoringEvent } from "../ai-monitoring.js";
 import { detectLanguage } from "../ai-utils.js";
@@ -25,13 +25,7 @@ function fallbackRouting(locale: string): TicketRoutingResult {
 
 async function buildRoutingContext(params: SupportRouterParams) {
   const ticket = params.ticketId
-    ? await prisma.ticket.findUnique({
-        where: { id: params.ticketId },
-        include: {
-          messages: { orderBy: { createdAt: "asc" }, take: 10 },
-          tags: true,
-        },
-      })
+    ? await findTicketWithMessages(params.ticketId, { order: "asc", take: 10 })
     : null;
   return { ticket };
 }

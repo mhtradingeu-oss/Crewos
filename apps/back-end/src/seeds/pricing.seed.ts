@@ -1,4 +1,5 @@
 import { prisma } from "../core/prisma.js";
+import { runSeedCli } from "./run-seed-cli.js";
 
 type SeedProductConfig = {
   slug: string;
@@ -184,14 +185,5 @@ export async function seedPricing() {
 }
 
 if (process.argv[1]?.includes("pricing.seed")) {
-  seedPricing()
-    .then(async () => {
-      await prisma.$disconnect();
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ Pricing seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("pricing", seedPricing).then((code) => process.exit(code));
 }

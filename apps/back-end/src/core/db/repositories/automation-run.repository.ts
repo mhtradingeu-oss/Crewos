@@ -1,5 +1,8 @@
 import { Prisma } from "@prisma/client";
-import type { AutomationActionRunStatus, AutomationRunStatus } from "@prisma/client";
+import type {
+  AutomationActionRunStatus as PrismaAutomationActionRunStatus,
+  AutomationRunStatus as PrismaAutomationRunStatus,
+} from "@prisma/client";
 import { prisma } from "../../prisma.js";
 
 
@@ -35,7 +38,7 @@ export async function markRunRunning(runId: string) {
 
 export async function finalizeAutomationRun(params: {
   runId: string;
-  status: AutomationRunStatus;
+  status: PrismaAutomationRunStatus;
   summary: unknown;
   error?: unknown;
 }) {
@@ -71,7 +74,7 @@ export async function createActionRun(params: {
 export async function updateActionRun(
   actionRunId: string,
   data: {
-    status?: AutomationActionRunStatus;
+    status?: PrismaAutomationActionRunStatus;
     actionIndex?: number;
     actionType?: string;
     dedupKey?: string;
@@ -115,9 +118,12 @@ export async function findActionRunByDedupKey(dedupKey: string) {
   return prisma.automationActionRun.findUnique({ where: { dedupKey } });
 }
 
-export async function updateRuleLastRun(ruleId: string, status: AutomationRunStatus) {
+export async function updateRuleLastRun(ruleId: string, status: PrismaAutomationRunStatus) {
   await prisma.automationRule.update({
     where: { id: ruleId },
     data: { lastRunAt: new Date(), lastRunStatus: status },
   });
 }
+
+export type AutomationActionRunStatus = PrismaAutomationActionRunStatus;
+export type AutomationRunStatus = PrismaAutomationRunStatus;

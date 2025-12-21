@@ -1,6 +1,7 @@
 import { prisma } from "../core/prisma.js";
 import { planDefinitions } from "../core/plans.js";
 import type { Prisma } from "@prisma/client";
+import { runSeedCli } from "./run-seed-cli.js";
 
 export async function seedPlans() {
   const plans = Object.values(planDefinitions) as Array<{
@@ -29,15 +30,5 @@ export async function seedPlans() {
 }
 
 if (process.argv[1]?.includes("plans.seed")) {
-  seedPlans()
-    .then(async () => {
-      console.log("✅ Plan catalog seed completed");
-      await prisma.$disconnect();
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ Plan catalog seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("plan catalog", seedPlans).then((code) => process.exit(code));
 }

@@ -2,6 +2,7 @@ import { prisma } from "../core/prisma.js";
 import { env } from "../core/config/env.js";
 import { hashPassword, verifyPassword } from "../core/security/password.js";
 import type { Prisma } from "@prisma/client";
+import { runSeedCli } from "./run-seed-cli.js";
 
 const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
 
@@ -90,14 +91,5 @@ function ensureRoleList(value: Prisma.JsonValue | null): string[] {
 }
 
 if (process.argv[1]?.includes("admin.seed")) {
-  seedSuperAdmin()
-    .then(async () => {
-      await prisma.$disconnect();
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ Admin seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("SUPER_ADMIN account", seedSuperAdmin).then((code) => process.exit(code));
 }

@@ -6,36 +6,40 @@ import * as AICrewServiceModule from '../ai-crew.service.js';
 
 // Manual mock for AICrewService.runAdvisory (ESM compatible)
 beforeAll(() => {
-  jest.spyOn(AICrewServiceModule.AICrewService.prototype, 'runAdvisory').mockImplementation(async ({ question, agentNames }) => ({
-    summary: 'mock summary',
-    recommendations: [
-      {
-        agent: (agentNames && agentNames[0]) || 'agent1',
-        recommendation: question.includes('increase') ? 'increase sales' : 'decrease costs',
-        rationale: 'mock rationale',
-        risks: ['risk Y'],
-        assumptions: ['assume X'],
-      },
-      {
-        agent: (agentNames && agentNames[0]) || 'agent1',
-        recommendation: 'standardize process',
-        rationale: 'mock rationale',
-        risks: ['risk Y'],
-        assumptions: ['assume X'],
-      },
-    ],
-    agentsUsed: agentNames || ['agent1'],
-    evidence: [
-      {
-        agent: (agentNames && agentNames[0]) || 'agent1',
-        analysis: 'mock analysis',
-        contextUsed: ['contextA'],
-        risks: ['risk Y'],
-        assumptions: ['assume X'],
-      },
-    ],
-    confidence: question.includes('conflict') ? 0.7 : 0.8,
-  }));
+  jest.spyOn(AICrewServiceModule.AICrewService.prototype, 'runAdvisory').mockImplementation(async ({ question, agentNames }) => {
+    const topic = question.includes('sales') ? 'sales' : 'costs';
+    const verb = question.includes('increase') ? 'increase' : question.includes('decrease') ? 'decrease' : 'adjust';
+    return {
+      summary: 'mock summary',
+      recommendations: [
+        {
+          agent: (agentNames && agentNames[0]) || 'agent1',
+          recommendation: `${verb} ${topic}`,
+          rationale: 'mock rationale',
+          risks: ['risk Y'],
+          assumptions: ['assume X'],
+        },
+        {
+          agent: (agentNames && agentNames[0]) || 'agent1',
+          recommendation: 'standardize process',
+          rationale: 'mock rationale',
+          risks: ['risk Y'],
+          assumptions: ['assume X'],
+        },
+      ],
+      agentsUsed: agentNames || ['agent1'],
+      evidence: [
+        {
+          agent: (agentNames && agentNames[0]) || 'agent1',
+          analysis: 'mock analysis',
+          contextUsed: ['contextA'],
+          risks: ['risk Y'],
+          assumptions: ['assume X'],
+        },
+      ],
+      confidence: question.includes('conflict') ? 0.7 : 0.8,
+    };
+  });
 });
 
 const baseInput: AdvisorySessionInput = {

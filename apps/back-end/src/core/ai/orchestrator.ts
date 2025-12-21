@@ -1,4 +1,10 @@
-import { prisma } from "../prisma.js";
+import {
+  findAgentConfigByName,
+  findAgentConfigByScope,
+  findBrandContext,
+  findDefaultAgentConfig,
+  findRestrictionPolicies,
+} from "../db/repositories/ai-orchestrator.repository.js";
 import { forbidden } from "../http/errors.js";
 import { runAIRequest, type AIRequest, type AIMessage } from "../ai-service/ai-client.js";
 import {
@@ -326,13 +332,15 @@ export class AiOrchestrator {
 
   private async getAgent(brandId: unknown, scopeOrName: string) {
     const agent =
-      (await prisma.aIAgentConfig.findFirst({
-        where: { brandId: brandId as string | undefined, name: scopeOrName },
+      (await findAgentConfigByName({
+        brandId: brandId as string | undefined,
+        name: scopeOrName,
       })) ??
-      (await prisma.aIAgentConfig.findFirst({
-        where: { brandId: brandId as string | undefined, osScope: scopeOrName },
+      (await findAgentConfigByScope({
+        brandId: brandId as string | undefined,
+        osScope: scopeOrName,
       }));
-    return agent ?? (await prisma.aIAgentConfig.findFirst({ where: { name: "default" } }));
+    return agent ?? (await findDefaultAgentConfig());
   }
 
   private async getBrandContext(brandId: unknown): Promise<Record<string, unknown>> {
@@ -341,10 +349,7 @@ export class AiOrchestrator {
     const cached = brandContextCache.get(id);
     if (cached) return cached;
 
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-      include: { aiConfig: true, identity: true },
-    });
+    const brand = await findBrandContext(id);
     if (!brand) return {};
 
     const context = {
@@ -450,7 +455,7 @@ export class AiOrchestrator {
   }
 
   private async enforceRestrictions(scope: string, brandId?: string) {
-    const policies = await prisma.aIRestrictionPolicy.findMany({ select: { rulesJson: true } });
+    const policies = await findRestrictionPolicies();
     if (!policies.length) return;
     for (const policy of policies) {
       const parsed = this.parseRestriction(policy.rulesJson);

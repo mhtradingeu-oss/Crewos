@@ -1,5 +1,6 @@
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { buildBrandContext, buildPricingContext, buildProductContext, type ContextBuilderOptions } from "../../../ai/context/context-builders.js";
 import type { EngineRunOptions } from "./engine-types.js";
 
@@ -88,9 +89,10 @@ function normalizeOutput(raw: unknown): {
 
 export async function runEngine(input: EngineInput, options?: EngineRunOptions): Promise<EngineOutput> {
   const contextOptions = buildContextOptions(input, options);
+  const dbGateway = getDbGateway();
   const [productCtx, pricingCtx] = await Promise.all([
-    buildProductContext(input.productId, contextOptions),
-    buildPricingContext(input.productId, contextOptions),
+    buildProductContext(dbGateway, input.productId, contextOptions),
+    buildPricingContext(dbGateway, input.productId, contextOptions),
   ]);
 
   const brandId = options?.brandId
@@ -102,7 +104,7 @@ export async function runEngine(input: EngineInput, options?: EngineRunOptions):
     ?? (pricingCtx as { scope?: { tenantId?: string } } | null | undefined)?.scope?.tenantId
     ?? (productCtx as { scope?: { tenantId?: string } } | null | undefined)?.scope?.tenantId;
 
-  const brandCtx = brandId ? await buildBrandContext(brandId, contextOptions).catch(() => null) : null;
+  const brandCtx = brandId ? await buildBrandContext(dbGateway, brandId, contextOptions).catch(() => null) : null;
 
   const pipeline = await runAIPipeline({
     agentId: options?.agentIdOverride ?? AGENT_ID,

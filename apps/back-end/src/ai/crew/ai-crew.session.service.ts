@@ -14,6 +14,8 @@ import {
   AdvisorySessionExplainability,
 } from './ai-crew.session.types.js';
 import { AICrewService } from './ai-crew.service.js';
+import type { DbGateway } from '../../core/db/db-gateway.js';
+import type { AdvisoryRecommendation } from './ai-crew.types.js';
 
 // In-memory session store (safe metadata only)
 const sessionStore: AdvisorySessionMemoryStore = new Map();
@@ -39,7 +41,7 @@ export class AICrewSessionService {
     return sessionStore.get(sessionId);
   }
 
-  static async runAdvisorySession(input: AdvisorySessionInput): Promise<AdvisorySessionOutput> {
+  static async runAdvisorySession(input: AdvisorySessionInput, dbGateway?: DbGateway): Promise<AdvisorySessionOutput> {
     pruneExpiredSessions();
     if (!input.questions || input.questions.length < 1 || input.questions.length > 10) {
       throw new Error('Must provide 1-10 questions');
@@ -65,8 +67,12 @@ export class AICrewSessionService {
         question: q.question,
         contextRefs: q.contextRefs,
         requestedBy: input.requestedBy,
-      });
-      perQuestion.push({ index: i, question: q.question, result });
+      }, dbGateway);
+      const sessionResult = {
+        ...result,
+        recommendations: (result.recommendations ?? []).map((rec: AdvisoryRecommendation) => rec.recommendation),
+      };
+      perQuestion.push({ index: i, question: q.question, result: sessionResult });
       questionHashes.push({ hash: hashQuestion(q.question), length: q.question.length });
       (result.agents ?? []).forEach((a: string) => agentsUsedSet.add(a));
       (result.contexts ?? []).forEach((c: string) => contextsUsedSet.add(c));
@@ -75,8 +81,8 @@ export class AICrewSessionService {
       totalConfidence += result.confidence;
     }
     // Cross-insights merge
-    const allRecs: string[] = perQuestion.flatMap(q => q.result.recommendations || []);
-    const norm = (s: string) => s.toLowerCase().replace(/[.,!?;:]/g, '').trim().slice(0, 120);
+    const allRecs: string[] = perQuestion.flatMap((q) => q.result.recommendations ?? []);
+    const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[.,!?;:]/g, '').trim().slice(0, 120);
     const recMap = new Map<string, string>();
     for (const rec of allRecs) {
       const k = norm(rec);
@@ -102,7 +108,11 @@ export class AICrewSessionService {
             if ((recNorm ?? '').startsWith(verb1 ?? '')) {
               const topic = ((recNorm ?? '').replace(verb1 ?? '', '') ?? '').trim();
               if (!topics.has(topic)) topics.set(topic, { agents: new Set(), notes: [] });
-              topics.get(topic)!.agents.add((q.result.agents && q.result.agents[0]) ? q.result.agents[0] : 'unknown');
+              const agentLabel =
+                (q.result.agents && q.result.agents[0])
+                ?? (q.result.agentsUsed && q.result.agentsUsed[0])
+                ?? 'unknown';
+              topics.get(topic)!.agents.add(agentLabel);
               topics.get(topic)!.notes.push(rec);
             }
           }

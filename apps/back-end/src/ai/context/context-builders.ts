@@ -1,5 +1,5 @@
 import { forbidden } from "../../core/http/errors.js";
-import { prisma } from "../../core/prisma.js";
+import type { DbGateway } from "../../core/db/db-gateway.js";
 import { aiIndexers } from "../indexing/indexers.js";
 import { assertScopeOwnership, type IndexRecord, type IndexingScope } from "../indexing/indexer-types.js";
 
@@ -37,11 +37,12 @@ function scopeFrom(brandId?: string | null, tenantId?: string | null) {
 }
 
 export async function buildProductContext(
+  db: DbGateway,
   productId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.product"], options);
-  const product = await prisma.brandProduct.findUnique({
+  const product = await db.brandProductFindUnique({
     where: { id: productId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true, slug: true, defaultCurrency: true } },
@@ -56,7 +57,7 @@ export async function buildProductContext(
   if (!product) return null;
   assertScopeOwnership(product.brandId, undefined, options);
 
-  const competitorSignals = product.competitorPrices?.map((row) => ({
+  const competitorSignals = product.competitorPrices?.map((row: any) => ({
     id: row.id,
     competitor: row.competitor,
     country: row.country,
@@ -66,7 +67,7 @@ export async function buildProductContext(
     collectedAt: row.collectedAt,
   })) ?? [];
 
-  const inventorySnapshot = product.inventoryItems?.map((item) => ({
+  const inventorySnapshot = product.inventoryItems?.map((item: any) => ({
     id: item.id,
     warehouseId: item.warehouseId,
     warehouse: item.warehouse?.name,
@@ -75,7 +76,7 @@ export async function buildProductContext(
   })) ?? [];
 
   const signals = {
-    stockRisk: Math.min(...inventorySnapshot.map((i) => i.quantity ?? 0), Infinity),
+    stockRisk: Math.min(...inventorySnapshot.map((i: any) => i.quantity ?? 0), Infinity),
     competitorPressure: competitorSignals.length,
     lastAiPricingSummary: product.aiPricingHistory?.[0]?.summary,
   };
@@ -107,11 +108,12 @@ export async function buildProductContext(
 }
 
 export async function buildPricingContext(
+  db: DbGateway,
   productId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.pricing"], options);
-  const pricing = await prisma.productPricing.findUnique({
+  const pricing = await db.productPricingFindUnique({
     where: { productId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true, defaultCurrency: true } },
@@ -121,19 +123,19 @@ export async function buildPricingContext(
   if (!pricing) return null;
   assertScopeOwnership(pricing.brandId ?? pricing.product?.brandId, pricing.brand?.tenantId, options);
 
-  const competitorPrices = await prisma.competitorPrice.findMany({
+  const competitorPrices = await db.competitorPriceFindMany({
     where: { productId },
     orderBy: { createdAt: "desc" },
     take: 5,
   });
 
-  const drafts = await prisma.productPriceDraft.findMany({
+  const drafts = await db.productPriceDraftFindMany({
     where: { productId },
     orderBy: { createdAt: "desc" },
     take: 5,
   });
 
-  const aiHistory = await prisma.aIPricingHistory.findMany({
+  const aiHistory = await db.aIPricingHistoryFindMany({
     where: { productId },
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -142,7 +144,7 @@ export async function buildPricingContext(
   const signals = {
     vat: pricing.vatPct,
     spread: pricing.b2cGross && pricing.dealerNet ? Number(pricing.b2cGross) - Number(pricing.dealerNet) : undefined,
-    openDrafts: drafts.filter((d) => d.status === "DRAFT" || d.status === "PENDING").length,
+    openDrafts: drafts.filter((d: any) => d.status === "DRAFT" || d.status === "PENDING").length,
   };
 
   const indexRecord = await maybeEmbed(() => aiIndexers.productPricing(productId, options), options);
@@ -162,6 +164,7 @@ export async function buildPricingContext(
 }
 
 export async function buildInventoryContext(
+  db: DbGateway,
   input: string | { productId?: string; warehouseId?: string },
   options?: ContextBuilderOptions,
 ) {
@@ -169,7 +172,7 @@ export async function buildInventoryContext(
   const productId = typeof input === "string" ? input : input.productId;
   const warehouseId = typeof input === "string" ? undefined : input.warehouseId;
 
-  const items = await prisma.inventoryItem.findMany({
+  const items = await db.inventoryItemFindMany({
     where: {
       ...(productId ? { productId } : {}),
       ...(warehouseId ? { warehouseId } : {}),
@@ -189,8 +192,8 @@ export async function buildInventoryContext(
   assertScopeOwnership(primary.brandId ?? primary.product?.brandId, primary.brand?.tenantId, options);
 
   const signals = {
-    lowStock: items.filter((i) => i.quantity <= 5).map((i) => ({ id: i.id, quantity: i.quantity })),
-    totalUnits: items.reduce((sum, i) => sum + (i.quantity ?? 0), 0),
+    lowStock: items.filter((i: any) => i.quantity <= 5).map((i: any) => ({ id: i.id, quantity: i.quantity })),
+    totalUnits: items.reduce((sum: any, i: any) => sum + (i.quantity ?? 0), 0),
   };
 
   const indexRecord = await maybeEmbed(() => aiIndexers.inventoryItem(primary.id, options), options);
@@ -202,7 +205,7 @@ export async function buildInventoryContext(
       productId: primary.productId,
       warehouseId,
     },
-    inventory: items.map((i) => ({
+    inventory: items.map((i: any) => ({
       id: i.id,
       productId: i.productId,
       sku: i.product?.sku,
@@ -219,11 +222,12 @@ export async function buildInventoryContext(
 }
 
 export async function buildCRMClientContext(
+  db: DbGateway,
   clientId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.crm"], options);
-  const client = await prisma.lead.findUnique({
+  const client = await db.leadFindUnique({
     where: { id: clientId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true } },
@@ -243,7 +247,7 @@ export async function buildCRMClientContext(
   const signals = {
     score: client.score,
     stage: client.stage?.name ?? client.stageId,
-    tasksOpen: client.tasks.filter((t) => t.status !== "done").length,
+    tasksOpen: client.tasks.filter((t: any) => t.status !== "done").length,
   };
 
   const indexRecord = await maybeEmbed(() => aiIndexers.crmClient(clientId, options), options);
@@ -266,6 +270,7 @@ export async function buildCRMClientContext(
 }
 
 export async function buildPartnerContext(
+  db: DbGateway,
   input: string | { partnerUserId?: string; partnerId?: string; userId?: string },
   options?: ContextBuilderOptions,
 ) {
@@ -275,7 +280,7 @@ export async function buildPartnerContext(
   const partnerId = typeof input === "string" ? undefined : input.partnerId;
 
   const partnerUser = partnerUserId
-    ? await prisma.partnerUser.findFirst({
+    ? await db.partnerUserFindFirst({
         where: { userId: partnerUserId },
         include: {
           user: { select: { id: true, email: true, role: true } },
@@ -294,7 +299,7 @@ export async function buildPartnerContext(
   const partnerRecord = partnerUser?.partner
     ? partnerUser.partner
     : partnerId
-      ? await prisma.partner.findFirst({
+      ? await db.partnerFindFirst({
           where: { id: partnerId },
           include: {
             brand: { select: { id: true, tenantId: true, name: true } },
@@ -329,11 +334,12 @@ export async function buildPartnerContext(
 }
 
 export async function buildSalesRepContext(
+  db: DbGateway,
   salesRepId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.sales"], options);
-  const rep = await prisma.salesRep.findUnique({
+  const rep = await db.salesRepFindUnique({
     where: { id: salesRepId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true } },
@@ -351,7 +357,7 @@ export async function buildSalesRepContext(
   const signals = {
     status: rep.status,
     region: rep.region,
-    activeTasks: rep.tasks.filter((t) => t.status !== "done").length,
+    activeTasks: rep.tasks.filter((t: any) => t.status !== "done").length,
     performance: rep.performance?.[0]?.kpiJson,
   };
 
@@ -372,11 +378,12 @@ export async function buildSalesRepContext(
 }
 
 export async function buildLoyaltyAccountContext(
+  db: DbGateway,
   loyaltyCustomerId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.loyalty"], options);
-  const account = await prisma.loyaltyCustomer.findUnique({
+  const account = await db.loyaltyCustomerFindUnique({
     where: { id: loyaltyCustomerId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true } },
@@ -409,12 +416,13 @@ export async function buildLoyaltyAccountContext(
 }
 
 export async function buildAutomationContext(
+  db: DbGateway,
   ruleId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.automation"], options);
 
-  const rule = await prisma.automationRule.findUnique({
+  const rule = await db.automationRuleFindUnique({
     where: { id: ruleId },
     include: {
       executionLogs: { orderBy: { runAt: "desc" }, take: 5 },
@@ -422,7 +430,7 @@ export async function buildAutomationContext(
   });
   if (!rule) return null;
   assertScopeOwnership(rule.brandId, undefined, options);
-  const activeVersion = await prisma.automationRuleVersion.findFirst({
+  const activeVersion = await db.automationRuleVersionFindFirst({
     where: { ruleId: rule.id, state: 'ACTIVE' },
     orderBy: { versionNumber: 'desc' },
   });
@@ -445,11 +453,12 @@ export async function buildAutomationContext(
 }
 
 export async function buildAIInsightContext(
+  db: DbGateway,
   insightId: string,
   options?: ContextBuilderOptions,
 ) {
   ensurePermissions(["ai.context.insight"], options);
-  const insight = await prisma.aIInsight.findUnique({
+  const insight = await db.aIInsightFindUnique({
     where: { id: insightId },
   });
   if (!insight) return null;
@@ -465,9 +474,13 @@ export async function buildAIInsightContext(
   };
 }
 
-export async function buildBrandContext(brandId: string, options?: ContextBuilderOptions) {
+export async function buildBrandContext(
+  db: DbGateway,
+  brandId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.brand"], options);
-  const brand = await prisma.brand.findUnique({
+  const brand = await db.brandFindUnique({
     where: { id: brandId },
     include: {
       identity: true,
@@ -498,9 +511,13 @@ export async function buildBrandContext(brandId: string, options?: ContextBuilde
   };
 }
 
-export async function buildMarketingContext(brandId: string, options?: ContextBuilderOptions) {
+export async function buildMarketingContext(
+  db: DbGateway,
+  brandId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.marketing"], options);
-  const brand = await prisma.brand.findUnique({
+  const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
   });
@@ -508,7 +525,7 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
   assertScopeOwnership(brand.id, brand.tenantId, options);
 
   const [campaigns, socialMentions, socialTrends, audienceSegments] = await Promise.all([
-    prisma.campaign.findMany({
+    db.campaignFindMany({
       where: { brandId },
       include: {
         channel: { select: { name: true, type: true } },
@@ -517,9 +534,9 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
       orderBy: { updatedAt: "desc" },
       take: 5,
     }),
-    prisma.socialMention.findMany({ where: { brandId }, orderBy: { occurredAt: "desc" }, take: 8 }),
-    prisma.socialTrend.findMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 5 }),
-    prisma.audienceSegment.findMany({
+    db.socialMentionFindMany({ where: { brandId }, orderBy: { occurredAt: "desc" }, take: 8 }),
+    db.socialTrendFindMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 5 }),
+    db.audienceSegmentFindMany({
       where: { brandId },
       orderBy: { updatedAt: "desc" },
       take: 5,
@@ -527,14 +544,14 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
     }),
   ]);
 
-  const campaignsSummary = campaigns.map((c) => ({
+  const campaignsSummary = campaigns.map((c: any) => ({
     id: c.id,
     name: c.name,
     objective: c.objective,
     status: c.status,
     budget: c.budget,
     channel: c.channel,
-    performance: c.performanceLogs?.map((p) => ({
+      performance: c.performanceLogs?.map((p: any) => ({
       date: p.date,
       impressions: p.impressions,
       clicks: p.clicks,
@@ -545,7 +562,7 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
   }));
 
   const socialSignals = [
-    ...socialMentions.map((s) => ({
+    ...socialMentions.map((s: any) => ({
       id: s.id,
       platform: s.platform,
       sentiment: s.sentiment,
@@ -554,7 +571,7 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
       url: s.url,
       content: s.content,
     })),
-    ...socialTrends.map((t) => ({
+    ...socialTrends.map((t: any) => ({
       id: t.id,
       platform: t.platform,
       topic: t.topic,
@@ -562,7 +579,7 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
     })),
   ];
 
-  const audiences = audienceSegments.map((segment) => ({
+  const audiences = audienceSegments.map((segment: any) => ({
     id: segment.id,
     name: segment.name,
     filters: segment.filters,
@@ -571,7 +588,7 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
 
   const indexRecords = options?.includeEmbeddings
     ? await Promise.all(
-        campaigns.slice(0, 3).map((c) => aiIndexers.marketingCampaign(c.id, options)),
+      campaigns.slice(0, 3).map((c: any) => aiIndexers.marketingCampaign(c.id, options)),
       )
     : undefined;
 
@@ -586,9 +603,13 @@ export async function buildMarketingContext(brandId: string, options?: ContextBu
   };
 }
 
-export async function buildFinanceContext(brandId: string, options?: ContextBuilderOptions) {
+export async function buildFinanceContext(
+  db: DbGateway,
+  brandId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.finance"], options);
-  const brand = await prisma.brand.findUnique({
+  const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
   });
@@ -596,10 +617,10 @@ export async function buildFinanceContext(brandId: string, options?: ContextBuil
   assertScopeOwnership(brand.id, brand.tenantId, options);
 
   const [revenues, expenses, invoices, kpis] = await Promise.all([
-    prisma.revenueRecord.findMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 12 }),
-    prisma.financeExpense.findMany({ where: { brandId }, orderBy: { incurredAt: "desc" }, take: 12 }),
-    prisma.financeInvoice.findMany({ where: { brandId }, orderBy: { issuedAt: "desc" }, take: 8 }),
-    prisma.financialKPIRecord.findMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 4 }),
+    db.revenueRecordFindMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 12 }),
+    db.financeExpenseFindMany({ where: { brandId }, orderBy: { incurredAt: "desc" }, take: 12 }),
+    db.financeInvoiceFindMany({ where: { brandId }, orderBy: { issuedAt: "desc" }, take: 8 }),
+    db.financialKPIRecordFindMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 4 }),
   ]);
 
   const revenueByChannel = revenues.reduce<Record<string, number>>((acc, r) => {
@@ -626,15 +647,19 @@ export async function buildFinanceContext(brandId: string, options?: ContextBuil
       totalExpense: expenseTotal,
       margin: revenueTotal - expenseTotal,
     },
-    channels: Object.entries(revenueByChannel).map(([channel, amount]) => ({ channel, amount })),
+    channels: Object.entries(revenueByChannel).map(([channel, amount]: [string, number]) => ({ channel, amount })),
     invoices,
     kpis,
   };
 }
 
-export async function buildInvoiceContext(invoiceId: string, options?: ContextBuilderOptions) {
+export async function buildInvoiceContext(
+  db: DbGateway,
+  invoiceId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.finance"], options);
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await db.invoiceFindUnique({
     where: { id: invoiceId },
     include: {
       items: { include: { product: { select: { id: true, name: true, sku: true, brandId: true } } } },
@@ -646,7 +671,7 @@ export async function buildInvoiceContext(invoiceId: string, options?: ContextBu
 
   assertScopeOwnership(invoice.brandId ?? invoice.brand?.id, invoice.brand?.tenantId, options);
 
-  const items = invoice.items.map((item) => ({
+  const items = invoice.items.map((item: any) => ({
     id: item.id,
     productId: item.productId,
     sku: item.product?.sku,
@@ -675,9 +700,13 @@ export async function buildInvoiceContext(invoiceId: string, options?: ContextBu
   };
 }
 
-export async function buildSupportContext(ticketId: string, options?: ContextBuilderOptions) {
+export async function buildSupportContext(
+  db: DbGateway,
+  ticketId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.support"], options);
-  const ticket = await prisma.ticket.findUnique({
+  const ticket = await db.ticketFindUnique({
     where: { id: ticketId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true } },
@@ -707,9 +736,9 @@ export async function buildSupportContext(ticketId: string, options?: ContextBui
       category: ticket.category,
       createdAt: ticket.createdAt,
       updatedAt: ticket.updatedAt,
-      tags: ticket.tags?.map((t) => t.name) ?? [],
+      tags: ticket.tags?.map((t: any) => t.name) ?? [],
     },
-    messages: ticket.messages?.map((m) => ({
+    messages: ticket.messages?.map((m: any) => ({
       id: m.id,
       sender: m.sender?.email,
       content: m.content,
@@ -725,9 +754,13 @@ export async function buildSupportContext(ticketId: string, options?: ContextBui
   };
 }
 
-export async function buildKnowledgeBaseContext(documentId: string, options?: ContextBuilderOptions) {
+export async function buildKnowledgeBaseContext(
+  db: DbGateway,
+  documentId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.kb"], options);
-  const document = await prisma.knowledgeDocument.findUnique({
+  const document = await db.knowledgeDocumentFindUnique({
     where: { id: documentId },
     include: {
       brand: { select: { id: true, tenantId: true, name: true } },
@@ -750,7 +783,7 @@ export async function buildKnowledgeBaseContext(documentId: string, options?: Co
       title: document.title,
       summary: document.summary,
       category: document.category,
-      tags: document.tags?.map((t) => t.name) ?? [],
+      tags: document.tags?.map((t: any) => t.name) ?? [],
       sourceType: document.sourceType,
       language: document.language,
       fileUrl: document.fileUrl,
@@ -764,9 +797,13 @@ export async function buildKnowledgeBaseContext(documentId: string, options?: Co
   };
 }
 
-export async function buildOperationsContext(brandId: string, options?: ContextBuilderOptions) {
+export async function buildOperationsContext(
+  db: DbGateway,
+  brandId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.operations"], options);
-  const brand = await prisma.brand.findUnique({
+  const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
   });
@@ -774,15 +811,15 @@ export async function buildOperationsContext(brandId: string, options?: ContextB
   assertScopeOwnership(brand.id, brand.tenantId, options);
 
   const [activityLogs, automationLogs, scheduledJobs, operationsTasks] = await Promise.all([
-    prisma.activityLog.findMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 15 }),
-    prisma.automationLog.findMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 10 }),
-    prisma.scheduledJob.findMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 10 }),
-    prisma.operationsTask.findMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 10 }),
+    db.activityLogFindMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 15 }),
+    db.automationLogFindMany({ where: { brandId }, orderBy: { createdAt: "desc" }, take: 10 }),
+    db.scheduledJobFindMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 10 }),
+    db.operationsTaskFindMany({ where: { brandId }, orderBy: { updatedAt: "desc" }, take: 10 }),
   ]);
 
-  const incidents = automationLogs.filter((log) => log.result && log.result.toLowerCase().includes("error"));
+  const incidents = automationLogs.filter((log: any) => log.result && log.result.toLowerCase().includes("error"));
   const health = {
-    openOpsTasks: operationsTasks.filter((t) => t.status !== "done" && t.status !== "resolved").length,
+    openOpsTasks: operationsTasks.filter((t: any) => t.status !== "done" && t.status !== "resolved").length,
     recentErrors: incidents.length,
   };
 
@@ -804,9 +841,13 @@ export async function buildOperationsContext(brandId: string, options?: ContextB
   };
 }
 
-export async function buildNotificationContext(brandId: string, options?: ContextBuilderOptions) {
+export async function buildNotificationContext(
+  db: DbGateway,
+  brandId: string,
+  options?: ContextBuilderOptions,
+) {
   ensurePermissions(["ai.context.notification"], options);
-  const brand = await prisma.brand.findUnique({
+  const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, tenantId: true, name: true },
   });

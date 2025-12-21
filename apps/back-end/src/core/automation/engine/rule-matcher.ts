@@ -1,5 +1,5 @@
 
-import { prisma } from "../../prisma.js";
+import { findAutomationRuleVersions } from "../../db/repositories/automation.repository.js";
 import type { DomainEvent } from "../../events/domain/types.js";
 import type { ActionConfig, ConditionConfig } from "../../../modules/automation/automation.types.js";
 
@@ -27,7 +27,7 @@ export async function loadMatchingRulesForEvent(event: DomainEvent): Promise<Aut
   const brandIdValue = event.meta?.brandId ?? null;
 
   // Query AutomationRuleVersion (ACTIVE only), join AutomationRule for brand/state
-  const rows = await prisma.automationRuleVersion.findMany({
+  const rows = await findAutomationRuleVersions({
     where: {
       state: 'ACTIVE',
       triggerEvent: event.type,
@@ -63,10 +63,10 @@ export async function loadMatchingRulesForEvent(event: DomainEvent): Promise<Aut
   }));
 }
 
-import type { Prisma } from '@prisma/client';
+import type { JsonValue } from "../../db/repositories/automation.repository.js";
 
 function parseConditionConfig(
-  value?: Prisma.JsonValue | null,
+  value?: JsonValue | null,
 ): { all?: ConditionConfig[]; any?: ConditionConfig[] } | undefined {
   if (!value) return undefined;
   if (typeof value === 'string') {
@@ -85,7 +85,7 @@ function parseConditionConfig(
   return undefined;
 }
 
-function parseActions(value?: Prisma.JsonValue | null): ActionConfig[] {
+function parseActions(value?: JsonValue | null): ActionConfig[] {
   if (!value) return [];
   if (typeof value === 'string') {
     try {

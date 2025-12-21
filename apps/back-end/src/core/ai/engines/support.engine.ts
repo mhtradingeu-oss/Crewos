@@ -1,4 +1,7 @@
-import { prisma } from "../../prisma.js";
+import {
+  findRecentTickets,
+  findTicketWithMessages,
+} from "../../db/repositories/support.repository.js";
 import { runAIRequest, type AIMessage } from "../../ai-service/ai-client.js";
 import { createRunId, recordMonitoringEvent } from "../ai-monitoring.js";
 import { detectLanguage } from "../ai-utils.js";
@@ -33,24 +36,10 @@ function buildFallback(message: string, locale: string): SupportEngineResult {
 }
 
 async function buildSupportContext(params: SupportEngineParams) {
-  const tickets = await prisma.ticket.findMany({
-    where: { brandId: params.brandId },
-    orderBy: { updatedAt: "desc" },
-    take: 5,
-    include: {
-      messages: { orderBy: { createdAt: "desc" }, take: 3 },
-      tags: true,
-    },
-  });
+  const tickets = await findRecentTickets(params.brandId);
 
   const activeTicket = params.ticketId
-    ? await prisma.ticket.findUnique({
-        where: { id: params.ticketId },
-        include: {
-          messages: { orderBy: { createdAt: "asc" } },
-          tags: true,
-        },
-      })
+    ? await findTicketWithMessages(params.ticketId, { order: "asc" })
     : null;
 
   return {

@@ -1,6 +1,7 @@
 import { badRequest } from "../../http/errors.js";
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { buildBrandContext, buildOperationsContext, type ContextBuilderOptions } from "../../../ai/context/context-builders.js";
 import type { EngineRunOptions } from "./engine-types.js";
 
@@ -63,8 +64,11 @@ export async function runEngine(input: EngineInput, options?: EngineRunOptions):
   }
 
   const contextOptions = buildContextOptions(input, options);
-  const brandCtx = await buildBrandContext(contextOptions.brandId ?? input.brandId, contextOptions);
-  const opsCtx = await buildOperationsContext(contextOptions.brandId ?? input.brandId, contextOptions).catch(() => null);
+  const dbGateway = getDbGateway();
+  const brandCtx = await buildBrandContext(dbGateway, contextOptions.brandId ?? input.brandId, contextOptions);
+  const opsCtx = await buildOperationsContext(dbGateway, contextOptions.brandId ?? input.brandId, contextOptions).catch(
+    () => null,
+  );
 
   const pipeline = await runAIPipeline({
     agentId: options?.agentIdOverride ?? AGENT_ID,

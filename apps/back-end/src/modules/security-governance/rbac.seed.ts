@@ -1,6 +1,7 @@
 import { prisma } from "../../core/prisma.js";
 import { hashPassword } from "../../core/security/password.js";
 import { env } from "../../core/config/env.js";
+import { runSeedCli } from "../../seeds/run-seed-cli.js";
 
 const basePermissionCodes = [
   "auth:me",
@@ -259,15 +260,5 @@ async function ensureAdminUser() {
 }
 
 if (process.argv[1]?.match(/rbac\.seed\.(ts|js)$/)) {
-  seedRBAC()
-    .then(async () => {
-      console.log("✅ RBAC seed completed");
-      await prisma.$disconnect();
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ RBAC seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("RBAC", seedRBAC).then((code) => process.exit(code));
 }

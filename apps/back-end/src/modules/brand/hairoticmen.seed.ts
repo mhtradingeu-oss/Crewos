@@ -2,6 +2,7 @@ import pkg from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../core/prisma.js";
 import { env } from "../../core/config/env.js";
+import { runSeedCli } from "../../seeds/run-seed-cli.js";
 
 const { Prisma: PrismaNamespace } = pkg;
 
@@ -309,11 +310,5 @@ export async function seedHairoticmen(options: { tenantId?: string } = {}) {
 }
 
 if (process.argv[1]?.includes("hairoticmen.seed")) {
-  seedHairoticmen()
-    .then(async () => prisma.$disconnect())
-    .catch(async (err) => {
-      console.error("❌ Failed to seed HAIROTICMEN", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("HAIROTICMEN brand", () => seedHairoticmen()).then((code) => process.exit(code));
 }

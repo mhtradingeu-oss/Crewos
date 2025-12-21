@@ -1,5 +1,18 @@
 import { randomUUID } from "crypto";
-import { prisma } from "../../prisma.js";
+import {
+  findCompetitorPrices,
+  findDealerKpis,
+  findFinanceExpenses,
+  findInventoryItems,
+  findLeads,
+  findMarketingPerformanceLogs,
+  findOperationsTasks,
+  findProductPricings,
+  findTickets,
+  findPricingHistory,
+  getRecentProductPricings,
+  findRevenueRecords,
+} from "../../db/repositories/autonomy.repository.js";
 import type { AutonomyDetection, AutonomyIssueType, AutonomySeverity } from "./autonomy.types.js";
 
 function toNumber(value: unknown): number | undefined {
@@ -24,11 +37,7 @@ function detection(
 }
 
 async function detectPricingAnomalies(): Promise<AutonomyDetection[]> {
-  const rows = await prisma.productPricing.findMany({
-    orderBy: { updatedAt: "desc" },
-    take: 20,
-    include: { product: { select: { id: true, name: true, brandId: true, slug: true } } },
-  });
+  const rows = await getRecentProductPricings();
 
   const anomalies = rows
     .map((row) => {
@@ -60,7 +69,7 @@ async function detectPricingAnomalies(): Promise<AutonomyDetection[]> {
 }
 
 async function detectMarginDrops(): Promise<AutonomyDetection[]> {
-  const history = await prisma.aIPricingHistory.findMany({
+  const history = await findPricingHistory({
     orderBy: { createdAt: "desc" },
     take: 25,
   });
@@ -91,14 +100,14 @@ async function detectMarginDrops(): Promise<AutonomyDetection[]> {
 }
 
 async function detectCompetitorPressure(): Promise<AutonomyDetection[]> {
-  const competitorPrices = await prisma.competitorPrice.findMany({
+  const competitorPrices = await findCompetitorPrices({
     orderBy: { createdAt: "desc" },
     take: 25,
   });
 
   if (!competitorPrices.length) return [];
   const productIds = [...new Set(competitorPrices.map((p) => p.productId))];
-  const pricing = await prisma.productPricing.findMany({
+  const pricing = await findProductPricings({
     where: { productId: { in: productIds } },
     select: { productId: true, b2cGross: true, dealerNet: true, brandId: true },
   });
@@ -130,7 +139,7 @@ async function detectCompetitorPressure(): Promise<AutonomyDetection[]> {
 }
 
 async function detectInventoryRisk(): Promise<AutonomyDetection[]> {
-  const lowStock = await prisma.inventoryItem.findMany({
+  const lowStock = await findInventoryItems({
     where: { quantity: { lte: 5 } },
     orderBy: { quantity: "asc" },
     take: 25,
@@ -154,7 +163,7 @@ async function detectInventoryRisk(): Promise<AutonomyDetection[]> {
 }
 
 async function detectCrmChurn(): Promise<AutonomyDetection[]> {
-  const leads = await prisma.lead.findMany({
+  const leads = await findLeads({
     where: { score: { lte: 35 } },
     orderBy: { score: "asc" },
     take: 20,
@@ -172,7 +181,7 @@ async function detectCrmChurn(): Promise<AutonomyDetection[]> {
 }
 
 async function detectMarketingUnderperformance(): Promise<AutonomyDetection[]> {
-  const logs = await prisma.marketingPerformanceLog.findMany({
+  const logs = await findMarketingPerformanceLogs({
     orderBy: { date: "desc" },
     take: 25,
     include: { campaign: { select: { id: true, name: true, brandId: true, status: true } } },
@@ -205,7 +214,7 @@ async function detectMarketingUnderperformance(): Promise<AutonomyDetection[]> {
 }
 
 async function detectPartnerRisk(): Promise<AutonomyDetection[]> {
-  const kpis = await prisma.dealerKpi.findMany({
+  const kpis = await findDealerKpis({
     orderBy: { updatedAt: "desc" },
     take: 20,
     include: { partner: { select: { id: true, name: true, brandId: true, status: true, tierId: true } } },
@@ -231,8 +240,8 @@ async function detectPartnerRisk(): Promise<AutonomyDetection[]> {
 }
 
 async function detectFinanceRisk(): Promise<AutonomyDetection[]> {
-  const expenses = await prisma.financeExpense.findMany({ orderBy: { incurredAt: "desc" }, take: 25 });
-  const revenues = await prisma.revenueRecord.findMany({ orderBy: { periodEnd: "desc" }, take: 25 });
+  const expenses = await findFinanceExpenses({ orderBy: { incurredAt: "desc" }, take: 25 });
+  const revenues = await findRevenueRecords({ orderBy: { periodEnd: "desc" }, take: 25 });
 
   const totalExpenses = expenses.reduce((sum, e) => sum + (toNumber(e.amount) ?? 0), 0);
   const totalRevenue = revenues.reduce((sum, r) => sum + (toNumber(r.amount) ?? 0), 0);
@@ -252,7 +261,7 @@ async function detectFinanceRisk(): Promise<AutonomyDetection[]> {
 }
 
 async function detectOperationalAlerts(): Promise<AutonomyDetection[]> {
-  const urgentTickets = await prisma.ticket.findMany({
+  const urgentTickets = await findTickets({
     where: {
       OR: [
         { priority: { in: ["HIGH", "URGENT"] } },
@@ -265,7 +274,7 @@ async function detectOperationalAlerts(): Promise<AutonomyDetection[]> {
     select: { id: true, brandId: true, status: true, priority: true, category: true, updatedAt: true },
   });
 
-  const overdueOps = await prisma.operationsTask.findMany({
+  const overdueOps = await findOperationsTasks({
     where: { status: { notIn: ["done", "completed", "RESOLVED"] }, dueDate: { lt: new Date() } },
     orderBy: { dueDate: "asc" },
     take: 10,

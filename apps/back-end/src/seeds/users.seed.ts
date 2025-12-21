@@ -2,6 +2,7 @@ import { prisma } from "../core/prisma.js";
 import { hashPassword } from "../core/security/password.js";
 import { env } from "../core/config/env.js";
 import { seedSuperAdmin } from "./admin.seed.js";
+import { runSeedCli } from "./run-seed-cli.js";
 
 const LOCAL_DEV_PASSWORD = env.ADMIN_PASSWORD; // Local/dev shared credential from env.
 
@@ -111,15 +112,5 @@ export async function seedUsers() {
 }
 
 if (process.argv[1]?.includes("users.seed")) {
-  seedUsers()
-    .then(async () => {
-      await prisma.$disconnect();
-      console.log("✅ User seed run finished");
-      process.exit(0);
-    })
-    .catch(async (err) => {
-      console.error("❌ User seed failed", err);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  void runSeedCli("user seeds", seedUsers).then((code) => process.exit(code));
 }

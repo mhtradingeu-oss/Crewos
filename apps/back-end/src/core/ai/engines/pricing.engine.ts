@@ -1,4 +1,5 @@
-import { prisma } from "../../prisma.js";
+import { createPricingHistory } from "../../db/repositories/ai-pricing-history.repository.js";
+import { getDbGateway } from "../../../bootstrap/db.js";
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import type { PipelineResult } from "../pipeline/pipeline-types.js";
 import {
@@ -119,16 +120,13 @@ async function persistPricingHistory(
   const next = normalized.recommendedPrices[0];
   if (!next) return undefined;
 
-  const record = await prisma.aIPricingHistory.create({
-    data: {
-      productId: input.productId,
-      brandId: brandId ?? pricingCtx?.scope?.brandId ?? null,
-      channel: next.channel ?? null,
-      oldNet: toNumber((pricingCtx?.entity as { b2cNet?: unknown } | undefined)?.b2cNet),
-      newNet: next.priceNet ?? next.priceGross ?? null,
-      summary: next.rationale ?? normalized.reasoning ?? "AI pricing recommendation",
-    },
-    select: { id: true },
+  const record = await createPricingHistory({
+    productId: input.productId,
+    brandId: brandId ?? pricingCtx?.scope?.brandId ?? null,
+    channel: next.channel ?? null,
+    oldNet: toNumber((pricingCtx?.entity as { b2cNet?: unknown } | undefined)?.b2cNet),
+    newNet: next.priceNet ?? next.priceGross ?? null,
+    summary: next.rationale ?? normalized.reasoning ?? "AI pricing recommendation",
   });
 
   return record.id;
@@ -136,10 +134,11 @@ async function persistPricingHistory(
 
 export async function runEngine(input: EngineInput, options?: EngineRunOptions): Promise<EngineOutput> {
   const contextOptions = buildContextOptions(input, options);
+  const dbGateway = getDbGateway();
   const [productCtx, pricingCtx, inventoryCtx] = await Promise.all([
-    buildProductContext(input.productId, contextOptions),
-    buildPricingContext(input.productId, contextOptions),
-    buildInventoryContext({ productId: input.productId }, contextOptions).catch(() => null),
+    buildProductContext(dbGateway, input.productId, contextOptions),
+    buildPricingContext(dbGateway, input.productId, contextOptions),
+    buildInventoryContext(dbGateway, { productId: input.productId }, contextOptions).catch(() => null),
   ]);
 
   const brandId = options?.brandId

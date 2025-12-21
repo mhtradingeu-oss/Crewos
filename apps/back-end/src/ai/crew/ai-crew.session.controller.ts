@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { AICrewSessionService } from './ai-crew.session.service.js';
 import { authenticateRequest } from '../../core/security/auth-middleware.js';
 import { requirePermission } from '../../core/security/rbac.js';
+import { getDbGateway } from '../../bootstrap/db.js';
 // Use generic Error for hygiene (ApiError.badRequest not available)
 
 const questionSchema = z.object({
@@ -35,11 +36,14 @@ export const advisorySessionController = {
         role: (req as any).user?.role || 'unknown',
       };
       try {
-        const result = await AICrewSessionService.runAdvisorySession({
-          sessionId,
-          questions,
-          requestedBy,
-        });
+        const result = await AICrewSessionService.runAdvisorySession(
+          {
+            sessionId,
+            questions,
+            requestedBy,
+          },
+          getDbGateway(),
+        );
         res.json(result);
       } catch (err: any) {
         throw new Error(err.message || 'Session error');

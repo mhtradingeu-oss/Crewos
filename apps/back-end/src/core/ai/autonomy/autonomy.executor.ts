@@ -1,4 +1,4 @@
-import { prisma } from "../../prisma.js";
+import { createInsight } from "../../db/repositories/ai-insight.repository.js";
 import { runAIPipeline } from "../pipeline/pipeline-runner.js";
 import { runEngine as runGovernanceEngine } from "../engines/governance.engine.js";
 import { PLAYBOOKS } from "../playbooks/index.js";
@@ -165,24 +165,22 @@ export async function executeAutonomyTask(
     contexts: pipeline.contexts,
   };
 
-  await prisma.aIInsight.create({
-    data: {
-      brandId: brandId ?? null,
-      os: "autonomy",
-      entityType: "autonomy-task",
-      entityId: task.taskId,
-      summary: `Autonomy task ${task.goal}`,
-      details: safeTruncate({
-        task,
-        governance,
-        pipeline: {
-          success: pipeline.success,
-          agent: pipeline.agent?.name,
-          outputPreview: pipeline.output,
-          logs: pipeline.logs,
-        },
-      }, 3800),
-    },
+  await createInsight({
+    brandId: brandId ?? null,
+    os: "autonomy",
+    entityType: "autonomy-task",
+    entityId: task.taskId,
+    summary: `Autonomy task ${task.goal}`,
+    details: safeTruncate({
+      task,
+      governance,
+      pipeline: {
+        success: pipeline.success,
+        agent: pipeline.agent?.name,
+        outputPreview: pipeline.output,
+        logs: pipeline.logs,
+      },
+    }, 3800),
   });
 
   return { result, governance };
