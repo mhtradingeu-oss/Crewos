@@ -8,12 +8,18 @@ async function main() {
   await seedAutomationRules();
 }
 
-main()
-  .catch(async (e) => {
-    console.error("❌ Prisma seed failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
+async function runSeed() {
+  let exitCode = 0;
+  try {
+    await main();
+  } catch (error) {
+    console.error("❌ Prisma seed failed:", error);
+    exitCode = 1;
+  } finally {
     await prisma.$disconnect();
     console.log("🌱 Prisma seed completed.");
-  });
+    process.exit(exitCode);
+  }
+}
+
+void runSeed();
