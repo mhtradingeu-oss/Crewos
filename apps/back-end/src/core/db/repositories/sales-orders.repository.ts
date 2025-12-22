@@ -1,6 +1,5 @@
 import pkg from "@prisma/client";
 import type { Prisma } from "@prisma/client";
-import { inventoryService } from "../../../modules/inventory/inventory.service.js";
 import { prisma } from "../../prisma.js";
 
 const { Prisma: PrismaNamespace } = pkg;
@@ -30,8 +29,14 @@ export type SalesOrderTransactionParams = {
     inventoryItemId: string;
     delta: number;
     reason?: string;
+    brandId?: string;
   };
 };
+
+export type InventoryAdjustmentHandler = (
+  adjustment: SalesOrderTransactionParams["inventoryAdjustment"],
+  tx: Prisma.TransactionClient,
+) => Promise<void>;
 
 export async function findDuplicateSalesOrder(params: SalesOrderDuplicateParams) {
   return prisma.salesOrder.findFirst({
@@ -50,17 +55,12 @@ export async function findDuplicateSalesOrder(params: SalesOrderDuplicateParams)
   });
 }
 
-export async function createSalesOrderTransaction(params: SalesOrderTransactionParams) {
+export async function createSalesOrderTransaction(
+  params: SalesOrderTransactionParams,
+  adjustInventory: InventoryAdjustmentHandler,
+) {
   return prisma.$transaction(async (tx) => {
-    await inventoryService.createInventoryAdjustment(
-      {
-        inventoryItemId: params.inventoryAdjustment.inventoryItemId,
-        brandId: params.brandId,
-        delta: params.inventoryAdjustment.delta,
-        reason: params.inventoryAdjustment.reason,
-      },
-      tx,
-    );
+    await adjustInventory(params.inventoryAdjustment, tx);
 
     const order = await tx.salesOrder.create({
       data: {

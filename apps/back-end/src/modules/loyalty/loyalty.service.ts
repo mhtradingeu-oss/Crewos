@@ -2,10 +2,7 @@
  * LOYALTY SERVICE — MH-OS v2
  * Spec: docs/os/11_loyalty-program.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
-import { buildPagination } from "../../core/utils/pagination.js";
 import {
   emitLoyaltyCreated,
   emitLoyaltyRewardRedeemed,
@@ -15,73 +12,44 @@ import type {
   CreateLoyaltyInput,
   LoyaltyCustomerRecord,
   UpdateLoyaltyInput,
+  LoyaltyDashboardSummary,
   LoyaltyProgramDTO,
-  LoyaltyTierDTO,
   LoyaltyRewardDTO,
+  LoyaltyTierDTO,
+  LoyaltyActionContext,
   CreateLoyaltyProgramInput,
   CreateLoyaltyTierInput,
   CreateLoyaltyRewardInput,
   RedeemRewardInput,
   RedeemRewardResult,
-  LoyaltyDashboardSummary,
 } from "./loyalty.types.js";
-
-const programSelect = {
-  id: true,
-  brandId: true,
-  name: true,
-  description: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.LoyaltyProgramSelect;
-
-const tierSelect = {
-  id: true,
-  brandId: true,
-  programId: true,
-  name: true,
-  minPoints: true,
-  maxPoints: true,
-  benefitsDescription: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.LoyaltyTierSelect;
-
-const rewardSelect = {
-  id: true,
-  brandId: true,
-  programId: true,
-  name: true,
-  description: true,
-  costPoints: true,
-  pointsCost: true,
-  rewardType: true,
-  payloadJson: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.LoyaltyRewardSelect;
-
-const customerSelect = {
-  id: true,
-  brandId: true,
-  programId: true,
-  userId: true,
-  personId: true,
-  pointsBalance: true,
-  tierId: true,
-  tier: true,
-  tierInfo: {
-    select: {
-      id: true,
-      name: true,
-    },
-  },
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.LoyaltyCustomerSelect;
-
-type LoyaltyActionContext = { brandId?: string; actorUserId?: string };
+import {
+  applyPointsDelta,
+  createLoyaltyInsight,
+  createProgram,
+  createProgramReward,
+  createProgramTier,
+  createUserLoyalty,
+  deleteUserLoyalty,
+  findCustomerWithProgramAndTiers,
+  findProgramById,
+  findProgramRewardById,
+  findUserLoyaltyById,
+  getDashboardSummary,
+  listProgramRewards,
+  listProgramTiers,
+  listPrograms as listProgramRecords,
+  listUserLoyalties,
+  LoyaltyCustomerPayload,
+  LoyaltyInsightCreateInput,
+  LoyaltyInsightPayload,
+  LoyaltyProgramPayload,
+  LoyaltyRewardPayload,
+  LoyaltyTierPayload,
+  redeemRewardTransaction,
+  updateCustomerTier,
+  updateUserLoyalty,
+} from "../../core/db/repositories/loyalty.repository.js";
 
 function normalizePayload(value?: Record<string, unknown> | string | null) {
   if (!value) return null;
@@ -93,9 +61,7 @@ function normalizePayload(value?: Record<string, unknown> | string | null) {
   }
 }
 
-function mapProgram(
-  record: Prisma.LoyaltyProgramGetPayload<{ select: typeof programSelect }>,
-): LoyaltyProgramDTO {
+function mapProgram(record: LoyaltyProgramPayload): LoyaltyProgramDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -107,7 +73,7 @@ function mapProgram(
   };
 }
 
-function mapTier(record: Prisma.LoyaltyTierGetPayload<{ select: typeof tierSelect }>): LoyaltyTierDTO {
+function mapTier(record: LoyaltyTierPayload): LoyaltyTierDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -121,9 +87,7 @@ function mapTier(record: Prisma.LoyaltyTierGetPayload<{ select: typeof tierSelec
   };
 }
 
-function mapReward(
-  record: Prisma.LoyaltyRewardGetPayload<{ select: typeof rewardSelect }>,
-): LoyaltyRewardDTO {
+function mapReward(record: LoyaltyRewardPayload): LoyaltyRewardDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -138,7 +102,7 @@ function mapReward(
   };
 }
 
-function mapCustomer(record: Prisma.LoyaltyCustomerGetPayload<{ select: typeof customerSelect }>) {
+function mapCustomer(record: LoyaltyCustomerPayload): LoyaltyCustomerRecord {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -151,93 +115,44 @@ function mapCustomer(record: Prisma.LoyaltyCustomerGetPayload<{ select: typeof c
     tierName: record.tierInfo?.name ?? undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-  } satisfies LoyaltyCustomerRecord;
+  };
 }
 
 class LoyaltyService {
-  constructor(private readonly db = prisma) {}
-
   async dashboardSummary(brandId: string): Promise<LoyaltyDashboardSummary> {
-    const programWhere: Prisma.LoyaltyProgramWhereInput = { brandId };
-    const customerWhere: Prisma.LoyaltyCustomerWhereInput = { brandId };
-    const rewardWhere: Prisma.LoyaltyRewardWhereInput = { brandId };
-
-    const [programs, customerAgg, rewards, redemptionAgg] = await this.db.$transaction([
-      this.db.loyaltyProgram.count({ where: programWhere }),
-      this.db.loyaltyCustomer.aggregate({
-        where: customerWhere,
-        _count: { id: true },
-        _sum: { pointsBalance: true },
-      }),
-      this.db.loyaltyReward.count({ where: rewardWhere }),
-      this.db.rewardRedemption.aggregate({
-        where: { program: { brandId } },
-        _count: { id: true },
-        _sum: { pointsSpent: true },
-      }),
-    ]);
-
-    return {
-      totalPrograms: programs,
-      totalCustomers: customerAgg._count.id ?? 0,
-      totalPoints: Number(customerAgg._sum.pointsBalance ?? 0),
-      totalRewards: rewards,
-      totalRedemptions: redemptionAgg._count.id ?? 0,
-      pointsSpent: Number(redemptionAgg._sum.pointsSpent ?? 0),
-    };
+    return getDashboardSummary(brandId);
   }
 
   async list(
     params: { brandId?: string; programId?: string; page?: number; pageSize?: number } = {},
   ) {
-    const { brandId, programId } = params;
-    const page = Math.max(1, params.page ?? 1);
-    const pageSize = Math.min(params.pageSize ?? 20, 100);
-    const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.LoyaltyCustomerWhereInput = {};
-    if (brandId) where.brandId = brandId;
-    if (programId) where.programId = programId;
-
-    const [total, rows] = await this.db.$transaction([
-      this.db.loyaltyCustomer.count({ where }),
-      this.db.loyaltyCustomer.findMany({
-        where,
-        select: customerSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
+    const { items, total, page, pageSize } = await listUserLoyalties(
+      { brandId: params.brandId, programId: params.programId },
+      { page: params.page, pageSize: params.pageSize },
+    );
     return {
-      items: rows.map(mapCustomer),
+      items: items.map(mapCustomer),
       total,
       page,
-      pageSize: take,
+      pageSize,
     };
   }
 
   async getById(id: string): Promise<LoyaltyCustomerRecord> {
-    const record = await this.db.loyaltyCustomer.findUnique({
-      where: { id },
-      select: customerSelect,
-    });
+    const record = await findUserLoyaltyById(id);
     if (!record) throw notFound("Loyalty customer not found");
     return mapCustomer(record);
   }
 
   async create(input: CreateLoyaltyInput): Promise<LoyaltyCustomerRecord> {
     if (!input.programId) throw badRequest("programId is required");
-    const created = await this.db.loyaltyCustomer.create({
-      data: {
-        brandId: input.brandId ?? null,
-        programId: input.programId,
-        userId: input.userId ?? null,
-        personId: input.personId ?? null,
-        pointsBalance: input.pointsBalance ?? 0,
-        tier: input.tier ?? null,
-      },
-      select: customerSelect,
+    const created = await createUserLoyalty({
+      brandId: input.brandId ?? null,
+      programId: input.programId,
+      userId: input.userId ?? null,
+      personId: input.personId ?? null,
+      pointsBalance: input.pointsBalance ?? 0,
+      tier: input.tier ?? null,
     });
     await emitLoyaltyCreated(
       { id: created.id, brandId: created.brandId ?? undefined, programId: created.programId },
@@ -247,31 +162,24 @@ class LoyaltyService {
   }
 
   async update(id: string, input: UpdateLoyaltyInput): Promise<LoyaltyCustomerRecord> {
-    const existing = await this.db.loyaltyCustomer.findUnique({
-      where: { id },
-      select: customerSelect,
-    });
+    const existing = await findUserLoyaltyById(id);
     if (!existing) throw notFound("Loyalty customer not found");
-
-    const updated = await this.db.loyaltyCustomer.update({
-      where: { id },
-      data: {
-        brandId: input.brandId ?? existing.brandId,
-        programId: input.programId ?? existing.programId,
-        userId: input.userId ?? existing.userId,
-        personId: input.personId ?? existing.personId,
-        tier: input.tier ?? existing.tier,
-        pointsBalance: input.pointsBalance ?? existing.pointsBalance,
-      },
-      select: customerSelect,
+    const updated = await updateUserLoyalty(id, {
+      brandId: input.brandId ?? existing.brandId ?? null,
+      programId: input.programId ?? existing.programId,
+      userId: input.userId ?? existing.userId ?? null,
+      personId: input.personId ?? existing.personId ?? null,
+      tier: input.tier ?? existing.tier ?? null,
+      pointsBalance: input.pointsBalance ?? existing.pointsBalance,
     });
-
     if (input.pointsDelta && input.pointsDelta !== 0) {
-      await this.adjustPoints(updated.id, input.pointsDelta, input.reason ?? "adjustment", {
-        brandId: updated.brandId ?? undefined,
-      });
+      await this.adjustPoints(
+        updated.id,
+        input.pointsDelta,
+        input.reason ?? "adjustment",
+        { brandId: updated.brandId ?? undefined },
+      );
     }
-
     return mapCustomer(updated);
   }
 
@@ -281,22 +189,20 @@ class LoyaltyService {
     reason: string,
     context: LoyaltyActionContext = {},
   ) {
-    const customer = await this.db.loyaltyCustomer.findUnique({
-      where: { id: customerId },
-      select: customerSelect,
-    });
+    const customer = await findUserLoyaltyById(customerId);
     if (!customer) throw notFound("Loyalty customer not found");
-
-    await this.applyPointsDelta(
-      { id: customer.id, brandId: customer.brandId, programId: customer.programId },
+    await applyPointsDelta({
+      customerId,
       delta,
       reason,
-    );
+      brandId: customer.brandId ?? null,
+      programId: customer.programId,
+    });
     await this.resolveTierForCustomer(customerId, context);
   }
 
   async remove(id: string) {
-    await this.db.loyaltyCustomer.delete({ where: { id } });
+    await deleteUserLoyalty(id);
     return { id };
   }
 
@@ -304,29 +210,13 @@ class LoyaltyService {
     context: LoyaltyActionContext = {},
     pagination: { page?: number; pageSize?: number } = {},
   ) {
-    const where: Prisma.LoyaltyProgramWhereInput = {};
-    if (context.brandId) where.brandId = context.brandId;
-
-    const page = Math.max(1, pagination.page ?? 1);
-    const pageSize = Math.min(pagination.pageSize ?? 20, 100);
-    const { skip, take } = buildPagination({ page, pageSize });
-
-    const [total, programs] = await this.db.$transaction([
-      this.db.loyaltyProgram.count({ where }),
-      this.db.loyaltyProgram.findMany({
-        where,
-        select: programSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
+    const filters = context.brandId ? { brandId: context.brandId } : {};
+    const { items, total, page, pageSize } = await listProgramRecords(filters, pagination);
     return {
-      items: programs.map(mapProgram),
+      items: items.map(mapProgram),
       total,
       page,
-      pageSize: take,
+      pageSize,
     };
   }
 
@@ -338,14 +228,11 @@ class LoyaltyService {
       throw forbidden("Cannot create a program for another brand");
     }
     const brandId = context.brandId ?? input.brandId ?? null;
-    const created = await this.db.loyaltyProgram.create({
-      data: {
-        brandId,
-        name: input.name,
-        description: input.description ?? null,
-        status: input.status ?? "ACTIVE",
-      },
-      select: programSelect,
+    const created = await createProgram({
+      brandId,
+      name: input.name,
+      description: input.description ?? null,
+      status: input.status ?? "ACTIVE",
     });
     return mapProgram(created);
   }
@@ -356,26 +243,12 @@ class LoyaltyService {
     pagination: { page?: number; pageSize?: number } = {},
   ) {
     await this.ensureProgram(programId, context);
-
-    const page = Math.max(1, pagination.page ?? 1);
-    const pageSize = Math.min(pagination.pageSize ?? 20, 100);
-    const { skip, take } = buildPagination({ page, pageSize });
-
-    const [total, tiers] = await this.db.$transaction([
-      this.db.loyaltyTier.count({ where: { programId } }),
-      this.db.loyaltyTier.findMany({
-        where: { programId },
-        select: tierSelect,
-        orderBy: { minPoints: "asc" },
-        skip,
-        take,
-      }),
-    ]);
+    const { items, total, page, pageSize } = await listProgramTiers(programId, pagination);
     return {
-      items: tiers.map(mapTier),
+      items: items.map(mapTier),
       total,
       page,
-      pageSize: take,
+      pageSize,
     };
   }
 
@@ -388,16 +261,13 @@ class LoyaltyService {
     if (input.maxPoints != null && input.maxPoints < input.minPoints) {
       throw badRequest("maxPoints must be greater than or equal to minPoints");
     }
-    const created = await this.db.loyaltyTier.create({
-      data: {
-        programId,
-        brandId: program.brandId ?? null,
-        name: input.name,
-        minPoints: input.minPoints,
-        maxPoints: input.maxPoints ?? null,
-        benefitsDescription: input.benefitsDescription ?? null,
-      },
-      select: tierSelect,
+    const created = await createProgramTier({
+      programId,
+      brandId: program.brandId ?? null,
+      name: input.name,
+      minPoints: input.minPoints,
+      maxPoints: input.maxPoints ?? null,
+      benefitsDescription: input.benefitsDescription ?? null,
     });
     return mapTier(created);
   }
@@ -408,26 +278,12 @@ class LoyaltyService {
     pagination: { page?: number; pageSize?: number } = {},
   ) {
     await this.ensureProgram(programId, context);
-
-    const page = Math.max(1, pagination.page ?? 1);
-    const pageSize = Math.min(pagination.pageSize ?? 20, 100);
-    const { skip, take } = buildPagination({ page, pageSize });
-
-    const [total, rewards] = await this.db.$transaction([
-      this.db.loyaltyReward.count({ where: { programId } }),
-      this.db.loyaltyReward.findMany({
-        where: { programId },
-        select: rewardSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const { items, total, page, pageSize } = await listProgramRewards(programId, pagination);
     return {
-      items: rewards.map(mapReward),
+      items: items.map(mapReward),
       total,
       page,
-      pageSize: take,
+      pageSize,
     };
   }
 
@@ -437,18 +293,15 @@ class LoyaltyService {
     context: LoyaltyActionContext = {},
   ): Promise<LoyaltyRewardDTO> {
     const program = await this.ensureProgram(programId, context);
-    const created = await this.db.loyaltyReward.create({
-      data: {
-        programId,
-        brandId: program.brandId ?? null,
-        name: input.name,
-        description: input.description ?? null,
-        costPoints: input.pointsCost,
-        pointsCost: input.pointsCost,
-        rewardType: input.rewardType ?? null,
-        payloadJson: normalizePayload(input.payloadJson),
-      },
-      select: rewardSelect,
+    const created = await createProgramReward({
+      programId,
+      brandId: program.brandId ?? null,
+      name: input.name,
+      description: input.description ?? null,
+      costPoints: input.pointsCost,
+      pointsCost: input.pointsCost,
+      rewardType: input.rewardType ?? null,
+      payloadJson: normalizePayload(input.payloadJson),
     });
     return mapReward(created);
   }
@@ -458,52 +311,32 @@ class LoyaltyService {
     input: RedeemRewardInput,
     context: LoyaltyActionContext = {},
   ): Promise<RedeemRewardResult> {
-    const reward = await this.db.loyaltyReward.findUnique({
-      where: { id: rewardId },
-      select: rewardSelect,
-    });
+    const reward = await findProgramRewardById(rewardId);
     if (!reward) throw notFound("Reward not found");
     this.assertBrandAccess(reward.brandId, context.brandId);
-
     if (!reward.programId) {
       throw badRequest("Reward is not associated with a loyalty program");
     }
-
-    const customer = await this.db.loyaltyCustomer.findUnique({
-      where: { id: input.customerId },
-      select: customerSelect,
-    });
+    const customer = await findUserLoyaltyById(input.customerId);
     if (!customer) throw notFound("Loyalty customer not found");
     this.assertBrandAccess(customer.brandId, context.brandId);
     if (customer.programId !== reward.programId) {
       throw badRequest("Customer does not belong to the reward's program");
     }
-
     const pointsCost = reward.pointsCost ?? reward.costPoints ?? 0;
     if (pointsCost > customer.pointsBalance) {
       throw badRequest("Customer does not have enough points");
     }
-
     const metadataJson = normalizePayload(input.metadata);
-
-    const updated = await this.applyPointsDelta(
-      { id: customer.id, brandId: customer.brandId, programId: customer.programId },
-      -pointsCost,
-      `reward:${reward.name}`,
-      async (tx) => {
-        await tx.rewardRedemption.create({
-          data: {
-            customerId: customer.id,
-            rewardId,
-            programId: reward.programId,
-            pointsSpent: pointsCost,
-            status: "COMPLETED",
-            metadataJson,
-          },
-        });
-      },
-    );
-
+    const updated = await redeemRewardTransaction({
+      customerId: customer.id,
+      rewardId,
+      programId: reward.programId,
+      pointsCost,
+      metadataJson,
+      brandId: customer.brandId ?? null,
+      reason: `reward:${reward.name}`,
+    });
     await emitLoyaltyRewardRedeemed(
       {
         brandId: customer.brandId ?? undefined,
@@ -518,9 +351,7 @@ class LoyaltyService {
         source: "loyalty",
       },
     );
-
     await this.resolveTierForCustomer(customer.id, context);
-
     return {
       customerId: customer.id,
       pointsBalance: updated.pointsBalance,
@@ -529,26 +360,7 @@ class LoyaltyService {
   }
 
   async resolveTierForCustomer(customerId: string, context: LoyaltyActionContext = {}) {
-    const customer = await this.db.loyaltyCustomer.findUnique({
-      where: { id: customerId },
-      include: {
-        program: {
-          select: {
-            id: true,
-            brandId: true,
-            tiers: {
-              select: {
-                id: true,
-                name: true,
-                minPoints: true,
-                maxPoints: true,
-              },
-              orderBy: { minPoints: "asc" },
-            },
-          },
-        },
-      },
-    });
+    const customer = await findCustomerWithProgramAndTiers(customerId);
     if (!customer) throw notFound("Loyalty customer not found");
     this.assertBrandAccess(customer.brandId, context.brandId);
     const tiers = customer.program?.tiers ?? [];
@@ -559,23 +371,13 @@ class LoyaltyService {
         return hasMin && withinMax;
       })
       .sort((a, b) => b.minPoints - a.minPoints);
-
     const targetTier = eligible[0];
     const newTierId = targetTier?.id ?? null;
     const newTierName = targetTier?.name ?? null;
-
     if (newTierId === customer.tierId) {
       return;
     }
-
-    await this.db.loyaltyCustomer.update({
-      where: { id: customerId },
-      data: {
-        tierId: newTierId,
-        tier: newTierName ?? null,
-      },
-    });
-
+    await updateCustomerTier(customerId, newTierId, newTierName);
     await emitLoyaltyTierChanged(
       {
         brandId: customer.brandId ?? undefined,
@@ -592,11 +394,12 @@ class LoyaltyService {
     );
   }
 
+  async createAIInsight(data: LoyaltyInsightCreateInput): Promise<LoyaltyInsightPayload> {
+    return createLoyaltyInsight(data);
+  }
+
   private async ensureProgram(programId: string, context: LoyaltyActionContext) {
-    const program = await this.db.loyaltyProgram.findUnique({
-      where: { id: programId },
-      select: programSelect,
-    });
+    const program = await findProgramById(programId);
     if (!program) throw notFound("Loyalty program not found");
     this.assertBrandAccess(program.brandId, context.brandId);
     return program;
@@ -607,39 +410,6 @@ class LoyaltyService {
       throw forbidden("Access denied for this brand");
     }
   }
-
-  private async applyPointsDelta(
-    customer: { id: string; brandId?: string | null; programId: string },
-    delta: number,
-    reason: string,
-    callback?: (
-      tx: Prisma.TransactionClient,
-      updated: Prisma.LoyaltyCustomerGetPayload<{ select: typeof customerSelect }>,
-    ) => Promise<void>,
-  ) {
-    const updated = await this.db.$transaction(async (tx) => {
-      const updatedCustomer = await tx.loyaltyCustomer.update({
-        where: { id: customer.id },
-        data: { pointsBalance: { increment: delta } },
-        select: customerSelect,
-      });
-      await tx.loyaltyTransaction.create({
-        data: {
-          brandId: customer.brandId ?? null,
-          customerId: customer.id,
-          programId: customer.programId,
-          pointsChange: delta,
-          reason,
-        },
-      });
-      if (callback) {
-        await callback(tx, updatedCustomer);
-      }
-      return updatedCustomer;
-    });
-    return updated;
-  }
-
 }
 
 export const loyaltyService = new LoyaltyService();

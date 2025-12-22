@@ -456,25 +456,39 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
   const roundedUnitPrice = Math.round(unitPrice * 100) / 100;
 
   // 3. Transaction: create order, adjust inventory, create invoice, revenue record
-  const transactionResult = await createSalesOrderTransaction({
-    repId: input.repId,
-    brandId,
-    productId: input.productId,
-    quantity: input.quantity,
-    total: amount,
-    unitPrice: roundedUnitPrice,
-    invoiceCurrency: pricing.currency ?? "EUR",
-    invoiceStatus: "draft",
-    invoiceIssuedAt: new Date(),
-    revenueCurrency: pricing.currency ?? "EUR",
-    revenuePeriodStart: new Date(),
-    revenuePeriodEnd: null,
-    inventoryAdjustment: {
-      inventoryItemId: inventoryItem.id,
-      delta: -input.quantity,
-      reason: `Order placed by sales rep ${input.repId}`,
+  const transactionResult = await createSalesOrderTransaction(
+    {
+      repId: input.repId,
+      brandId,
+      productId: input.productId,
+      quantity: input.quantity,
+      total: amount,
+      unitPrice: roundedUnitPrice,
+      invoiceCurrency: pricing.currency ?? "EUR",
+      invoiceStatus: "draft",
+      invoiceIssuedAt: new Date(),
+      revenueCurrency: pricing.currency ?? "EUR",
+      revenuePeriodStart: new Date(),
+      revenuePeriodEnd: null,
+      inventoryAdjustment: {
+        inventoryItemId: inventoryItem.id,
+        delta: -input.quantity,
+        reason: `Order placed by sales rep ${input.repId}`,
+        brandId,
+      },
     },
-  });
+    async (adjustment, tx) => {
+      await inventoryService.createInventoryAdjustment(
+        {
+          inventoryItemId: adjustment.inventoryItemId,
+          brandId: adjustment.brandId ?? brandId,
+          delta: adjustment.delta,
+          reason: adjustment.reason,
+        },
+        tx,
+      );
+    },
+  );
   const result = { ...transactionResult, pricingSnapshot: pricing };
 
   const invoiceAmount = Number(result.invoice.amount ?? amount);

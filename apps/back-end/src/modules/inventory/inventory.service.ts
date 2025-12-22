@@ -1,8 +1,21 @@
 /**
  * INVENTORY SERVICE — MH-OS v2 (stabilized)
  */
-import type { Prisma, PrismaClient } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import type { Prisma } from "@prisma/client";
+import {
+  adjustmentSelect,
+  createInventoryItem as createInventoryItemRecord,
+  createInventoryTransaction,
+  createStockAdjustment,
+  findBrandProductById,
+  findInventoryItem,
+  findWarehouseById,
+  inventorySelect,
+  listInventoryItems,
+  listInventoryItemsWithCount,
+  transactionSelect,
+  updateInventoryItemQuantity,
+} from "../../core/db/repositories/inventory.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { publish } from "../../core/events/event-bus.js";
@@ -21,41 +34,6 @@ import type {
 } from "./inventory.types.js";
 
 const lowStockThreshold = 5;
-
-const inventorySelect = {
-  id: true,
-  brandId: true,
-  quantity: true,
-  warehouseId: true,
-  productId: true,
-  createdAt: true,
-  updatedAt: true,
-  warehouse: { select: { id: true, name: true, location: true } },
-  product: { select: { id: true, name: true, sku: true } },
-} satisfies Prisma.InventoryItemSelect;
-
-const transactionSelect = {
-  id: true,
-  brandId: true,
-  warehouseId: true,
-  productId: true,
-  type: true,
-  quantity: true,
-  reason: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.InventoryTransactionSelect;
-
-const adjustmentSelect = {
-  id: true,
-  brandId: true,
-  productId: true,
-  warehouseId: true,
-  quantity: true,
-  reason: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.StockAdjustmentSelect;
 
 function toInventoryItemDTO(record: Prisma.InventoryItemGetPayload<{ select: typeof inventorySelect }>): InventoryItemDTO {
   return {
@@ -118,7 +96,7 @@ function toInsightItem(record: Prisma.InventoryItemGetPayload<{ select: typeof i
 async function ensureInventoryItem(id: string, brandId?: string) {
   const where: Prisma.InventoryItemWhereInput = { id };
   if (brandId) where.brandId = brandId;
-  const item = await prisma.inventoryItem.findFirst({ where, select: inventorySelect });
+  const item = await findInventoryItem(where);
   if (!item) throw notFound("Inventory item not found");
   return item;
 }
@@ -138,10 +116,7 @@ export const inventoryService = {
       ];
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.inventoryItem.count({ where }),
-      prisma.inventoryItem.findMany({ where, select: inventorySelect, orderBy: { updatedAt: "desc" }, skip, take }),
-    ]);
+    const { total, rows } = await listInventoryItemsWithCount(where, { skip, take });
 
     return { items: rows.map(toInventoryItemDTO), total, page, pageSize: take } satisfies PaginatedInventory;
   },
@@ -149,14 +124,14 @@ export const inventoryService = {
   async getInventoryItem(id: string, brandId?: string): Promise<InventoryItemDTO | null> {
     const where: Prisma.InventoryItemWhereInput = { id };
     if (brandId) where.brandId = brandId;
-    const record = await prisma.inventoryItem.findFirst({ where, select: inventorySelect });
+    const record = await findInventoryItem(where);
     return record ? toInventoryItemDTO(record) : null;
   },
 
   async createInventoryItem(input: CreateInventoryItemInput): Promise<InventoryItemDTO> {
     const [product, warehouse] = await Promise.all([
-      prisma.brandProduct.findUnique({ where: { id: input.productId }, select: { id: true, brandId: true } }),
-      prisma.warehouse.findUnique({ where: { id: input.warehouseId }, select: { id: true, brandId: true } }),
+      findBrandProductById(input.productId),
+      findWarehouseById(input.warehouseId),
     ]);
     if (!product) throw badRequest("Product not found");
     if (!warehouse) throw badRequest("Warehouse not found");
@@ -166,14 +141,11 @@ export const inventoryService = {
       throw badRequest("Product and warehouse must belong to same brand");
     }
 
-    const created = await prisma.inventoryItem.create({
-      data: {
-        brandId: input.brandId,
-        warehouseId: input.warehouseId,
-        productId: input.productId,
-        quantity: input.quantity ?? 0,
-      },
-      select: inventorySelect,
+    const created = await createInventoryItemRecord({
+      brandId: input.brandId,
+      warehouseId: input.warehouseId,
+      productId: input.productId,
+      quantity: input.quantity ?? 0,
     });
 
     return toInventoryItemDTO(created);
@@ -181,7 +153,7 @@ export const inventoryService = {
 
   async createInventoryAdjustment(
     input: CreateInventoryAdjustmentInput,
-    tx: Prisma.TransactionClient | PrismaClient = prisma,
+    tx?: Prisma.TransactionClient,
   ): Promise<InventoryAdjustmentResult> {
     const inventoryItem = await ensureInventoryItem(input.inventoryItemId, input.brandId);
     const previousQuantity = Number(inventoryItem.quantity ?? 0);
@@ -190,15 +162,14 @@ export const inventoryService = {
       throw badRequest("Inventory adjustment would result in negative stock");
     }
 
-    // استخدم tx بدلاً من prisma.$transaction
     const [updatedItem, transaction, adjustment] = await Promise.all([
-      tx.inventoryItem.update({
-        where: { id: inventoryItem.id },
-        data: { quantity: newQuantity },
-        select: inventorySelect,
-      }),
-      tx.inventoryTransaction.create({
-        data: {
+      updateInventoryItemQuantity(
+        inventoryItem.id,
+        { quantity: newQuantity },
+        tx,
+      ),
+      createInventoryTransaction(
+        {
           brandId: inventoryItem.brandId ?? null,
           warehouseId: inventoryItem.warehouseId,
           productId: inventoryItem.productId,
@@ -206,18 +177,18 @@ export const inventoryService = {
           quantity: input.delta,
           reason: input.reason ?? null,
         },
-        select: transactionSelect,
-      }),
-      tx.stockAdjustment.create({
-        data: {
+        tx,
+      ),
+      createStockAdjustment(
+        {
           brandId: inventoryItem.brandId ?? null,
           productId: inventoryItem.productId,
           warehouseId: inventoryItem.warehouseId,
           quantity: input.delta,
           reason: input.reason ?? null,
         },
-        select: adjustmentSelect,
-      }),
+        tx,
+      ),
     ]);
 
     await handleLowStockAlert({
@@ -249,7 +220,7 @@ export const inventoryService = {
     const where: Prisma.InventoryItemWhereInput = {};
     if (brandId) where.brandId = brandId;
 
-    const items = await prisma.inventoryItem.findMany({ where, select: inventorySelect });
+    const items = await listInventoryItems(where);
     const lowStockItems = items.filter((item) => Number(item.quantity ?? 0) <= lowStockThreshold).map(toInsightItem);
     const overstockItems = items.filter((item) => Number(item.quantity ?? 0) >= lowStockThreshold * 3).map(toInsightItem);
 

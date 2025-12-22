@@ -17,7 +17,6 @@ import {
 import { respondWithSuccess } from "../../core/http/respond.js";
 import { runAIPipeline } from "../../core/ai/pipeline/pipeline-runner.js";
 import { getUserPermissions } from "../../core/security/rbac.js";
-import { prisma } from "../../core/prisma.js";
 import { safeTruncate } from "../../core/ai/pipeline/pipeline-utils.js";
 
 export async function list(req: Request, res: Response, next: NextFunction) {
@@ -250,15 +249,13 @@ export async function aiInsights(req: AuthenticatedRequest, res: Response, next:
       ? String((pipeline.output as Record<string, unknown>).summary ?? "Loyalty insight")
       : "Loyalty insight";
 
-    const insight = await prisma.aIInsight.create({
-      data: {
-        brandId,
-        os: "loyalty",
-        entityType: "AI_RECOMMENDATION",
-        entityId: loyaltyCustomerId,
-        summary,
-        details: safeTruncate({ output: pipeline.output, runId: pipeline.runId }, 4000),
-      },
+    const insight = await loyaltyService.createAIInsight({
+      brandId,
+      os: "loyalty",
+      entityType: "AI_RECOMMENDATION",
+      entityId: loyaltyCustomerId,
+      summary,
+      details: safeTruncate({ output: pipeline.output, runId: pipeline.runId }, 4000),
     });
 
     respondWithSuccess(res, {

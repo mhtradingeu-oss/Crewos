@@ -7,8 +7,6 @@
  * PRICING SERVICE — MH-OS v2
  * Spec: docs/os/08_pricing-master.md + docs/ai/25_pricing-engine-os.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { orchestrateAI, makeCacheKey } from "../../core/ai/orchestrator.js";
@@ -27,6 +25,38 @@ import {
   emitPricingAISuggested,
   emitPricingPlanGenerated,
 } from "./pricing.events.js";
+import {
+  PRICING_INSIGHT_ENTITY,
+  PricingPayload,
+  PricingDraftPayload,
+  CompetitorPricePayload,
+  PricingCreateInput,
+  PricingUpdateInput,
+  DraftUpdateInput,
+  listPricingRecords,
+  findPricingById,
+  findPricingByProductId,
+  createPricingRecord,
+  updatePricingRecord,
+  deletePricingRecord,
+  syncPricingFromDraft,
+  createDraftEntry,
+  listDraftsByProduct,
+  findDraftByProduct,
+  updateDraftStatus as updateDraftStatusRecord,
+  createCompetitorPriceRecord,
+  listCompetitorPrices as listCompetitorPriceRecords,
+  createPricingHistoryEntry,
+  listPricingHistory,
+  createAIInsightEntry,
+  listAIInsights,
+  createLearningJournalEntry,
+  getProductCost,
+  findProductWithBrand,
+  findBrandById,
+  ensureBrandHasCurrency,
+  getProductWithPricing,
+} from "../../core/db/repositories/pricing.repository.js";
 import type { EventContext } from "../../core/events/event-bus.js";
 import type {
   CreatePricingDTO,
@@ -54,70 +84,8 @@ function buildEventContext(context?: PricingActionContext): EventContext {
 }
 
 const DEFAULT_CURRENCY = "EUR";
-const AI_INSIGHT_ENTITY = "pricing-suggestion";
 const AI_AGENT_NAME = "pricing-ai";
 const AI_PLAN_AGENT_NAME = "pricing-strategist";
-
-const pricingSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  cogsEur: true,
-  fullCostEur: true,
-  b2cNet: true,
-  b2cGross: true,
-  vatPct: true,
-  createdAt: true,
-  updatedAt: true,
-  brand: { select: { defaultCurrency: true } },
-} satisfies Prisma.ProductPricingSelect;
-
-const draftSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  channel: true,
-  oldNet: true,
-  newNet: true,
-  status: true,
-  statusReason: true,
-  createdById: true,
-  approvedById: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.ProductPriceDraftSelect;
-
-const competitorSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  competitor: true,
-  marketplace: true,
-  country: true,
-  priceNet: true,
-  priceGross: true,
-  currency: true,
-  collectedAt: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.CompetitorPriceSelect;
-
-const logSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  channel: true,
-  oldNet: true,
-  newNet: true,
-  aiAgent: true,
-  confidenceScore: true,
-  summary: true,
-  createdAt: true,
-} satisfies Prisma.AIPricingHistorySelect;
-
-type PricingWithBrand = Prisma.ProductPricingGetPayload<{ select: typeof pricingSelect }>;
-type ProductDraftRecord = Prisma.ProductPriceDraftGetPayload<{ select: typeof draftSelect }>;
-type CompetitorPriceRecord = Prisma.CompetitorPriceGetPayload<{ select: typeof competitorSelect }>;
 
 type RawPricingSuggestion = {
   suggestedPrice: number | null;
@@ -140,11 +108,6 @@ const DraftStatus = {
   REJECTED: "REJECTED",
 } as const;
 
-function decimalToNumber(value?: Prisma.Decimal | null, fallback = 0) {
-  if (value === null || value === undefined) return fallback;
-  return Number(value);
-}
-
 function minNonNull(values: Array<number | null | undefined>): number | null {
   const filtered = values.filter((v) => v !== null && v !== undefined) as number[];
   return filtered.length ? Math.min(...filtered) : null;
@@ -163,9 +126,16 @@ function clampToCostFloor(payload: RawPricingSuggestion, costFloor: number | nul
   return clamped;
 }
 
-function decimalToNullableNumber(value?: Prisma.Decimal | null) {
+function decimalToNullableNumber(value?: unknown | null): number | null {
   if (value === null || value === undefined) return null;
-  return Number(value);
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function decimalToNumber(value?: unknown | null, fallback = 0) {
+  if (value === null || value === undefined) return fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function computeMargin(basePrice: number, cost: number) {
@@ -180,7 +150,7 @@ function assertNonNegativeMargin(basePrice?: number | null, cost?: number | null
   }
 }
 
-function mapPricing(record: PricingWithBrand, overrides?: Partial<PricingRecord>): PricingRecord {
+function mapPricing(record: PricingPayload, overrides?: Partial<PricingRecord>): PricingRecord {
   const basePrice = decimalToNumber(record.b2cNet);
   const cost = decimalToNumber(record.cogsEur);
   const mapped: PricingRecord = {
@@ -199,7 +169,7 @@ function mapPricing(record: PricingWithBrand, overrides?: Partial<PricingRecord>
   return mapped;
 }
 
-function mapDraft(record: ProductDraftRecord): PricingDraft {
+function mapDraft(record: PricingDraftPayload): PricingDraft {
   return {
     id: record.id,
     productId: record.productId,
@@ -216,12 +186,7 @@ function mapDraft(record: ProductDraftRecord): PricingDraft {
   };
 }
 
-async function getProductCost(productId: string): Promise<number | null> {
-  const pricing = await prisma.productPricing.findUnique({ where: { productId }, select: { cogsEur: true } });
-  return decimalToNullableNumber(pricing?.cogsEur);
-}
-
-function mapCompetitorPrice(record: CompetitorPriceRecord) {
+function mapCompetitorPrice(record: CompetitorPricePayload) {
   return {
     id: record.id,
     productId: record.productId,
@@ -270,17 +235,11 @@ function normalizeNumber(value: unknown) {
 
 async function ensureCurrencyForBrand(brandId: string | null | undefined, currency?: string) {
   if (!brandId || !currency) return;
-  const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { defaultCurrency: true } });
-  if (brand && !brand.defaultCurrency) {
-    await prisma.brand.update({ where: { id: brandId }, data: { defaultCurrency: currency } });
-  }
+  await ensureBrandHasCurrency(brandId, currency);
 }
 
 async function ensureProductExists(productId: string, brandId?: string) {
-  const product = await prisma.brandProduct.findUnique({
-    where: { id: productId },
-    select: { id: true, brandId: true },
-  });
+  const product = await findProductWithBrand(productId);
   if (!product) {
     throw badRequest("Product not found");
   }
@@ -291,7 +250,7 @@ async function ensureProductExists(productId: string, brandId?: string) {
 }
 
 async function ensureBrandExists(brandId: string) {
-  const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } });
+  const brand = await findBrandById(brandId);
   if (!brand) {
     throw badRequest("Brand not found");
   }
@@ -307,18 +266,15 @@ async function recordHistory(
   context?: PricingActionContext,
   options?: { aiAgent?: string | null; confidenceScore?: number | null },
 ) {
-  const log = await prisma.aIPricingHistory.create({
-    data: {
-      productId,
-      brandId,
-      channel,
-      oldNet,
-      newNet,
-      aiAgent: options?.aiAgent,
-      confidenceScore: options?.confidenceScore,
-      summary,
-    },
-    select: logSelect,
+  const log = await createPricingHistoryEntry({
+    productId,
+    brandId,
+    channel,
+    oldNet,
+    newNet,
+    aiAgent: options?.aiAgent,
+    confidenceScore: options?.confidenceScore,
+    summary,
   });
   await emitPricingLogRecorded(
     { id: log.id, productId: log.productId, brandId: log.brandId ?? undefined },
@@ -331,16 +287,13 @@ async function logPricingInsight(
   brandId: string | undefined,
   payload: RawPricingSuggestion,
 ) {
-  const insight = await prisma.aIInsight.create({
-    data: {
-      brandId: brandId ?? null,
-      os: "pricing",
-      entityType: AI_INSIGHT_ENTITY,
-      entityId: productId,
-      summary: `Pricing suggestion ${payload.riskLevel ?? "unknown"}`,
-      details: JSON.stringify(payload),
-    },
-    select: { id: true, entityId: true, createdAt: true },
+  const insight = await createAIInsightEntry({
+    brandId: brandId ?? null,
+    os: "pricing",
+    entityType: PRICING_INSIGHT_ENTITY,
+    entityId: productId,
+    summary: `Pricing suggestion ${payload.riskLevel ?? "unknown"}`,
+    details: JSON.stringify(payload),
   });
   return insight;
 }
@@ -348,7 +301,7 @@ async function logPricingInsight(
 function buildPricingCreateData(
   input: CreatePricingDTO,
   brandId: string | null | undefined,
-): Prisma.ProductPricingUncheckedCreateInput {
+): PricingCreateInput {
   return {
     productId: input.productId,
     brandId: brandId ?? undefined,
@@ -358,8 +311,8 @@ function buildPricingCreateData(
   };
 }
 
-function buildPricingUpdateData(input: UpdatePricingDTO): Prisma.ProductPricingUncheckedUpdateInput {
-  const data: Prisma.ProductPricingUncheckedUpdateInput = {};
+function buildPricingUpdateData(input: UpdatePricingDTO): PricingUpdateInput {
+  const data: PricingUpdateInput = {};
   if (input.basePrice !== undefined) {
     data.b2cNet = input.basePrice;
   }
@@ -378,30 +331,20 @@ async function listPricing(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const { skip, take } = buildPagination({ page, pageSize });
-  const where: Prisma.ProductPricingWhereInput = {};
-  if (productId) where.productId = productId;
   const brandId = context?.brandId ?? requestedBrandId;
-  if (brandId) where.brandId = brandId;
+  const [total, records] = await listPricingRecords(
+    { productId, brandId: brandId ?? undefined },
+    { skip, take },
+  );
 
-  const [total, records] = await prisma.$transaction([
-    prisma.productPricing.count({ where }),
-    prisma.productPricing.findMany({
-      where,
-      select: pricingSelect,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take,
-    }),
-  ]);
-
-  return { data: records.map((record: any) => mapPricing(record)), total, page, pageSize: take };
+  return { data: records.map((record) => mapPricing(record)), total, page, pageSize: take };
 }
 
 async function getPricingById(
   id: string,
   context?: PricingActionContext,
 ): Promise<PricingRecord> {
-  const record = await prisma.productPricing.findUnique({ where: { id }, select: pricingSelect });
+  const record = await findPricingById(id);
   if (!record) {
     throw notFound("Pricing not found");
   }
@@ -417,7 +360,7 @@ async function createPricing(input: CreatePricingDTO, context?: PricingActionCon
     brandId: context?.brandId ?? product.brandId ?? undefined,
     actorUserId: context?.actorUserId,
   });
-  const existing = await prisma.productPricing.findUnique({ where: { productId: input.productId } });
+  const existing = await findPricingByProductId(input.productId);
   if (existing) {
     throw badRequest("Pricing already exists for this product");
   }
@@ -425,10 +368,7 @@ async function createPricing(input: CreatePricingDTO, context?: PricingActionCon
   await ensureCurrencyForBrand(product.brandId, input.currency);
   assertNonNegativeMargin(input.basePrice, input.cost);
 
-  const created = await prisma.productPricing.create({
-    data: buildPricingCreateData(input, product.brandId),
-    select: pricingSelect,
-  });
+  const created = await createPricingRecord(buildPricingCreateData(input, product.brandId));
 
   await emitPricingCreated(
     { id: created.id, productId: created.productId, brandId: created.brandId ?? undefined },
@@ -456,7 +396,7 @@ async function updatePricing(
   input: UpdatePricingDTO,
   context?: PricingActionContext,
 ): Promise<PricingRecord> {
-  const existing = await prisma.productPricing.findUnique({ where: { id }, select: pricingSelect });
+  const existing = await findPricingById(id);
   if (!existing) {
     throw notFound("Pricing not found");
   }
@@ -484,11 +424,7 @@ async function updatePricing(
     return fallback;
   }
 
-  const updated = await prisma.productPricing.update({
-    where: { id },
-    data: updateData,
-    select: pricingSelect,
-  });
+  const updated = await updatePricingRecord(id, updateData);
 
   await emitPricingUpdated(
     { id: updated.id, productId: updated.productId, brandId: updated.brandId ?? undefined },
@@ -512,15 +448,12 @@ async function updatePricing(
 }
 
 async function deletePricing(id: string, context?: PricingActionContext): Promise<{ id: string }> {
-  const existing = await prisma.productPricing.findUnique({
-    where: { id },
-    select: { id: true, productId: true, brandId: true },
-  });
+  const existing = await findPricingById(id);
   if (!existing) {
     throw notFound("Pricing not found");
   }
   await ensureProductExists(existing.productId, context?.brandId);
-  await prisma.productPricing.delete({ where: { id } });
+  await deletePricingRecord(id);
   const eventContext = buildEventContext({
     brandId: context?.brandId ?? existing.brandId ?? undefined,
     actorUserId: context?.actorUserId,
@@ -537,7 +470,7 @@ async function createDraft(
   payload: DraftJsonPayload = {},
   context?: PricingActionContext,
 ): Promise<PricingDraft> {
-  return createDraftEntry(
+  return persistDraftEntry(
     {
       productId,
       draftJson: payload,
@@ -547,7 +480,7 @@ async function createDraft(
   );
 }
 
-async function createDraftEntry(
+async function persistDraftEntry(
   input: {
     productId: string;
     draftJson: DraftJsonPayload;
@@ -569,22 +502,19 @@ async function createDraftEntry(
   const productCost = await getProductCost(product.id);
   assertNonNegativeMargin(normalizedNewNet ?? undefined, productCost ?? undefined);
 
-  const draft = await prisma.productPriceDraft.create({
-    data: {
-      productId: input.productId,
-      brandId,
-      channel: String(input.draftJson.channel ?? "pricing"),
-      oldNet: normalizedOldNet,
-      newNet: normalizedNewNet,
-      status: normalizedStatus,
-      statusReason,
-      createdById:
-        input.createdById ??
-        (typeof input.draftJson.createdById === "string" ? input.draftJson.createdById : undefined),
-      approvedById:
-        typeof input.draftJson.approvedById === "string" ? input.draftJson.approvedById : undefined,
-    },
-    select: draftSelect,
+  const draft = await createDraftEntry({
+    productId: input.productId,
+    brandId,
+    channel: String(input.draftJson.channel ?? "pricing"),
+    oldNet: normalizedOldNet,
+    newNet: normalizedNewNet,
+    status: normalizedStatus,
+    statusReason,
+    createdById:
+      input.createdById ??
+      (typeof input.draftJson.createdById === "string" ? input.draftJson.createdById : undefined),
+    approvedById:
+      typeof input.draftJson.approvedById === "string" ? input.draftJson.approvedById : undefined,
   });
 
   const eventContext = buildEventContext(context);
@@ -604,17 +534,8 @@ async function listDrafts(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const { skip, take } = buildPagination({ page, pageSize });
-  const [total, drafts] = await prisma.$transaction([
-    prisma.productPriceDraft.count({ where: { productId } }),
-    prisma.productPriceDraft.findMany({
-      where: { productId },
-      select: draftSelect,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take,
-    }),
-  ]);
-  return { data: drafts.map((draft: any) => mapDraft(draft)), total, page, pageSize: take };
+  const [total, drafts] = await listDraftsByProduct(productId, { skip, take });
+  return { data: drafts.map((draft) => mapDraft(draft)), total, page, pageSize: take };
 }
 
 async function submitDraftForApproval(
@@ -654,10 +575,7 @@ async function updateDraftStatus(
   context?: PricingActionContext,
 ): Promise<PricingDraft> {
   await ensureProductExists(productId, context?.brandId);
-  const draft = await prisma.productPriceDraft.findFirst({
-    where: { id: draftId, productId },
-    select: draftSelect,
-  });
+  const draft = await findDraftByProduct(productId, draftId);
   if (!draft) {
     throw notFound("Draft not found");
   }
@@ -668,7 +586,7 @@ async function updateDraftStatus(
     assertNonNegativeMargin(decimalToNullableNumber(draft.newNet), productCost ?? undefined);
   }
 
-  const updateData: Prisma.ProductPriceDraftUpdateInput = { status };
+  const updateData: DraftUpdateInput = { status };
   if (options.approvedById !== undefined) {
     updateData.approvedById = options.approvedById;
   }
@@ -676,11 +594,7 @@ async function updateDraftStatus(
     updateData.statusReason = options.statusReason;
   }
 
-  const updated = await prisma.productPriceDraft.update({
-    where: { id: draftId },
-    data: updateData,
-    select: draftSelect,
-  });
+  const updated = await updateDraftStatusRecord(draftId, updateData);
 
   const payload = {
     id: updated.id,
@@ -699,28 +613,11 @@ async function updateDraftStatus(
   return mapDraft(updated);
 }
 
-async function syncPricingFromDraft(draft: PricingDraft) {
+async function applyDraftPricingSync(draft: PricingDraft) {
   if (draft.newNet == null) return;
   const productCost = await getProductCost(draft.productId);
   assertNonNegativeMargin(draft.newNet, productCost ?? undefined);
-  const existing = await prisma.productPricing.findUnique({
-    where: { productId: draft.productId },
-    select: { id: true },
-  });
-  if (existing) {
-    await prisma.productPricing.update({
-      where: { id: existing.id },
-      data: { b2cNet: draft.newNet },
-    });
-    return;
-  }
-  await prisma.productPricing.create({
-    data: {
-      productId: draft.productId,
-      brandId: draft.brandId ?? undefined,
-      b2cNet: draft.newNet,
-    },
-  });
+  await syncPricingFromDraft(draft.productId, draft.brandId ?? undefined, draft.newNet);
 }
 
 async function approveDraft(
@@ -737,7 +634,7 @@ async function approveDraft(
     { approvedById: approverId },
     context,
   );
-  await syncPricingFromDraft(updated);
+  await applyDraftPricingSync(updated);
   return updated;
 }
 
@@ -752,20 +649,17 @@ async function addCompetitorPrice(
     await ensureBrandExists(input.brandId as string);
   }
 
-  const competitorPrice = await prisma.competitorPrice.create({
-    data: {
-      productId,
-      brandId,
-      competitor: String(input.competitor ?? ""),
-      marketplace: typeof input.marketplace === "string" ? input.marketplace : undefined,
-      country: typeof input.country === "string" ? input.country : undefined,
-      priceNet: normalizeNumber(input.priceNet),
-      priceGross: normalizeNumber(input.priceGross),
-      currency: typeof input.currency === "string" ? input.currency : undefined,
-      collectedAt:
-        input.collectedAt instanceof Date ? input.collectedAt : input.collectedAt ? new Date(String(input.collectedAt)) : undefined,
-    },
-    select: competitorSelect,
+  const competitorPrice = await createCompetitorPriceRecord({
+    productId,
+    brandId,
+    competitor: String(input.competitor ?? ""),
+    marketplace: typeof input.marketplace === "string" ? input.marketplace : undefined,
+    country: typeof input.country === "string" ? input.country : undefined,
+    priceNet: normalizeNumber(input.priceNet),
+    priceGross: normalizeNumber(input.priceGross),
+    currency: typeof input.currency === "string" ? input.currency : undefined,
+    collectedAt:
+      input.collectedAt instanceof Date ? input.collectedAt : input.collectedAt ? new Date(String(input.collectedAt)) : undefined,
   });
 
   const eventContext = buildEventContext({
@@ -789,17 +683,8 @@ async function listCompetitorPrices(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const { skip, take } = buildPagination({ page, pageSize });
-  const [total, competitors] = await prisma.$transaction([
-    prisma.competitorPrice.count({ where: { productId } }),
-    prisma.competitorPrice.findMany({
-      where: { productId },
-      select: competitorSelect,
-      orderBy: { collectedAt: "desc" },
-      skip,
-      take,
-    }),
-  ]);
-  return { data: competitors.map((record: any) => mapCompetitorPrice(record)), total, page, pageSize: take };
+  const [total, competitors] = await listCompetitorPriceRecords(productId, { skip, take });
+  return { data: competitors.map((record) => mapCompetitorPrice(record)), total, page, pageSize: take };
 }
 
 async function listLogs(
@@ -811,18 +696,9 @@ async function listLogs(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const { skip, take } = buildPagination({ page, pageSize });
-  const [total, logs] = await prisma.$transaction([
-    prisma.aIPricingHistory.count({ where: { productId } }),
-    prisma.aIPricingHistory.findMany({
-      where: { productId },
-      select: logSelect,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take,
-    }),
-  ]);
+  const [total, logs] = await listPricingHistory(productId, { skip, take });
   return {
-    data: logs.map((log: any) => ({
+    data: logs.map((log) => ({
       id: log.id,
       productId: log.productId,
       brandId: log.brandId ?? undefined,
@@ -844,16 +720,7 @@ async function createAISuggestion(
   input: AIPricingRequestDTO,
   context?: PricingActionContext,
 ): Promise<AIPricingSuggestion> {
-  const product = await prisma.brandProduct.findUnique({
-    where: { id: input.productId },
-    select: {
-      id: true,
-      name: true,
-      brandId: true,
-      brand: { select: { id: true, name: true } },
-      pricing: { select: { b2cNet: true, vatPct: true, cogsEur: true, fullCostEur: true } },
-    },
-  });
+  const product = await getProductWithPricing(input.productId);
   if (!product) {
     throw badRequest("Product not found");
   }
@@ -979,14 +846,12 @@ async function recordAIPlanResult(
     context,
     { aiAgent: AI_PLAN_AGENT_NAME, confidenceScore: null },
   );
-  await prisma.aILearningJournal.create({
-    data: {
-      productId,
-      brandId: brandId ?? null,
-      source: "pricing-plan",
-      eventType: "pricing_plan",
-      outputSnapshotJson: JSON.stringify(planPayload ?? {}),
-    },
+  await createLearningJournalEntry({
+    productId,
+    brandId: brandId ?? null,
+    source: "pricing-plan",
+    eventType: "pricing_plan",
+    outputSnapshotJson: JSON.stringify(planPayload ?? {}),
   });
   await recordMonitoringEvent({
     category: "AGENT_ACTIVITY",
@@ -1016,22 +881,9 @@ async function listAISuggestions(
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const { skip, take } = buildPagination({ page, pageSize });
-  const [total, insights] = await prisma.$transaction([
-    prisma.aIInsight.count({ where: { entityType: AI_INSIGHT_ENTITY, os: "pricing", entityId: productId } }),
-    prisma.aIInsight.findMany({
-      where: {
-        entityType: AI_INSIGHT_ENTITY,
-        os: "pricing",
-        entityId: productId,
-      },
-      select: { id: true, entityId: true, details: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take,
-    }),
-  ]);
+  const [total, insights] = await listAIInsights(productId, { skip, take });
   return {
-    data: insights.map((record: any) => ({
+    data: insights.map((record) => ({
       id: record.id,
       productId: record.entityId ?? productId,
       suggestionJson: parseInsightDetails(record.details),

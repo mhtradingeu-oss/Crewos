@@ -131,11 +131,7 @@ export interface LoyaltyEventPayload {
   pointsDelta?: number;
 }
 
-export interface LoyaltyDashboardSummary {
-  totalPrograms: number;
-  totalCustomers: number;
-  totalPoints: number;
-  totalRewards: number;
-  totalRedemptions: number;
-  pointsSpent: number;
+export interface LoyaltyActionContext {
+  brandId?: string;
+  actorUserId?: string;
 }
