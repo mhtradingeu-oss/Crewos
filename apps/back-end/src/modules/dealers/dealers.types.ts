@@ -16,6 +16,7 @@ export interface PartnerDTO {
   createdAt: Date;
   updatedAt: Date;
   stats?: PartnerStatsDTO;
+  settingsJson?: unknown;
 }
 
 export interface PartnerStatsDTO {

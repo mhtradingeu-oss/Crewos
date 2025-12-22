@@ -2,8 +2,8 @@
  * DEALERS SERVICE — MH-OS v2
  * Spec: docs/os/20_partner-os.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+
+
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -25,40 +25,29 @@ import {
   emitDealersKpiUpdated,
   emitDealersUpdated,
 } from "./dealers.events.js";
-
-const partnerSelect = {
-  id: true,
-  brandId: true,
-  type: true,
-  name: true,
-  country: true,
-  city: true,
-  status: true,
-  tier: {
-    select: {
-      id: true,
-      name: true,
-      benefits: true,
-    },
-  },
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.PartnerSelect;
-
-const dealerKpiSelect = {
-  id: true,
-  partnerId: true,
-  brandId: true,
-  totalOrders: true,
-  totalRevenue: true,
-  totalUnits: true,
-  activeStands: true,
-  engagementScore: true,
-  lastOrderAt: true,
-} satisfies Prisma.DealerKpiSelect;
+import {
+  computeDealerKpiData,
+  deactivatePartnerRecord,
+  findDealerKpi,
+  findPartnerByBrandAndName,
+  findPartnerByIdAndBrand,
+  findPartnerName,
+  getDashboardSummaryAggregates,
+  listDealerKpis,
+  listPartners,
+  upsertDealerKpi,
+  createPartnerRecord,
+  updatePartnerRecord,
+} from "../../core/db/repositories/dealers.repository.js";
+import type {
+  DealerKpiPayload,
+  DealerKpiWhereInput,
+  PartnerPayload,
+  PartnerWhereInput,
+} from "../../core/db/repositories/dealers.repository.js";
 
 function mapDealerKpi(
-  record: Prisma.DealerKpiGetPayload<{ select: typeof dealerKpiSelect }>,
+  record: DealerKpiPayload,
 ): DealerKpiDTO {
   return {
     partnerId: record.partnerId,
@@ -83,9 +72,7 @@ function kpiToStats(kpi: DealerKpiDTO): PartnerStatsDTO {
   };
 }
 
-function mapPartner(
-  record: Prisma.PartnerGetPayload<{ select: typeof partnerSelect }>,
-): PartnerDTO {
+function mapPartner(record: PartnerPayload): PartnerDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -103,71 +90,16 @@ function mapPartner(
       : null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    settingsJson: record.settingsJson,
   };
 }
 
-async function buildDealerKpiData(partnerId: string, brandId: string) {
-  const [orderAgg, unitsAgg, activeStands] = await Promise.all([
-    prisma.partnerOrder.aggregate({
-      where: { partnerId, brandId },
-      _count: { id: true },
-      _sum: { total: true },
-      _max: { createdAt: true },
-    }),
-    prisma.partnerOrderItem.aggregate({
-      where: { order: { partnerId, brandId } },
-      _sum: { quantity: true },
-    }),
-    prisma.stand.count({
-      where: {
-        brandId,
-        standPartner: {
-          partnerId,
-        },
-        status: "ACTIVE",
-      },
-    }),
-  ]);
 
-  const totalOrders = orderAgg._count.id ?? 0;
-  const totalRevenue = Number(orderAgg._sum.total ?? 0);
-  const totalUnits = unitsAgg._sum.quantity ?? 0;
-  const lastOrderAt = orderAgg._max.createdAt ?? null;
-  const engagementScore = Math.min(
-    100,
-    totalOrders * 2 + totalRevenue / 1000 + activeStands * 3,
-  );
-
-  return {
-    totalOrders,
-    totalRevenue,
-    totalUnits,
-    activeStands,
-    engagementScore,
-    lastOrderAt,
-  };
-}
 
 export const dealersService = {
   async getDashboardSummary(brandId: string): Promise<DealersDashboardSummary> {
-    const [totalPartners, activePartners, ordersAgg, totalStands, topCountries] =
-      await prisma.$transaction([
-        prisma.partner.count({ where: { brandId } }),
-        prisma.partner.count({ where: { brandId, status: "ACTIVE" } }),
-        prisma.partnerOrder.aggregate({
-          where: { brandId },
-          _count: { id: true },
-          _sum: { total: true },
-        }),
-        prisma.stand.count({ where: { brandId } }),
-        prisma.partner.groupBy({
-          by: ["country"],
-          where: { brandId, country: { not: null } },
-          _count: { id: true },
-          orderBy: { _count: { id: "desc" } },
-          take: 3,
-        }),
-      ]);
+    const { totalPartners, activePartners, ordersAgg, totalStands, topCountries } =
+      await getDashboardSummaryAggregates(brandId);
 
     return {
       totalPartners,
@@ -175,7 +107,7 @@ export const dealersService = {
       totalOrders: ordersAgg._count.id ?? 0,
       totalRevenue: Number(ordersAgg._sum.total ?? 0),
       totalStands,
-      topCountries: topCountries.map((row: any) => ({
+      topCountries: topCountries.map((row) => ({
         country: row.country ?? "unknown",
         partners: typeof row._count === "object" && row._count ? row._count.id ?? 0 : 0,
       })),
@@ -187,7 +119,7 @@ export const dealersService = {
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.PartnerWhereInput = { brandId };
+    const where: PartnerWhereInput = { brandId };
 
     if (active !== undefined) {
       where.status = active ? "ACTIVE" : { not: "ACTIVE" };
@@ -200,16 +132,7 @@ export const dealersService = {
       ];
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.partner.count({ where }),
-      prisma.partner.findMany({
-        where,
-        select: partnerSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await listPartners(where, { skip, take });
 
     return {
       items: rows.map((item: any) => mapPartner(item)),
@@ -220,10 +143,7 @@ export const dealersService = {
   },
 
   async getPartnerById(partnerId: string, brandId: string): Promise<PartnerDTO | null> {
-    const record = await prisma.partner.findFirst({
-      where: { id: partnerId, brandId },
-      select: partnerSelect,
-    });
+    const record = await findPartnerByIdAndBrand(partnerId, brandId);
     if (!record) return null;
     const dto = mapPartner(record);
     const kpi = await this.getDealerKpi(partnerId, brandId);
@@ -231,28 +151,23 @@ export const dealersService = {
   },
 
   async createPartner(input: PartnerCreateInput): Promise<PartnerDTO> {
-    const existing = await prisma.partner.findFirst({
-      where: { brandId: input.brandId, name: input.name },
-    });
+    const existing = await findPartnerByBrandAndName(input.brandId, input.name);
     if (existing) {
       throw badRequest("Partner with this name already exists");
     }
 
-    const created = await prisma.partner.create({
-      data: {
-        brandId: input.brandId,
-        type: input.type,
-        name: input.name,
-        country: input.country ?? null,
-        city: input.city ?? null,
-        tierId: input.tierId ?? null,
-        settingsJson:
-          typeof input.settingsJson === "string"
-            ? input.settingsJson
-            : JSON.stringify(input.settingsJson ?? {}),
-        status: input.status ?? "ACTIVE",
-      },
-      select: partnerSelect,
+    const created = await createPartnerRecord({
+      brandId: input.brandId,
+      type: input.type,
+      name: input.name,
+      country: input.country ?? null,
+      city: input.city ?? null,
+      tierId: input.tierId ?? null,
+      settingsJson:
+        typeof input.settingsJson === "string"
+          ? input.settingsJson
+          : JSON.stringify(input.settingsJson ?? {}),
+      status: input.status ?? "ACTIVE",
     });
 
     logger.info(`[partners] Created partner ${created.name} for brand ${input.brandId}`);
@@ -269,26 +184,24 @@ export const dealersService = {
     brandId: string,
     input: PartnerUpdateInput,
   ): Promise<PartnerDTO> {
-    const existing = await prisma.partner.findFirst({ where: { id: partnerId, brandId } });
+    const existing = await findPartnerByIdAndBrand(partnerId, brandId);
     if (!existing) throw notFound("Partner not found");
 
-    const updated = await prisma.partner.update({
-      where: { id: partnerId },
-      data: {
-        type: input.type ?? undefined,
-        name: input.name ?? undefined,
-        country: input.country ?? undefined,
-        city: input.city ?? undefined,
-        tierId: input.tierId ?? undefined,
-        settingsJson:
-          input.settingsJson !== undefined
-            ? typeof input.settingsJson === "string"
-              ? input.settingsJson
-              : JSON.stringify(input.settingsJson)
-            : existing.settingsJson,
-        status: input.status ?? existing.status,
-      },
-      select: partnerSelect,
+    const updated = await updatePartnerRecord(partnerId, {
+      type: input.type ?? undefined,
+      name: input.name ?? undefined,
+      country: input.country ?? undefined,
+      city: input.city ?? undefined,
+      tierId: input.tierId ?? undefined,
+      settingsJson:
+        input.settingsJson !== undefined
+          ? typeof input.settingsJson === "string"
+            ? input.settingsJson
+            : JSON.stringify(input.settingsJson)
+          : existing.settingsJson === null
+          ? undefined
+          : existing.settingsJson,
+      status: input.status ?? existing.status,
     });
 
     logger.info(`[partners] Updated partner ${updated.id}`);
@@ -301,14 +214,10 @@ export const dealersService = {
   },
 
   async deactivatePartner(partnerId: string, brandId: string): Promise<PartnerDTO> {
-    const existing = await prisma.partner.findFirst({ where: { id: partnerId, brandId } });
+    const existing = await findPartnerByIdAndBrand(partnerId, brandId);
     if (!existing) throw notFound("Partner not found");
 
-    const updated = await prisma.partner.update({
-      where: { id: partnerId },
-      data: { status: "INACTIVE" },
-      select: partnerSelect,
-    });
+    const updated = await deactivatePartnerRecord(partnerId);
 
     logger.info(`[partners] Deactivated partner ${partnerId}`);
     await emitDealersDeleted({
@@ -326,10 +235,7 @@ export const dealersService = {
 
   async getDealerKpi(partnerId: string, brandId: string): Promise<DealerKpiDTO> {
     if (!brandId) throw badRequest("brandId is required");
-    const record = await prisma.dealerKpi.findUnique({
-      where: { partnerId_brandId: { partnerId, brandId } },
-      select: dealerKpiSelect,
-    });
+    const record = await findDealerKpi(partnerId, brandId);
     if (record) return mapDealerKpi(record);
     return this.recalculateDealerKpi(partnerId, brandId);
   },
@@ -340,17 +246,8 @@ export const dealersService = {
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.DealerKpiWhereInput = { brandId };
-    const [total, rows] = await prisma.$transaction([
-      prisma.dealerKpi.count({ where }),
-      prisma.dealerKpi.findMany({
-        where,
-        include: { partner: { select: { name: true } } },
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const where: DealerKpiWhereInput = { brandId };
+    const [total, rows] = await listDealerKpis(where, { skip, take });
     return {
       items: rows.map((record: any) => ({
         ...mapDealerKpi(record),
@@ -364,33 +261,9 @@ export const dealersService = {
 
   async recalculateDealerKpi(partnerId: string, brandId: string): Promise<DealerKpiDTO> {
     if (!brandId) throw badRequest("brandId is required");
-    const kpiData = await buildDealerKpiData(partnerId, brandId);
-    const partner = await prisma.partner.findUnique({
-      where: { id: partnerId },
-      select: { name: true },
-    });
-    const record = await prisma.dealerKpi.upsert({
-      where: { partnerId_brandId: { partnerId, brandId } },
-      create: {
-        partnerId,
-        brandId,
-        totalOrders: kpiData.totalOrders,
-        totalRevenue: kpiData.totalRevenue,
-        totalUnits: kpiData.totalUnits,
-        activeStands: kpiData.activeStands,
-        engagementScore: kpiData.engagementScore,
-        lastOrderAt: kpiData.lastOrderAt,
-      },
-      update: {
-        totalOrders: kpiData.totalOrders,
-        totalRevenue: kpiData.totalRevenue,
-        totalUnits: kpiData.totalUnits,
-        activeStands: kpiData.activeStands,
-        engagementScore: kpiData.engagementScore,
-        lastOrderAt: kpiData.lastOrderAt,
-      },
-      select: dealerKpiSelect,
-    });
+    const kpiData = await computeDealerKpiData(partnerId, brandId);
+    const record = await upsertDealerKpi(partnerId, brandId, kpiData);
+    const partner = await findPartnerName(partnerId);
     const dto = mapDealerKpi(record);
     await emitDealersKpiUpdated(
       {

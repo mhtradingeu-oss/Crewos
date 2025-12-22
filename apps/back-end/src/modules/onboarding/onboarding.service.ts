@@ -1,7 +1,16 @@
 import { badRequest, unauthorized } from "../../core/http/errors.js";
-import { prisma } from "../../core/prisma.js";
 import { getPlanDefinition, planDefinitions, type PlanKey, type PlanFeatureSet } from "../../core/plans.js";
 import type { Prisma } from "@prisma/client";
+import {
+  createOnboardingProfile,
+  finalizePlanSelection,
+  findLatestOnboardingProfile,
+  findPlanByKey,
+  findUserWithTenant,
+  updateOnboardingProfile,
+  type OnboardingProfile,
+} from "../../core/db/repositories/onboarding.repository.js";
+export type { OnboardingProfile };
 
 export const PERSONAS = [
   "RETAILER_DEALER",
@@ -17,46 +26,27 @@ export const PERSONAS = [
 ] as const;
 
 export type Persona = (typeof PERSONAS)[number];
-export type OnboardingProfile = Prisma.TenantOnboardingProfileGetPayload<{ include: { tenant: true } }>;
 
 const DEFAULT_PERSONA: Persona = "RETAILER_DEALER";
 
-async function getUserWithTenant(userId: string) {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      tenantId: true,
-      tenant: { select: { id: true, planId: true, plan: { select: { id: true, key: true } } } },
-    },
-  });
-}
-
 async function ensureProfile(userId: string): Promise<OnboardingProfile> {
-  const user = await getUserWithTenant(userId);
+  const user = await findUserWithTenant(userId);
   if (!user?.tenantId || !user.tenant) {
     throw unauthorized("User is not associated with a tenant");
   }
 
   // Reuse the most recent onboarding profile (completed or in-progress) to avoid
   // forcing users back into onboarding once they've finished.
-  const existing = await prisma.tenantOnboardingProfile.findFirst({
-    where: { tenantId: user.tenantId, userId },
-    orderBy: { createdAt: "desc" },
-    include: { tenant: true },
-  });
+  const existing = await findLatestOnboardingProfile(userId);
   if (existing) return existing;
 
   const selectedPlanKey: PlanKey = (user.tenant.plan?.key as PlanKey) ?? "free";
-  return prisma.tenantOnboardingProfile.create({
-    data: {
-      tenantId: user.tenantId,
-      userId,
-      persona: DEFAULT_PERSONA,
-      selectedPlanKey,
-      status: "in_progress",
-    },
-    include: { tenant: true },
+  return createOnboardingProfile({
+    tenantId: user.tenantId,
+    userId,
+    persona: DEFAULT_PERSONA,
+    selectedPlanKey,
+    status: "in_progress",
   });
 }
 
@@ -69,10 +59,9 @@ export async function updatePersona(userId: string, persona: Persona) {
     throw badRequest("Invalid persona");
   }
   const profile = await ensureProfile(userId);
-  return prisma.tenantOnboardingProfile.update({
-    where: { id: profile.id },
-    data: { persona, status: "in_progress" },
-    include: { tenant: true },
+  return updateOnboardingProfile(profile.id, {
+    persona,
+    status: "in_progress",
   });
 }
 
@@ -85,44 +74,24 @@ export async function selectPlan(userId: string, input: PlanSelectionInput) {
   const profile = await ensureProfile(userId);
   const tenant = profile.tenant;
   const targetPlanDef = getPlanDefinition(input.planKey);
-  const targetPlan = await prisma.plan.findUnique({ where: { key: targetPlanDef.key }, select: { id: true, key: true } });
+  const targetPlan = await findPlanByKey(targetPlanDef.key);
   if (!targetPlan) {
     throw badRequest("Plan not found");
   }
 
   const currentPlanId = tenant.planId ?? undefined;
-  const overridesJson = input.selectedModules
+  const modulesJson = input.selectedModules
     ? (input.selectedModules as Prisma.InputJsonValue)
     : undefined;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.tenant.update({
-      where: { id: tenant.id },
-      data: {
-        planId: targetPlan.id,
-        planOverridesJson: overridesJson,
-      },
-    });
-
-    await tx.tenantPlanChange.create({
-      data: {
-        tenantId: tenant.id,
-        fromPlanId: currentPlanId,
-        toPlanId: targetPlan.id,
-        changedByUserId: userId,
-        metadataJson: overridesJson,
-      },
-    });
-
-    await tx.tenantOnboardingProfile.update({
-      where: { id: profile.id },
-      data: {
-        selectedPlanKey: targetPlan.key,
-        selectedModulesJson: overridesJson,
-        status: "completed",
-        completedAt: new Date(),
-      },
-    });
+  await finalizePlanSelection({
+    tenantId: tenant.id,
+    profileId: profile.id,
+    targetPlanId: targetPlan.id,
+    targetPlanKey: targetPlan.key,
+    currentPlanId,
+    modulesJson,
+    changedByUserId: userId,
   });
 
   return {
