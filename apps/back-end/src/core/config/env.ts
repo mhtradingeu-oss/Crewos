@@ -9,13 +9,22 @@ if (envFilePath) {
   dotenv.config({ path: envFilePath });
 }
 
+const DEFAULT_JWT_SECRET = "a200ac2cf9b4454f49a6216bb0a5ad69ae6ac47697edb576bb8919dee72821e";
+
 const envSchema = z.object({
-  PORT: z.coerce.number().default(4000),
+  NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
+  PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL=postgresql://mhos_user:mhos_password@localhost:5432/mhos_dev?schema=public"),
-  JWT_SECRET: z.string().min(1, "a200ac2cf9b4454f49a6216bb0a5ad69ae6ac47697edb576bb8919dee72821e"),
+  JWT_SECRET: z.string().min(8).default(DEFAULT_JWT_SECRET),
   ADMIN_EMAIL: z.string().email().default("root@mhos.local"),
   ADMIN_PASSWORD: z.string().min(8, "ADMIN_PASSWORD must be at least 8 characters").default("MhOs!2025"),
   ALLOWED_ORIGINS: z.string().optional(),
+  API_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  API_RATE_LIMIT_STRICT_WINDOW_MS: z.coerce.number().int().positive().default(10 * 60 * 1000),
+  API_RATE_LIMIT_STRICT_MAX: z.coerce.number().int().positive().default(120),
+  DB_MIGRATION_ALLOW_STAGING: z.coerce.boolean().default(false),
+  DB_MIGRATION_ALLOW_PRODUCTION: z.coerce.boolean().default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -33,11 +42,16 @@ export function loadEnv(): Env {
     throw new Error("Invalid environment configuration");
   }
 
-  cachedEnv = parsed.data;
+  const validated = validateEnvironment(parsed.data);
+  process.env.NODE_ENV = validated.NODE_ENV;
+  cachedEnv = validated;
   return cachedEnv;
 }
 
 export const env = loadEnv();
+export const isProductionEnv = env.NODE_ENV === "production";
+export const isStagingEnv = env.NODE_ENV === "staging";
+export const isProdLikeEnv = isProductionEnv || isStagingEnv;
 
 function resolveEnvFilePath(): string | undefined {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -60,4 +74,17 @@ function resolveEnvFilePath(): string | undefined {
   }
 
   return undefined;
+}
+
+function validateEnvironment(envData: Env): Env {
+  if (envData.NODE_ENV === "production" || envData.NODE_ENV === "staging") {
+    if (!envData.ALLOWED_ORIGINS?.trim()) {
+      throw new Error("ALLOWED_ORIGINS must be configured when running in production or staging");
+    }
+    if (envData.JWT_SECRET === DEFAULT_JWT_SECRET) {
+      throw new Error("JWT_SECRET must be overridden in production/staging environments");
+    }
+  }
+
+  return envData;
 }

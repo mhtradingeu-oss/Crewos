@@ -3,7 +3,7 @@ import cors, { type CorsOptions } from "cors";
 import { requestLogger } from "./core/http/middleware/request-logger.js";
 import { errorHandler } from "./core/http/middleware/error-handler.js";
 import { env } from "./core/config/env.js";
-import { createRateLimiter } from "./core/http/rate-limit.js";
+import { apiRateLimiter, createRateLimiter } from "./core/http/rate-limit.js";
 import { authRouter } from "./modules/auth/index.js";
 import { usersRouter } from "./modules/users/index.js";
 import { brandRouter } from "./modules/brand/index.js";
@@ -49,6 +49,7 @@ import { responseFormatter } from "./core/http/middleware/response-formatter.js"
 import { attachPlanContext, requireFeature } from "./core/http/middleware/plan-gating.js";
 import { csrfProtectionMiddleware } from "./core/security/csrf.js";
 import { cookieParser } from "./core/http/middleware/cookie-parser.js";
+import { healthRouter } from "./core/health/router.js";
 
 export function createApp() {
   const app = express();
@@ -59,16 +60,14 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
   app.use(responseFormatter);
   app.use(requestLogger);
+  app.use("/api/v1", apiRateLimiter);
+  app.use("/health", healthRouter);
 
   // Rate limiting (Phase 2 baseline) — move to Redis-backed store in Phase 3 for HA.
   const authRateLimiter = createRateLimiter({ limit: 100 });
   const aiRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 120 });
   const platformOpsRateLimiter = createRateLimiter({ limit: 80 });
   app.use("/api/v1/ai/learning", aiRateLimiter, learningRouter);
-
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
-  });
 
   // These routers correspond to the officially indexed docs under docs/MASTER_INDEX.md .
   app.use(csrfProtectionMiddleware);

@@ -5,6 +5,13 @@
 - Install deps: `npm ci`
 - Build: `npm run build`
 
+## Production hardening (Phase 1)
+
+- `NODE_ENV` must be explicitly set to `production` or `staging` before shipping; the loader enforces `ALLOWED_ORIGINS` and `JWT_SECRET` are not defaults.
+- Tune the API-wide rate limiter with `API_RATE_LIMIT_WINDOW_MS` / `API_RATE_LIMIT_MAX` and the strict auth window with `API_RATE_LIMIT_STRICT_WINDOW_MS` / `API_RATE_LIMIT_STRICT_MAX`.
+- The migration task now refuses to run in staging/production unless `DB_MIGRATION_ALLOW_STAGING=true` or `DB_MIGRATION_ALLOW_PRODUCTION=true` so you cannot accidentally deploy schema changes.
+- Health probes are available at `/health`, `/health/liveness`, and `/health/readiness`; the readiness endpoint verifies Prisma can reach the database before accepting traffic.
+
 ## Database migrations
 
 - Apply the latest migrations from this folder: `npm run db:migrate`

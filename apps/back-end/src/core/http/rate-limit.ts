@@ -1,15 +1,37 @@
+import { type NextFunction, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
-import { emitSecurityEvent } from "../security/security-events.js";
+import { env } from "../config/env.js";
+import { emitSecurityEvent, getRequestMeta } from "../security/security-events.js";
 
-const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
-const DEFAULT_LIMIT = 100;
-const STRICT_WINDOW_MS = parseInt(process.env.AUTH_STRICT_WINDOW_MS || "900000", 10); // 15min default
-const STRICT_LIMIT = parseInt(process.env.AUTH_STRICT_LIMIT || "10", 10); // 10 default
+const DEFAULT_WINDOW_MS = env.API_RATE_LIMIT_WINDOW_MS;
+const DEFAULT_LIMIT = env.API_RATE_LIMIT_MAX;
+const STRICT_WINDOW_MS = env.API_RATE_LIMIT_STRICT_WINDOW_MS;
+const STRICT_LIMIT = env.API_RATE_LIMIT_STRICT_MAX;
+
+const DEFAULT_MESSAGE = "Too many requests, please try again later.";
+const AUTH_MESSAGE = "Too many authentication attempts, please try again later.";
+
+function buildRateLimitHandler(scope: string, message: string) {
+  return (req: Request, res: Response, _next: NextFunction) => {
+    const meta = getRequestMeta(req);
+    emitSecurityEvent({
+      type: "RATE_LIMITED",
+      scope,
+      path: meta.path,
+      ip: meta.ip,
+      time: meta.time,
+    });
+    res.status(429).json({
+      success: false,
+      error: { code: "RATE_LIMITED", message },
+    });
+  };
+}
 
 /**
  * Lightweight rate limiter wrapper. TODO: Phase 3 – move to Redis/multi-node store.
  */
-export function createRateLimiter(options?: { windowMs?: number; limit?: number; onRateLimit?: (req: any, res: any, next: any) => void }) {
+export function createRateLimiter(options?: { windowMs?: number; limit?: number; onRateLimit?: (req: Request, res: Response, next: NextFunction) => void }) {
   return rateLimit({
     windowMs: options?.windowMs ?? DEFAULT_WINDOW_MS,
     limit: options?.limit ?? DEFAULT_LIMIT,
@@ -19,22 +41,14 @@ export function createRateLimiter(options?: { windowMs?: number; limit?: number;
   });
 }
 
+export const apiRateLimiter = createRateLimiter({
+  onRateLimit: buildRateLimitHandler("api", DEFAULT_MESSAGE),
+});
+
 export function createStrictAuthRateLimiter() {
   return createRateLimiter({
     windowMs: STRICT_WINDOW_MS,
     limit: STRICT_LIMIT,
-    onRateLimit: (req, res, _next) => {
-      emitSecurityEvent({
-        type: "RATE_LIMITED",
-        scope: "auth",
-        path: req.path,
-        ip: req.ip || req.headers["x-forwarded-for"] || "unknown",
-        time: new Date().toISOString(),
-      });
-      res.status(429).json({
-        success: false,
-        error: { code: "RATE_LIMITED", message: "Too many attempts, please try again later." },
-      });
-    },
+    onRateLimit: buildRateLimitHandler("auth", AUTH_MESSAGE),
   });
 }

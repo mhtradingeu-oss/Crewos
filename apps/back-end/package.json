@@ -11,7 +11,7 @@
     "clean": "rimraf dist",
     "start": "node --experimental-specifier-resolution=node dist/server.js",
     "prisma": "prisma",
-    "db:migrate": "prisma migrate deploy",
+    "db:migrate": "node --loader ts-node/esm --experimental-specifier-resolution=node ./scripts/migration-guard.ts && prisma migrate deploy",
     "seed:admin": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/admin.seed.ts",
     "db:seed": "prisma db seed",
     "auto:new-module": "ts-node scripts/auto-dev/new-module.ts",
