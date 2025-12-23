@@ -1,5 +1,6 @@
 import type { Request, Response, CookieOptions } from "express";
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from "@mh-os/shared";
+import { logger } from "../logger.js";
 import { readCookie } from "./cookies.js";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,7 +20,7 @@ const baseCookieOptions: CookieOptions = {
 
 export function issueSessionCookie(res: Response, token: string) {
   if (!token) {
-    console.error("[auth] Session token is missing");
+    logger.error("[auth] Session token is missing");
     throw new Error("Session token is missing");
   }
   try {
@@ -29,7 +30,7 @@ export function issueSessionCookie(res: Response, token: string) {
     });
   } catch (err) {
     // This should never fail silently  session auth depends on it
-    console.error("[auth] Failed to set session cookie", err);
+    logger.error("[auth] Failed to set session cookie", err);
     throw err;
   }
 }
@@ -42,7 +43,7 @@ export function clearSessionCookie(res: Response) {
     });
   } catch (err) {
      
-    console.error("[auth] Failed to clear session cookie", err);
+    logger.error("[auth] Failed to clear session cookie", err);
     throw err;
   }
 }

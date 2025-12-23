@@ -1,5 +1,6 @@
 
 import { findAutomationRuleVersions } from "../../db/repositories/automation.repository.js";
+import { logger } from "../../logger.js";
 import type { DomainEvent } from "../../events/domain/types.js";
 import type { ActionConfig, ConditionConfig } from "../../../modules/automation/automation.types.js";
 
@@ -18,7 +19,7 @@ export interface AutomationRuleMatch {
 export async function loadMatchingRulesForEvent(event: DomainEvent): Promise<AutomationRuleMatch[]> {
   const mockRules = loadMockRulesFromEnv(event);
   if (mockRules) {
-    console.info(
+    logger.info(
       `[automation][rule-matcher] using ${mockRules.length} mock rule(s) for ${event.type}`,
     );
     return mockRules;
@@ -75,7 +76,7 @@ function parseConditionConfig(
       if (typeof parsed !== 'object' || parsed === null) return undefined;
       return parsed as { all?: ConditionConfig[]; any?: ConditionConfig[] };
     } catch {
-      console.warn('[automation][rule-matcher] invalid condition config JSON');
+      logger.warn('[automation][rule-matcher] invalid condition config JSON');
       return undefined;
     }
   }
@@ -96,7 +97,7 @@ function parseActions(value?: JsonValue | null): ActionConfig[] {
         : [];
       return actions;
     } catch {
-      console.warn('[automation][rule-matcher] invalid actions config JSON');
+      logger.warn('[automation][rule-matcher] invalid actions config JSON');
       return [];
     }
   }
@@ -120,7 +121,7 @@ function loadMockRulesFromEnv(event: DomainEvent): AutomationRuleMatch[] | undef
     );
     return filtered.map((rule) => ({ ...rule, actions: rule.actions ?? [] }));
   } catch (err) {
-    console.warn("[automation][rule-matcher] invalid mock rules payload", err);
+    logger.warn("[automation][rule-matcher] invalid mock rules payload", err);
     return undefined;
   }
 }

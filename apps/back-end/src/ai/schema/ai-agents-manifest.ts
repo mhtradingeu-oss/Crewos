@@ -144,7 +144,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.product"],
+      permissions: ["ai:context:product"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["leaking private supplier terms", "sharing unrelated tenant data"],
@@ -175,7 +175,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.pricing"],
+      permissions: ["ai:context:pricing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -208,7 +208,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.product"],
+      permissions: ["ai:context:product"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["disclosing confidential partner terms"],
@@ -233,7 +233,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.inventory"],
+      permissions: ["ai:context:inventory"],
       brandScoped: true,
       blockedTopics: ["sharing other brands' quantities"],
       piiGuard: true,
@@ -257,7 +257,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.crm"],
+      permissions: ["ai:context:crm"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -281,7 +281,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.partner"],
+      permissions: ["ai:context:partner"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -309,7 +309,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.sales"],
+      permissions: ["ai:context:sales"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -332,7 +332,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.loyalty"],
+      permissions: ["ai:context:loyalty"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -356,7 +356,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.automation"],
+      permissions: ["ai:context:automation"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -379,7 +379,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.insight"],
+      permissions: ["ai:context:insight"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -403,7 +403,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -433,7 +433,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -468,7 +468,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -497,7 +497,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["commit pricing without approval"],
@@ -517,7 +517,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       schema: { assets: [{ url: "string", kind: "string", provider: "string" }], notes: "string" },
     },
     safety: {
-      permissions: ["ai.context.brand", "ai.context.media"],
+      permissions: ["ai:context:brand", "ai:context:media"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["nsfw", "violence", "weapons", "politics"],
@@ -542,7 +542,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       schema: { previewUrls: ["string"], provider: "string", style: "string" },
     },
     safety: {
-      permissions: ["ai.context.media"],
+      permissions: ["ai:context:media"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["nsfw", "logos of other brands"],
@@ -567,7 +567,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       schema: { previewUrl: "string", provider: "string", aspectRatio: "string" },
     },
     safety: {
-      permissions: ["ai.context.media"],
+      permissions: ["ai:context:media"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["nsfw", "violence"],
@@ -592,7 +592,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       schema: { previews: [{ url: "string", surface: "string" }], recipe: "object" },
     },
     safety: {
-      permissions: ["ai.context.brand", "ai.context.media"],
+      permissions: ["ai:context:brand", "ai:context:media"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["third-party logos", "political messaging", "nsfw"],
@@ -628,7 +628,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -658,7 +658,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["commit refunds"],
@@ -683,7 +683,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.kb"],
+      permissions: ["ai:context:kb"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -706,7 +706,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -737,7 +737,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: [
@@ -766,7 +766,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["share payment info", "reset credentials"],
@@ -794,7 +794,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.kb"],
+      permissions: ["ai:context:kb"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -822,7 +822,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -847,7 +847,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["payment collection", "credential reset"],
@@ -875,7 +875,7 @@ const BASE_AI_AGENTS_MANIFEST: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -907,7 +907,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["personnel actions", "legal advice"],
@@ -943,7 +943,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["irreversible org changes"],
@@ -978,7 +978,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["execute payments", "change ledgers"],
@@ -1012,7 +1012,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["politics", "unsafe creative"],
@@ -1046,7 +1046,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["change SLAs"],
@@ -1079,7 +1079,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["credential changes"],
@@ -1113,7 +1113,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1146,7 +1146,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.product"],
+      permissions: ["ai:context:product"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1177,7 +1177,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1210,7 +1210,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1242,7 +1242,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.media"],
+      permissions: ["ai:context:media"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["politics", "nsfw"],
@@ -1276,7 +1276,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.media"],
+      permissions: ["ai:context:media"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1308,7 +1308,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1340,7 +1340,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["commit spend"],
@@ -1372,7 +1372,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1404,7 +1404,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["collect payment", "share PII"],
@@ -1437,7 +1437,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["legal admission"],
@@ -1470,7 +1470,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1502,7 +1502,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.sales"],
+      permissions: ["ai:context:sales"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1534,7 +1534,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.crm"],
+      permissions: ["ai:context:crm"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1566,7 +1566,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1597,7 +1597,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.inventory"],
+      permissions: ["ai:context:inventory"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1629,7 +1629,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.inventory"],
+      permissions: ["ai:context:inventory"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1661,7 +1661,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1693,7 +1693,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.finance"],
+      permissions: ["ai:context:finance"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["file returns", "provide legal advice"],
@@ -1726,7 +1726,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["legal advice", "binding decisions"],
@@ -1759,7 +1759,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.insight"],
+      permissions: ["ai:context:insight"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1790,7 +1790,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1822,7 +1822,7 @@ const PERSONA_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -1856,7 +1856,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["auto-publish", "upload media"],
@@ -1886,7 +1886,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.voice"],
+      permissions: ["ai:context:voice"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["execute calls", "collect payment"],
@@ -1916,7 +1916,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["commit spend", "sign contracts"],
@@ -1947,7 +1947,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.marketing"],
+      permissions: ["ai:context:marketing"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["auto-post", "share PII"]
@@ -1977,7 +1977,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.support"],
+      permissions: ["ai:context:support"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["send messages", "refund"]
@@ -2006,7 +2006,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.operations"],
+      permissions: ["ai:context:operations"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -2034,7 +2034,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.notification"],
+      permissions: ["ai:context:notification"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["send", "schedule"]
@@ -2063,7 +2063,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.knowledge"],
+      permissions: ["ai:context:knowledge"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -2090,7 +2090,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
     },
@@ -2120,7 +2120,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.operations"],
+      permissions: ["ai:context:operations"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["change HR records", "discipline staff"],
@@ -2151,7 +2151,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.brand"],
+      permissions: ["ai:context:brand"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["execute changes", "alter permissions"],
@@ -2182,7 +2182,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.operations"],
+      permissions: ["ai:context:operations"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["execute actions", "modify data"]
@@ -2214,7 +2214,7 @@ const ADDITIONAL_AGENTS: AIAgentDefinition[] = [
       },
     },
     safety: {
-      permissions: ["ai.context.operations"],
+      permissions: ["ai:context:operations"],
       brandScoped: true,
       piiGuard: true,
       blockedTopics: ["execute", "approve"],

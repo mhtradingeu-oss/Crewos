@@ -271,7 +271,7 @@ export async function aiPlan(req: AuthenticatedRequest, res: Response, next: Nex
     const actionContext = buildPricingContext(req);
     const brandId = actionContext.brandId;
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.pricing"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:pricing"]));
     const actionLabel = parsed.data.requireApproval === false ? "execute-pricing" : "recommend-pricing";
     const pipeline = await runAIPipeline({
       agentId: "pricing-strategist",

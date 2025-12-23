@@ -58,6 +58,6 @@ export const aiCrewControllerRouter = Router();
 aiCrewControllerRouter.post(
   '/advisory',
   authenticateRequest,
-  requirePermission('ai.crew.advisory'),
+  requirePermission('ai:crew:advisory'),
   AICrewController.advisory
 );

@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../events/domain/types.js";
+import { logger } from "../../logger.js";
 import { loadMatchingRulesForEvent } from "./rule-matcher.js";
 import { evaluateConditions } from "./condition-evaluator.js";
 import { executeAutomationActions, type AutomationRunSummary } from "../executor/executor.js";
@@ -16,7 +17,7 @@ export interface AutomationRunOutcome {
 export async function runAutomationEngine(event: DomainEvent): Promise<AutomationRunOutcome[]> {
   const rules = await loadMatchingRulesForEvent(event);
   if (!rules.length) {
-    console.info(`[automation][engine] no rules matched for ${event.type}`);
+    logger.info(`[automation][engine] no rules matched for ${event.type}`);
     return [];
   }
 
@@ -27,11 +28,11 @@ export async function runAutomationEngine(event: DomainEvent): Promise<Automatio
     let conditionsMatched = false;
     try {
       conditionsMatched = evaluateConditions(rule.conditionConfig, evaluationContext);
-      console.info(
+      logger.info(
         `[automation][engine] rule ${rule.id} conditions ${conditionsMatched ? "passed" : "filtered"}`,
       );
     } catch (err) {
-      console.error(`[automation][engine] rule ${rule.id} condition evaluation failed`, err);
+      logger.error(`[automation][engine] rule ${rule.id} condition evaluation failed`, err);
       continue;
     }
 
@@ -41,7 +42,7 @@ export async function runAutomationEngine(event: DomainEvent): Promise<Automatio
 
     try {
       const runSummary = await executeAutomationActions({ rule, event });
-      console.info(
+      logger.info(
         `[automation][engine] run completed for rule ${rule.id} status ${runSummary.status}`,
       );
       outcomes.push({
@@ -54,7 +55,7 @@ export async function runAutomationEngine(event: DomainEvent): Promise<Automatio
         error: runSummary.error,
       });
     } catch (err) {
-      console.error(`[automation][engine] executor failed for rule ${rule.id}`, err);
+      logger.error(`[automation][engine] executor failed for rule ${rule.id}`, err);
     }
   }
 

@@ -93,7 +93,7 @@ export default function AIAgentsPage() {
   };
 
   return (
-    <PermissionGuard required={["ai.config.read", "ai:manage"]}>
+    <PermissionGuard required={["ai:config:read", "ai:manage"]}>
       <div className="space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>

@@ -58,7 +58,7 @@ type ExecutionIntentDetail = {
 
 export default function ApprovalDetail() {
   const { hasPermission } = useAuth();
-  const canApprove = hasPermission("ai.execution.approve");
+  const canApprove = hasPermission("ai:execution:approve");
 
   const { intentId } = useParams<{ intentId: string }>();
   const router = useRouter();

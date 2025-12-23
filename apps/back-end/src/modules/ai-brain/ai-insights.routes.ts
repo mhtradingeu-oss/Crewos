@@ -21,7 +21,7 @@ router.post(
   controller.refresh,
 );
 router.get("/kpi/summary", requirePermission("ai:read"), controller.kpiSummary);
-router.get("/", requirePermission(["ai:read", "ai.insights.read"]), controller.list);
-router.get("/:id", requirePermission(["ai:read", "ai.insights.read"]), controller.getById);
+router.get("/", requirePermission(["ai:read", "ai:insights:read"]), controller.list);
+router.get("/:id", requirePermission(["ai:read", "ai:insights:read"]), controller.getById);
 
 export { router };

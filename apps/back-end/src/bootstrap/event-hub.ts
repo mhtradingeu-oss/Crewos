@@ -1,5 +1,6 @@
 import { subscribe } from "../core/events/event-bus.js";
 import { registerDomainEventSubscribers } from "../core/events/domain-subscribers.js";
+import { logger } from "../core/logger.js";
 
 // ─────────────────────────────────────────────
 // Module subscribers (composition root ONLY)
@@ -38,7 +39,7 @@ function registerDomainEventGuards() {
     (event: unknown): void => {
       const payload = (event as { payload?: unknown })?.payload;
       if (!payload) {
-        console.warn(`[events] Missing payload for ${eventName}`);
+        logger.warn(`[events] Missing payload for ${eventName}`);
       }
     };
 

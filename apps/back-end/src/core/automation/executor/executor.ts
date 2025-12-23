@@ -15,6 +15,7 @@ import {
   updateActionRun,
   updateRuleLastRun,
 } from "../../db/repositories/automation-run.repository.js";
+import { logger } from "../../logger.js";
 
 const ACTION_TIMEOUT_MS = 5000;
 const MAX_BACKOFF_MULTIPLIER = 5;
@@ -53,7 +54,10 @@ export async function executeAutomationActions({
   const dryRun = process.env.AUTOMATION_ENGINE_DRY_RUN === "1";
 
   if (!actions.length) {
-    console.info(`[automation][executor] no actions defined for rule ${rule.id}`);
+    logger.info(`[automation][executor] no actions defined for rule ${rule.id}`, {
+      ruleId: rule.id,
+      ruleName: rule.name ?? null,
+    });
   }
 
   if (dryRun) {

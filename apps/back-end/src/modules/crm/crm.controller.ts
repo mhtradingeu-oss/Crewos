@@ -151,7 +151,7 @@ export async function aiFollowup(req: AuthenticatedRequest, res: Response, next:
       parsed.data.brandId,
     );
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.crm"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:crm"]));
     const pipeline = await runAIPipeline({
       agentId: "crm-coach",
       task: {

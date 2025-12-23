@@ -24,7 +24,7 @@ const sessionInputSchema = z.object({
 export const advisorySessionController = {
   postSession: [
     authenticateRequest,
-    requirePermission(['ai.crew.advisory', 'ai.read']),
+    requirePermission(["ai:crew:advisory", "ai:read"]),
     async (req: Request, res: Response) => {
       const parse = sessionInputSchema.safeParse(req.body);
       if (!parse.success) {

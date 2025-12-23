@@ -6,11 +6,11 @@ import { updateAgentConfigSchema } from "./ai-agents-config.validators.js";
 
 const router = Router();
 
-router.get("/", requirePermission("ai.config.read"), controller.list);
-router.get("/:agentId", requirePermission("ai.config.read"), controller.getById);
+router.get("/", requirePermission("ai:config:read"), controller.list);
+router.get("/:agentId", requirePermission("ai:config:read"), controller.getById);
 router.post(
   "/:agentId",
-  requirePermission("ai.config.update"),
+  requirePermission("ai:config:update"),
   validateBody(updateAgentConfigSchema),
   controller.update,
 );

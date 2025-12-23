@@ -176,7 +176,7 @@ export default function AIInsightsPage() {
                   {selected.entityId ? (
                     <div className="text-xs text-muted-foreground">Related: {selected.entityId}</div>
                   ) : null}
-                  {hasPermission("ai.config.read") && selected.brandId ? (
+                  {hasPermission("ai:config:read") && selected.brandId ? (
                     <div className="text-xs text-muted-foreground">Brand: {selected.brandId}</div>
                   ) : null}
                 </>

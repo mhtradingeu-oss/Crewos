@@ -1,4 +1,5 @@
 import { subscribe } from "../../core/events/event-bus.js";
+import { logger } from "../../core/logger.js";
 import { notificationService } from "./notification.service.js";
 import { PricingEvents } from "../pricing/pricing.events.js";
 import { ProductEvents } from "../product/product.events.js";
@@ -18,7 +19,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed pricing update", err);
+      logger.error("[notification] failed pricing update", err);
     }
   });
 
@@ -32,7 +33,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed product create", err);
+      logger.error("[notification] failed product create", err);
     }
   });
 
@@ -46,7 +47,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed user create", err);
+      logger.error("[notification] failed user create", err);
     }
   });
 
@@ -60,7 +61,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed ai insight", err);
+      logger.error("[notification] failed ai insight", err);
     }
   });
 
@@ -75,7 +76,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed crm lead create", err);
+      logger.error("[notification] failed crm lead create", err);
     }
   });
 
@@ -90,7 +91,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed crm lead contact", err);
+      logger.error("[notification] failed crm lead contact", err);
     }
   });
 
@@ -105,7 +106,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      console.error("[notification] failed crm customer event", err);
+      logger.error("[notification] failed crm customer event", err);
     }
   });
 }

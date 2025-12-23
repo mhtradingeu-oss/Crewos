@@ -10,7 +10,7 @@ import { TenantAppShell } from "@/components/shell/tenant-app-shell";
 
 export default function ApprovalsPageClient() {
   const { hasPermission } = useAuth();
-  const canApprove = hasPermission("ai.execution.approve");
+  const canApprove = hasPermission("ai:execution:approve");
   return (
     <TenantAppShell>
       <div className="space-y-6">
@@ -24,7 +24,7 @@ export default function ApprovalsPageClient() {
         <ApprovalList />
         {!canApprove && (
           <div className="mt-4 p-3 rounded bg-slate-800 text-slate-300 border border-slate-700">
-            <b>Read-only:</b> You do not have permission to approve execution intents (ai.execution.approve).
+            <b>Read-only:</b> You do not have permission to approve execution intents (ai:execution:approve).
           </div>
         )}
       </div>

@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -25,48 +23,32 @@ import type {
   WhiteLabelOrderDTO,
   WhiteLabelProductDTO,
 } from "./white-label.types.js";
-
-const brandSelect = {
-  id: true,
-  brandId: true,
-  ownerPartnerId: true,
-  ownerAffiliateId: true,
-  name: true,
-  slug: true,
-  status: true,
-  settingsJson: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.WhiteLabelBrandSelect;
-
-const productSelect = {
-  id: true,
-  wlBrandId: true,
-  baseProductId: true,
-  name: true,
-  sku: true,
-  pricingRecords: {
-    take: 1,
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      pricingJson: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  },
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.WhiteLabelProductSelect;
-
-const orderSelect = {
-  id: true,
-  wlBrandId: true,
-  status: true,
-  total: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.WhiteLabelOrderSelect;
+import {
+  createWhiteLabelBrand,
+  createWhiteLabelOrder,
+  createWhiteLabelProduct,
+  findAffiliateById,
+  findBrandProductById,
+  findPartnerById,
+  findWhiteLabelBrandByIdAndBrand,
+  findWhiteLabelBrandBySlug,
+  findWhiteLabelBrandWithProductsAndOrders,
+  findWhiteLabelOrderWithBrand,
+  findWhiteLabelProductBySku,
+  getWhiteLabelBrandStats,
+  listWhiteLabelBrands,
+  listWhiteLabelProducts,
+  updateWhiteLabelBrand,
+  updateWhiteLabelOrderStatus,
+  WhiteLabelBrandPayload,
+  WhiteLabelBrandStatsRecord,
+  WhiteLabelOrderPayload,
+  WhiteLabelProductPayload,
+  WhiteLabelOrderWithBrandPayload,
+  WhiteLabelBrandListFilters,
+  WhiteLabelProductListFilters,
+  PaginationArgs,
+} from "../../core/db/repositories/white-label.repository.js";
 
 function parseSettings(value: string | null) {
   if (!value) return undefined;
@@ -77,7 +59,7 @@ function parseSettings(value: string | null) {
   }
 }
 
-function mapBrand(record: Prisma.WhiteLabelBrandGetPayload<{ select: typeof brandSelect }>): WhiteLabelBrandDTO {
+function mapBrand(record: WhiteLabelBrandPayload): WhiteLabelBrandDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -92,7 +74,7 @@ function mapBrand(record: Prisma.WhiteLabelBrandGetPayload<{ select: typeof bran
   };
 }
 
-function mapProduct(record: Prisma.WhiteLabelProductGetPayload<{ select: typeof productSelect }>): WhiteLabelProductDTO {
+function mapProduct(record: WhiteLabelProductPayload): WhiteLabelProductDTO {
   return {
     id: record.id,
     wlBrandId: record.wlBrandId,
@@ -113,7 +95,7 @@ function mapProduct(record: Prisma.WhiteLabelProductGetPayload<{ select: typeof 
   };
 }
 
-function mapOrder(record: Prisma.WhiteLabelOrderGetPayload<{ select: typeof orderSelect }>): WhiteLabelOrderDTO {
+function mapOrder(record: WhiteLabelOrderPayload): WhiteLabelOrderDTO {
   return {
     id: record.id,
     wlBrandId: record.wlBrandId,
@@ -126,23 +108,19 @@ function mapOrder(record: Prisma.WhiteLabelOrderGetPayload<{ select: typeof orde
 
 function buildStats(
   brandId: string,
-  productCounts: Record<string, number>,
-  orderCounts: Record<string, number>,
-  revenueTotals: Record<string, number>,
+  statsMap: Record<string, WhiteLabelBrandStatsRecord>,
 ): WLBrandStatsDTO {
+  const stats = statsMap[brandId];
   return {
     brandId,
-    productsCount: productCounts[brandId] ?? 0,
-    ordersCount: orderCounts[brandId] ?? 0,
-    totalRevenue: revenueTotals[brandId] ?? 0,
+    productsCount: stats?.productCount ?? 0,
+    ordersCount: stats?.orderCount ?? 0,
+    totalRevenue: stats?.totalRevenue ?? 0,
   };
 }
 
 async function ensureWLBrandOwnership(wlBrandId: string, brandId: string) {
-  const brand = await prisma.whiteLabelBrand.findFirst({
-    where: { id: wlBrandId, brandId },
-    select: { id: true, brandId: true },
-  });
+  const brand = await findWhiteLabelBrandByIdAndBrand(wlBrandId, brandId);
   if (!brand) {
     throw notFound("White-label brand not found");
   }
@@ -158,76 +136,21 @@ export const white_labelService = {
     const { page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.WhiteLabelBrandWhereInput = { brandId: params.brandId };
-    if (params.ownerPartnerId) where.ownerPartnerId = params.ownerPartnerId;
-    if (params.ownerAffiliateId) where.ownerAffiliateId = params.ownerAffiliateId;
-    if (params.status) where.status = params.status;
-    if (params.search) {
-      where.OR = [
-        { name: { contains: params.search, mode: "insensitive" } },
-        { slug: { contains: params.search, mode: "insensitive" } },
-      ];
-    }
+    const filters: WhiteLabelBrandListFilters = {
+      brandId: params.brandId,
+      ownerPartnerId: params.ownerPartnerId,
+      ownerAffiliateId: params.ownerAffiliateId,
+      status: params.status,
+      search: params.search,
+    };
+    const pagination: PaginationArgs = { skip, take };
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.whiteLabelBrand.count({ where }),
-      prisma.whiteLabelBrand.findMany({
-        where,
-        select: brandSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
-    const brandIds = rows.map((row) => row.id);
-    const productCountMap: Record<string, number> = {};
-    const orderCountMap: Record<string, number> = {};
-    const revenueMap: Record<string, number> = {};
-
-    if (brandIds.length) {
-      const [pc, om] = await prisma.$transaction([
-        prisma.whiteLabelProduct.groupBy({
-          by: ["wlBrandId"],
-          where: { wlBrandId: { in: brandIds } },
-          orderBy: { wlBrandId: "asc" },
-          _count: { _all: true },
-        }),
-        prisma.whiteLabelOrder.groupBy({
-          by: ["wlBrandId"],
-          where: { wlBrandId: { in: brandIds } },
-          orderBy: { wlBrandId: "asc" },
-          _count: { _all: true },
-          _sum: { total: true },
-        }),
-      ]);
-
-      for (const item of pc) {
-        const count =
-          typeof item._count === "object" && item._count?._all != null
-            ? item._count._all
-            : 0;
-        productCountMap[item.wlBrandId] = count;
-      }
-
-      for (const entry of om) {
-        const count =
-          typeof entry._count === "object" && entry._count?._all != null
-            ? entry._count._all
-            : 0;
-        orderCountMap[entry.wlBrandId] = count;
-        const sumTotal =
-          typeof entry._sum === "object" && entry._sum?.total != null
-            ? Number(entry._sum.total)
-            : 0;
-        revenueMap[entry.wlBrandId] = sumTotal;
-      }
-    }
+    const { total, rows, stats } = await listWhiteLabelBrands(filters, pagination);
 
     return {
       items: rows.map((row) => ({
         ...mapBrand(row),
-        stats: buildStats(row.id, productCountMap, orderCountMap, revenueMap),
+        stats: buildStats(row.id, stats),
       })),
       total,
       page,
@@ -236,20 +159,7 @@ export const white_labelService = {
   },
 
   async getWLBrand(id: string, brandId: string): Promise<WhiteLabelBrandDetailDTO> {
-    await ensureWLBrandOwnership(id, brandId);
-    const record = await prisma.whiteLabelBrand.findFirst({
-      where: { id, brandId },
-      select: {
-        ...brandSelect,
-        products: {
-          select: productSelect,
-          orderBy: { createdAt: "desc" },
-        },
-        orders: {
-          select: orderSelect,
-        },
-      },
-    });
+    const record = await findWhiteLabelBrandWithProductsAndOrders(id, brandId);
     if (!record) throw notFound("White-label brand not found");
 
     return {
@@ -266,32 +176,29 @@ export const white_labelService = {
     }
 
     if (input.slug) {
-      const existing = await prisma.whiteLabelBrand.findUnique({ where: { slug: input.slug } });
+      const existing = await findWhiteLabelBrandBySlug(input.slug);
       if (existing) {
         throw badRequest("Slug already exists");
       }
     }
 
     if (input.ownerPartnerId) {
-      const partner = await prisma.partner.findUnique({ where: { id: input.ownerPartnerId } });
+      const partner = await findPartnerById(input.ownerPartnerId);
       if (!partner) throw notFound("Partner owner not found");
     }
     if (input.ownerAffiliateId) {
-      const affiliate = await prisma.affiliate.findUnique({ where: { id: input.ownerAffiliateId } });
+      const affiliate = await findAffiliateById(input.ownerAffiliateId);
       if (!affiliate) throw notFound("Affiliate owner not found");
     }
 
-    const created = await prisma.whiteLabelBrand.create({
-      data: {
-        brandId: input.brandId,
-        ownerPartnerId: input.ownerPartnerId ?? null,
-        ownerAffiliateId: input.ownerAffiliateId ?? null,
-        name: input.name,
-        slug: input.slug ?? `${input.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
-        status: input.status ?? "active",
-        settingsJson: input.settings ? JSON.stringify(input.settings) : null,
-      },
-      select: brandSelect,
+    const created = await createWhiteLabelBrand({
+      brandId: input.brandId,
+      ownerPartnerId: input.ownerPartnerId ?? null,
+      ownerAffiliateId: input.ownerAffiliateId ?? null,
+      name: input.name,
+      slug: input.slug ?? `${input.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
+      status: input.status ?? "active",
+      settingsJson: input.settings ? JSON.stringify(input.settings) : null,
     });
 
     logger.info(`[white-label] Created brand ${created.id}`);
@@ -299,33 +206,26 @@ export const white_labelService = {
   },
 
   async updateWLBrand(id: string, brandId: string, input: UpdateWLBrandInput): Promise<WhiteLabelBrandDTO> {
-    const existing = await prisma.whiteLabelBrand.findFirst({
-      where: { id, brandId },
-      select: brandSelect,
-    });
+    const existing = await findWhiteLabelBrandByIdAndBrand(id, brandId);
     if (!existing) throw notFound("White-label brand not found");
 
     if (input.slug && input.slug !== existing.slug) {
-      const slugTaken = await prisma.whiteLabelBrand.findUnique({ where: { slug: input.slug } });
+      const slugTaken = await findWhiteLabelBrandBySlug(input.slug);
       if (slugTaken && slugTaken.id !== id) {
         throw badRequest("Slug already in use");
       }
     }
 
-    const updated = await prisma.whiteLabelBrand.update({
-      where: { id },
-      data: {
-        name: input.name ?? existing.name,
-        slug: input.slug ?? existing.slug,
-        status: input.status ?? existing.status,
-        settingsJson:
-          input.settings !== undefined
-            ? input.settings
-              ? JSON.stringify(input.settings)
-              : null
-            : existing.settingsJson,
-      },
-      select: brandSelect,
+    const updated = await updateWhiteLabelBrand(id, {
+      name: input.name ?? existing.name,
+      slug: input.slug ?? existing.slug,
+      status: input.status ?? existing.status,
+      settingsJson:
+        input.settings !== undefined
+          ? input.settings
+            ? JSON.stringify(input.settings)
+            : null
+          : existing.settingsJson,
     });
 
     logger.info(`[white-label] Updated brand ${id}`);
@@ -339,29 +239,16 @@ export const white_labelService = {
 
     await ensureWLBrandOwnership(params.wlBrandId, params.brandId);
 
-    const { page = 1, pageSize = 20, search, wlBrandId } = params;
+    const { page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.WhiteLabelProductWhereInput = {
-      wlBrandId,
+    const filters: WhiteLabelProductListFilters = {
+      wlBrandId: params.wlBrandId,
+      search: params.search,
     };
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { sku: { contains: search, mode: "insensitive" } },
-      ];
-    }
+    const pagination: PaginationArgs = { skip, take };
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.whiteLabelProduct.count({ where }),
-      prisma.whiteLabelProduct.findMany({
-        where,
-        select: productSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await listWhiteLabelProducts(filters, pagination);
 
     return {
       items: rows.map(mapProduct),
@@ -375,25 +262,20 @@ export const white_labelService = {
     await ensureWLBrandOwnership(input.wlBrandId, input.brandId);
 
     if (input.baseProductId) {
-      const baseProduct = await prisma.brandProduct.findUnique({ where: { id: input.baseProductId } });
+      const baseProduct = await findBrandProductById(input.baseProductId);
       if (!baseProduct) throw notFound("Base product not found");
     }
 
     if (input.sku) {
-      const skuExists = await prisma.whiteLabelProduct.findFirst({
-        where: { sku: input.sku },
-      });
+      const skuExists = await findWhiteLabelProductBySku(input.sku);
       if (skuExists) throw badRequest("SKU already exists");
     }
 
-    const created = await prisma.whiteLabelProduct.create({
-      data: {
-        wlBrandId: input.wlBrandId,
-        baseProductId: input.baseProductId ?? null,
-        name: input.name,
-        sku: input.sku ?? null,
-      },
-      select: productSelect,
+    const created = await createWhiteLabelProduct({
+      wlBrandId: input.wlBrandId,
+      baseProductId: input.baseProductId ?? null,
+      name: input.name,
+      sku: input.sku ?? null,
     });
 
     logger.info(`[white-label] Created product ${created.id} for brand ${input.wlBrandId}`);
@@ -401,38 +283,23 @@ export const white_labelService = {
   },
 
   async getWLBrandStats(id: string, brandId: string): Promise<WLBrandStatsDTO> {
-    const brand = await prisma.whiteLabelBrand.findFirst({
-      where: { id, brandId },
-      select: { id: true },
-    });
-    if (!brand) throw notFound("White-label brand not found");
+    await ensureWLBrandOwnership(id, brandId);
 
-    const [productCount, orderMetrics] = await prisma.$transaction([
-      prisma.whiteLabelProduct.count({ where: { wlBrandId: id } }),
-      prisma.whiteLabelOrder.aggregate({
-        where: { wlBrandId: id },
-        _count: true,
-        _sum: { total: true },
-      }),
-    ]);
-
+    const stats = await getWhiteLabelBrandStats(id);
     return {
       brandId: id,
-      productsCount: productCount,
-      ordersCount: orderMetrics._count,
-      totalRevenue: Number(orderMetrics._sum.total ?? 0),
+      productsCount: stats.productCount,
+      ordersCount: stats.ordersCount,
+      totalRevenue: stats.totalRevenue,
     };
   },
 
   async createWLOrder(input: CreateWLOrderInput): Promise<WhiteLabelOrderDTO> {
     await ensureWLBrandOwnership(input.wlBrandId, input.brandId);
-    const created = await prisma.whiteLabelOrder.create({
-      data: {
-        wlBrandId: input.wlBrandId,
-        total: input.total,
-        status: input.status ?? "draft",
-      },
-      select: orderSelect,
+    const created = await createWhiteLabelOrder({
+      wlBrandId: input.wlBrandId,
+      total: input.total,
+      status: input.status ?? "draft",
     });
 
     await emitWhiteLabelOrderCreated(
@@ -458,13 +325,7 @@ async function updateWLOrderStatus(
   input: UpdateWLOrderStatusInput,
 ): Promise<WhiteLabelOrderDTO> {
   const order = await ensureOrderForBrand(orderId, input.brandId);
-  const updated = await prisma.whiteLabelOrder.update({
-    where: { id: orderId },
-    data: {
-      status: input.newStatus,
-    },
-    select: orderSelect,
-  });
+  const updated = await updateWhiteLabelOrderStatus(orderId, input.newStatus);
 
   await emitWhiteLabelOrderStatusChanged(
     {
@@ -498,10 +359,7 @@ async function requestPricingSync(input: PricingSyncRequestInput) {
 }
 
 async function ensureOrderForBrand(orderId: string, brandId: string) {
-  const order = await prisma.whiteLabelOrder.findUnique({
-    where: { id: orderId },
-    include: { wlBrand: { select: { id: true, brandId: true } } },
-  });
+  const order: WhiteLabelOrderWithBrandPayload | null = await findWhiteLabelOrderWithBrand(orderId);
   if (!order) throw notFound("Order not found");
   if (order.wlBrand.brandId !== brandId) {
     throw badRequest("Order does not belong to the requested brand");

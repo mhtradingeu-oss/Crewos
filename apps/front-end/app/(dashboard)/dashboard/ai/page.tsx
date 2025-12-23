@@ -233,7 +233,7 @@ export default function AIDashboard() {
                 size="sm"
                 variant="outline"
                 onClick={toggleKillSwitch}
-                disabled={autonomyLoading || !hasPermission(["ai.config.update", "ai:manage"])}
+                disabled={autonomyLoading || !hasPermission(["ai:config:update", "ai:manage"])}
               >
                 {autonomyLoading ? <Spinner className="h-4 w-4" /> : autonomyStatus?.globalAutonomyEnabled ? "Disable" : "Enable"}
               </Button>

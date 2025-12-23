@@ -251,14 +251,14 @@ export default function VirtualOfficePage() {
                 variant="outline"
                 size="sm"
                 onClick={toggleKillSwitch}
-                disabled={autonomyLoading || !hasPermission("ai.config.update")}
+                disabled={autonomyLoading || !hasPermission("ai:config:update")}
               >
                 {autonomyLoading ? <Spinner className="h-4 w-4" /> : autonomyStatus?.globalAutonomyEnabled ? "Disable" : "Enable"}
               </Button>
               <Button
                 size="sm"
                 onClick={runCycle}
-                disabled={autonomyLoading || !hasPermission(["ai.autonomy.manage", "ai:run"])}
+                disabled={autonomyLoading || !hasPermission(["ai:autonomy:manage", "ai:run"])}
               >
                 {autonomyLoading ? <Spinner className="h-4 w-4" /> : "Run AI Cycle"}
               </Button>
@@ -294,7 +294,7 @@ export default function VirtualOfficePage() {
                     <Button
                       size="sm"
                       onClick={() => void handleApprove(task.taskId)}
-                      disabled={!hasPermission(["ai.autonomy.manage", "ai:run"])}
+                      disabled={!hasPermission(["ai:autonomy:manage", "ai:run"])}
                     >
                       Approve
                     </Button>
@@ -302,7 +302,7 @@ export default function VirtualOfficePage() {
                       size="sm"
                       variant="destructive"
                       onClick={() => void handleReject(task.taskId)}
-                      disabled={!hasPermission(["ai.autonomy.manage", "ai:run"])}
+                      disabled={!hasPermission(["ai:autonomy:manage", "ai:run"])}
                     >
                       Reject
                     </Button>

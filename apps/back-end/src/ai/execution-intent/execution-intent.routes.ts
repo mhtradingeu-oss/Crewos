@@ -10,37 +10,37 @@ router.use(authenticateRequest);
 
 router.post(
   '/from-decision',
-  requirePermission(['ai.decision.write', 'ai.crew.advisory']),
+  requirePermission(['ai:decision:write', 'ai:crew:advisory']),
   executionIntentController.fromDecision
 );
 
 router.get(
   '/:intentId',
-  requirePermission(['ai.read']),
+  requirePermission(['ai:read']),
   executionIntentController.get
 );
 
 router.get(
   '/',
-  requirePermission(['ai.read']),
+  requirePermission(['ai:read']),
   executionIntentController.list
 );
 
 router.post(
   '/:intentId/approve',
-  requirePermission(['ai.execution.approve']),
+  requirePermission(['ai:execution:approve']),
   executionIntentController.approve
 );
 
 router.post(
   '/:intentId/reject',
-  requirePermission(['ai.execution.approve']),
+  requirePermission(['ai:execution:approve']),
   executionIntentController.reject
 );
 
 router.get(
   '/:intentId/handoff',
-  requirePermission(['ai.execution.handoff']),
+  requirePermission(['ai:execution:handoff']),
   executionIntentController.handoff
 );
 

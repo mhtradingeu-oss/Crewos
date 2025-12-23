@@ -16,6 +16,15 @@ export function hasRole(user: SessionPayload | undefined, roles: string[]) {
 }
 
 const permissionCache = new Map<string, string[]>();
+const permissionAliasMap = new Map<string, string>([
+  ["support:manage", "support:update"],
+]);
+
+function normalizePermissionCode(code: string) {
+  if (!code) return code;
+  const sanitized = code.includes(".") ? code.replace(/\./g, ":") : code;
+  return permissionAliasMap.get(sanitized) ?? sanitized;
+}
 
 export async function getPermissionsForRole(roleName: string): Promise<string[]> {
   if (!roleName) return [];
@@ -27,9 +36,10 @@ export async function getPermissionsForRole(roleName: string): Promise<string[]>
     where: { role: { name: roleName } },
     select: { permission: { select: { code: true } } },
   });
-  const codes = entries.map((row) => row.permission.code);
-  permissionCache.set(roleName, codes);
-  return codes;
+  const codes = entries.map((row) => normalizePermissionCode(row.permission.code));
+  const uniqueCodes = Array.from(new Set(codes));
+  permissionCache.set(roleName, uniqueCodes);
+  return uniqueCodes;
 }
 
 async function resolvePermissionsForRoles(roles: string[]): Promise<string[]> {
@@ -119,13 +129,14 @@ export function requirePermission(permission: string | string[]) {
         return next();
       }
       const userPermissions = await getUserPermissions(req.user.id);
-      const hasAnyPermission = requiredPermissions.some(
+      const normalizedPermissions = requiredPermissions.map(normalizePermissionCode);
+      const hasAnyPermission = normalizedPermissions.some(
         (perm) => userPermissions.includes(perm) || userPermissions.includes("*"),
       );
       if (!hasAnyPermission) {
         return next(forbidden());
       }
-      const policyAllowed = await evaluatePermissionPolicies(requiredPermissions, {
+      const policyAllowed = await evaluatePermissionPolicies(normalizedPermissions, {
         userId: req.user.id,
         role: req.user.role,
         brandId: req.user.brandId,

@@ -131,7 +131,7 @@ export async function generateIdeas(req: AuthenticatedRequest, res: Response, ne
       parsed.data.brandId,
     );
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.marketing"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:marketing"]));
     const pipeline = await runAIPipeline({
       agentId: "campaign-engine",
       task: {

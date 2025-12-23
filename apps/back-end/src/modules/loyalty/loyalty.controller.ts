@@ -218,7 +218,7 @@ export async function aiInsights(req: AuthenticatedRequest, res: Response, next:
     const { brandId, loyaltyCustomerId } = parsed;
 
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.loyalty"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:loyalty"]));
 
     const pipeline = await runAIPipeline({
       agentId: "loyalty-analyst",

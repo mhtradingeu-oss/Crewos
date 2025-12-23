@@ -1,78 +1,28 @@
-import { prisma } from "../../core/prisma.js";
+import * as aiSafetyRepository from "../../core/db/repositories/ai-safety.repository.js";
 import { recordSafetyEvent } from "../../core/ai/ai-monitoring.js";
 
 export async function listFirewallRules() {
-  return prisma.aIPromptFirewallRule.findMany({ orderBy: { createdAt: "desc" } });
+  return aiSafetyRepository.listFirewallRules();
 }
 
-export async function createFirewallRule(payload: {
-  name: string;
-  matcherType: string;
-  matcherValue: string;
-  action: string;
-  reason?: string;
-  severity?: string;
-  tags?: string;
-}) {
-  return prisma.aIPromptFirewallRule.create({
-    data: {
-      name: payload.name,
-      matcherType: payload.matcherType,
-      matcherValue: payload.matcherValue,
-      action: payload.action as any,
-      reason: payload.reason,
-      severity: payload.severity as any,
-      tags: payload.tags,
-    },
-  });
+export async function createFirewallRule(payload: aiSafetyRepository.FirewallRulePayload) {
+  return aiSafetyRepository.createFirewallRule(payload);
 }
 
 export async function listConstraints() {
-  return prisma.aISafetyConstraint.findMany({ orderBy: { createdAt: "desc" } });
+  return aiSafetyRepository.listConstraints();
 }
 
-export async function createConstraint(payload: {
-  code: string;
-  scope?: string;
-  description?: string;
-  ruleJson?: Record<string, unknown>;
-  allowedActions?: string[];
-  restrictedDomains?: string[];
-  riskScore?: number;
-}) {
-  return prisma.aISafetyConstraint.create({
-    data: {
-      code: payload.code,
-      scope: payload.scope,
-      description: payload.description,
-      ruleJson: payload.ruleJson ? JSON.stringify(payload.ruleJson) : undefined,
-      allowedActionsJson: payload.allowedActions ? JSON.stringify(payload.allowedActions) : undefined,
-      restrictedDomainsJson: payload.restrictedDomains ? JSON.stringify(payload.restrictedDomains) : undefined,
-      riskScore: payload.riskScore,
-    },
-  });
+export async function createConstraint(payload: aiSafetyRepository.SafetyConstraintPayload) {
+  return aiSafetyRepository.createConstraint(payload);
 }
 
 export async function listBannedActions() {
-  return prisma.aIBannedAction.findMany({ orderBy: { createdAt: "desc" } });
+  return aiSafetyRepository.listBannedActions();
 }
 
-export async function createBannedAction(payload: {
-  code: string;
-  description?: string;
-  severity?: string;
-  scope?: string;
-  mitigation?: string;
-}) {
-  return prisma.aIBannedAction.create({
-    data: {
-      code: payload.code,
-      description: payload.description,
-      severity: payload.severity as any,
-      scope: payload.scope,
-      mitigation: payload.mitigation,
-    },
-  });
+export async function createBannedAction(payload: aiSafetyRepository.BannedActionPayload) {
+  return aiSafetyRepository.createBannedAction(payload);
 }
 
 export async function recordOversight(payload: {

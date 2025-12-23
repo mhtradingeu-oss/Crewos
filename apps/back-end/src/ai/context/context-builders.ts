@@ -41,7 +41,7 @@ export async function buildProductContext(
   productId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.product"], options);
+  ensurePermissions(["ai:context:product"], options);
   const product = await db.brandProductFindUnique({
     where: { id: productId },
     include: {
@@ -112,7 +112,7 @@ export async function buildPricingContext(
   productId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.pricing"], options);
+  ensurePermissions(["ai:context:pricing"], options);
   const pricing = await db.productPricingFindUnique({
     where: { productId },
     include: {
@@ -168,7 +168,7 @@ export async function buildInventoryContext(
   input: string | { productId?: string; warehouseId?: string },
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.inventory"], options);
+  ensurePermissions(["ai:context:inventory"], options);
   const productId = typeof input === "string" ? input : input.productId;
   const warehouseId = typeof input === "string" ? undefined : input.warehouseId;
 
@@ -226,7 +226,7 @@ export async function buildCRMClientContext(
   clientId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.crm"], options);
+  ensurePermissions(["ai:context:crm"], options);
   const client = await db.leadFindUnique({
     where: { id: clientId },
     include: {
@@ -274,7 +274,7 @@ export async function buildPartnerContext(
   input: string | { partnerUserId?: string; partnerId?: string; userId?: string },
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.partner"], options);
+  ensurePermissions(["ai:context:partner"], options);
 
   const partnerUserId = typeof input === "string" ? input : input.partnerUserId ?? input.userId;
   const partnerId = typeof input === "string" ? undefined : input.partnerId;
@@ -338,7 +338,7 @@ export async function buildSalesRepContext(
   salesRepId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.sales"], options);
+  ensurePermissions(["ai:context:sales"], options);
   const rep = await db.salesRepFindUnique({
     where: { id: salesRepId },
     include: {
@@ -382,7 +382,7 @@ export async function buildLoyaltyAccountContext(
   loyaltyCustomerId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.loyalty"], options);
+  ensurePermissions(["ai:context:loyalty"], options);
   const account = await db.loyaltyCustomerFindUnique({
     where: { id: loyaltyCustomerId },
     include: {
@@ -420,7 +420,7 @@ export async function buildAutomationContext(
   ruleId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.automation"], options);
+  ensurePermissions(["ai:context:automation"], options);
 
   const rule = await db.automationRuleFindUnique({
     where: { id: ruleId },
@@ -457,7 +457,7 @@ export async function buildAIInsightContext(
   insightId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.insight"], options);
+  ensurePermissions(["ai:context:insight"], options);
   const insight = await db.aIInsightFindUnique({
     where: { id: insightId },
   });
@@ -479,7 +479,7 @@ export async function buildBrandContext(
   brandId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.brand"], options);
+  ensurePermissions(["ai:context:brand"], options);
   const brand = await db.brandFindUnique({
     where: { id: brandId },
     include: {
@@ -516,7 +516,7 @@ export async function buildMarketingContext(
   brandId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.marketing"], options);
+  ensurePermissions(["ai:context:marketing"], options);
   const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
@@ -608,7 +608,7 @@ export async function buildFinanceContext(
   brandId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.finance"], options);
+  ensurePermissions(["ai:context:finance"], options);
   const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
@@ -658,7 +658,7 @@ export async function buildInvoiceContext(
   invoiceId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.finance"], options);
+  ensurePermissions(["ai:context:finance"], options);
   const invoice = await db.invoiceFindUnique({
     where: { id: invoiceId },
     include: {
@@ -705,7 +705,7 @@ export async function buildSupportContext(
   ticketId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.support"], options);
+  ensurePermissions(["ai:context:support"], options);
   const ticket = await db.ticketFindUnique({
     where: { id: ticketId },
     include: {
@@ -759,7 +759,7 @@ export async function buildKnowledgeBaseContext(
   documentId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.kb"], options);
+  ensurePermissions(["ai:context:kb"], options);
   const document = await db.knowledgeDocumentFindUnique({
     where: { id: documentId },
     include: {
@@ -802,7 +802,7 @@ export async function buildOperationsContext(
   brandId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.operations"], options);
+  ensurePermissions(["ai:context:operations"], options);
   const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, name: true, slug: true, tenantId: true },
@@ -846,7 +846,7 @@ export async function buildNotificationContext(
   brandId: string,
   options?: ContextBuilderOptions,
 ) {
-  ensurePermissions(["ai.context.notification"], options);
+  ensurePermissions(["ai:context:notification"], options);
   const brand = await db.brandFindUnique({
     where: { id: brandId },
     select: { id: true, tenantId: true, name: true },

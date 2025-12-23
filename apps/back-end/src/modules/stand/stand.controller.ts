@@ -103,7 +103,7 @@ export async function aiInsights(req: AuthenticatedRequest, res: Response, next:
     const { standPartnerId, brandId } = parsed;
 
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.partner"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:partner"]));
 
     const pipeline = await runAIPipeline({
       agentId: "partner-ops",

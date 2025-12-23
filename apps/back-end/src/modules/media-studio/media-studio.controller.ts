@@ -122,9 +122,9 @@ export async function mediaIdeas(req: AuthenticatedRequest, res: Response, next:
     const actorPermissions = Array.from(
       new Set([
         ...permissions,
-        "ai.context.media",
-        "ai.context.brand",
-        ...(productId ? ["ai.context.product"] : []),
+        "ai:context:media",
+        "ai:context:brand",
+        ...(productId ? ["ai:context:product"] : []),
       ]),
     );
 

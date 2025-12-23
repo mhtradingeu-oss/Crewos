@@ -10,11 +10,11 @@ import { LearningService } from './learning.service.js';
 
 const router = Router();
 
-// GET /api/v1/ai/learning/insights (RBAC: ai.read)
+// GET /api/v1/ai/learning/insights (RBAC: ai:read)
 router.get(
   '/insights',
   authenticateRequest,
-  requirePermission('ai.read'),
+  requirePermission('ai:read'),
   (req, res) => {
     const insights = LearningService.analyze();
     res.json({ insights });

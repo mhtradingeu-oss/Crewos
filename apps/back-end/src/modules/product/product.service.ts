@@ -2,8 +2,6 @@
  * PRODUCT SERVICE — MH-OS v2
  * Spec: docs/os/03_product-master.md (MASTER_INDEX)
  */
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import {
@@ -29,6 +27,38 @@ import type {
   UpdateProductInput,
 } from "./product.types.js";
 import type { ProductFilters } from "./product.types.js"; // Added missing import
+import {
+  DbNull,
+  Decimal,
+  InputJsonValue,
+  JsonValue,
+  ProductCreateInput,
+  ProductIdentifierPayload,
+  ProductInsightPayload,
+  ProductInsightSubject,
+  ProductPayload,
+  ProductPricingPayload,
+  ProductPricingUncheckedCreateInput,
+  ProductPricingUncheckedUpdateInput,
+  ProductUpdateInput,
+  ProductWhereInput,
+  createProduct,
+  createProductInsight,
+  createProductPricing,
+  deleteProductWithDependencies,
+  findBrandById,
+  findLatestProductInsight,
+  findProductById,
+  findProductForInsight,
+  findProductIdentifiersById,
+  findProductIdentifiersBySku,
+  findProductIdentifiersBySlug,
+  findProductPricingByProductId,
+  findProductsWithCount,
+  listProducts,
+  updateProduct,
+  updateProductPricingById,
+} from "../../core/db/repositories/product.repository.js";
 
 type ProductActionContext = {
   brandId?: string;
@@ -42,85 +72,13 @@ function buildProductEventContext(context?: ProductActionContext): EventContext 
     source: "api",
   };
 }
-
-const pricingSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  cogsEur: true,
-  fullCostEur: true,
-  b2cNet: true,
-  b2cGross: true,
-  dealerNet: true,
-  dealerPlusNet: true,
-  standPartnerNet: true,
-  distributorNet: true,
-  amazonNet: true,
-  uvpNet: true,
-  vatPct: true,
-} satisfies Prisma.ProductPricingSelect;
-
-const competitorSelect = {
-  id: true,
-  productId: true,
-  brandId: true,
-  competitor: true,
-  marketplace: true,
-  country: true,
-  priceNet: true,
-  priceGross: true,
-  currency: true,
-  collectedAt: true,
-} satisfies Prisma.CompetitorPriceSelect;
-
-const aiInsightSelect = {
-  id: true,
-  summary: true,
-  details: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.AIInsightSelect;
-
-const productSelect = {
-  id: true,
-  brandId: true,
-  categoryId: true,
-  name: true,
-  slug: true,
-  description: true,
-  sku: true,
-  status: true,
-  lifecycleStage: true,
-  barcode: true,
-  ean: true,
-  upc: true,
-  qrCodeUrl: true,
-  tags: true,
-  marketingProfileJson: true,
-  seoProfileJson: true,
-  distributionProfileJson: true,
-  complianceProfileJson: true,
-  localizationProfileJson: true,
-  socialProofJson: true,
-  analyticsProfileJson: true,
-  complianceDocIds: true,
-  specDocIds: true,
-  mediaIds: true,
-  createdAt: true,
-  updatedAt: true,
-  pricing: { select: pricingSelect },
-  competitorPrices: { select: competitorSelect, orderBy: { collectedAt: "desc" }, take: 5 },
-  _count: { select: { inventoryItems: true } },
-} as const satisfies Prisma.BrandProductSelect;
-
 class ProductService {
-  constructor(private readonly db = prisma) {}
 
   async list(filters: ProductFilters = {}): Promise<PaginatedProducts> {
     const { search, brandId, categoryId, status, lifecycleStage, page = 1, pageSize = 20 } = filters;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.BrandProductWhereInput = {};
+    const where: ProductWhereInput = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -133,19 +91,15 @@ class ProductService {
     if (status) where.status = status;
     if (lifecycleStage) where.lifecycleStage = lifecycleStage;
 
-    const [total, products] = await this.db.$transaction([
-      this.db.brandProduct.count({ where }),
-      this.db.brandProduct.findMany({
-        where,
-        select: productSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, products] = await findProductsWithCount({
+      where,
+      skip,
+      take,
+      orderBy: { createdAt: "desc" },
+    });
 
     return {
-      items: products.map((product: any) => this.mapProduct(product)),
+      items: products.map((product) => this.mapProduct(product)),
       total,
       page,
       pageSize: take,
@@ -153,7 +107,7 @@ class ProductService {
   }
 
   async getById(id: string, context?: ProductActionContext): Promise<ProductResponse> {
-    const product = await this.db.brandProduct.findUnique({ where: { id }, select: productSelect });
+    const product = await findProductById(id);
     if (!product) {
       throw notFound("Product not found");
     }
@@ -171,36 +125,34 @@ class ProductService {
       await this.ensureBrandExists(scopedBrandId);
     }
 
-    const product = await this.db.brandProduct.create({
-      data: {
-        brandId: scopedBrandId,
-        categoryId: input.categoryId,
-        name: input.name,
-        slug: input.slug,
-        description: input.description ?? null,
-        sku: input.sku ?? input.barcode ?? null,
-        barcode: input.barcode ?? null,
-        ean: input.ean ?? null,
-        upc: input.upc ?? null,
-        qrCodeUrl: input.qrCodeUrl ?? null,
-        lifecycleStage: input.lifecycleStage ?? "concept",
-        tags:
-          input.tags === null
-            ? Prisma.DbNull
-            : input.tags !== undefined
-              ? (input.tags as Prisma.InputJsonValue)
-              : undefined,
-        marketingProfileJson: this.serializeJson(input.marketingProfile),
-        seoProfileJson: this.serializeJson(input.seoProfile),
-        distributionProfileJson: this.serializeJson(input.distributionProfile),
-        complianceProfileJson: this.serializeJson(input.complianceProfile),
-        localizationProfileJson: this.serializeJson(input.localizationProfile),
-        socialProofJson: this.serializeJson(input.socialProof),
-        analyticsProfileJson: this.serializeJson(input.analyticsProfile),
-        status: input.status ?? "ACTIVE",
-      },
-      select: productSelect,
-    });
+    const createData: ProductCreateInput = {
+      brandId: scopedBrandId,
+      categoryId: input.categoryId,
+      name: input.name,
+      slug: input.slug,
+      description: input.description ?? null,
+      sku: input.sku ?? input.barcode ?? null,
+      barcode: input.barcode ?? null,
+      ean: input.ean ?? null,
+      upc: input.upc ?? null,
+      qrCodeUrl: input.qrCodeUrl ?? null,
+      lifecycleStage: input.lifecycleStage ?? "concept",
+      tags:
+        input.tags === null
+          ? DbNull
+          : input.tags !== undefined
+            ? (input.tags as InputJsonValue)
+            : undefined,
+      marketingProfileJson: this.serializeJson(input.marketingProfile),
+      seoProfileJson: this.serializeJson(input.seoProfile),
+      distributionProfileJson: this.serializeJson(input.distributionProfile),
+      complianceProfileJson: this.serializeJson(input.complianceProfile),
+      localizationProfileJson: this.serializeJson(input.localizationProfile),
+      socialProofJson: this.serializeJson(input.socialProof),
+      analyticsProfileJson: this.serializeJson(input.analyticsProfile),
+      status: input.status ?? "ACTIVE",
+    };
+    const product = await createProduct(createData);
 
     const eventContext = buildProductEventContext({
       brandId: scopedBrandId ?? product.brandId ?? undefined,
@@ -218,10 +170,7 @@ class ProductService {
     input: UpdateProductInput,
     context?: ProductActionContext,
   ): Promise<ProductResponse> {
-    const existing = await this.db.brandProduct.findUnique({
-      where: { id },
-      select: productSelect,
-    });
+    const existing = await findProductById(id);
     if (!existing) {
       throw notFound("Product not found");
     }
@@ -244,57 +193,54 @@ class ProductService {
       await this.ensureBrandExists(desiredBrandId);
     }
 
-    const updated = (await this.db.brandProduct.update({
-      where: { id },
-      data: {
-        brandId: desiredBrandId,
-        categoryId: input.categoryId ?? existing.categoryId,
-        name: input.name ?? existing.name,
-        slug: input.slug ?? existing.slug,
-        description: input.description ?? existing.description,
-        sku: nextSku ?? existing.sku,
-        barcode: input.barcode ?? existing.barcode,
-        ean: input.ean ?? existing.ean,
-        upc: input.upc ?? existing.upc,
-        qrCodeUrl: input.qrCodeUrl ?? existing.qrCodeUrl,
-        lifecycleStage: input.lifecycleStage ?? existing.lifecycleStage,
-        ...(input.tags !== undefined
-          ? {
-              tags: input.tags === null ? Prisma.DbNull : (input.tags as Prisma.InputJsonValue),
-            }
-          : {}),
-        marketingProfileJson:
-          input.marketingProfile !== undefined
-            ? this.serializeJson(input.marketingProfile)
-            : existing.marketingProfileJson,
-        seoProfileJson:
-          input.seoProfile !== undefined
-            ? this.serializeJson(input.seoProfile)
-            : existing.seoProfileJson,
-        distributionProfileJson:
-          input.distributionProfile !== undefined
-            ? this.serializeJson(input.distributionProfile)
-            : existing.distributionProfileJson,
-        complianceProfileJson:
-          input.complianceProfile !== undefined
-            ? this.serializeJson(input.complianceProfile)
-            : existing.complianceProfileJson,
-        localizationProfileJson:
-          input.localizationProfile !== undefined
-            ? this.serializeJson(input.localizationProfile)
-            : existing.localizationProfileJson,
-        socialProofJson:
-          input.socialProof !== undefined
-            ? this.serializeJson(input.socialProof)
-            : existing.socialProofJson,
-        analyticsProfileJson:
-          input.analyticsProfile !== undefined
-            ? this.serializeJson(input.analyticsProfile)
-            : existing.analyticsProfileJson,
-        status: input.status ?? existing.status,
-      },
-      select: productSelect,
-    })) as Prisma.BrandProductGetPayload<{ select: typeof productSelect }>;
+    const updateData: ProductUpdateInput = {
+      brandId: desiredBrandId,
+      categoryId: input.categoryId ?? existing.categoryId,
+      name: input.name ?? existing.name,
+      slug: input.slug ?? existing.slug,
+      description: input.description ?? existing.description,
+      sku: nextSku ?? existing.sku,
+      barcode: input.barcode ?? existing.barcode,
+      ean: input.ean ?? existing.ean,
+      upc: input.upc ?? existing.upc,
+      qrCodeUrl: input.qrCodeUrl ?? existing.qrCodeUrl,
+      lifecycleStage: input.lifecycleStage ?? existing.lifecycleStage,
+      ...(input.tags !== undefined
+        ? {
+            tags: input.tags === null ? DbNull : (input.tags as InputJsonValue),
+          }
+        : {}),
+      marketingProfileJson:
+        input.marketingProfile !== undefined
+          ? this.serializeJson(input.marketingProfile)
+          : existing.marketingProfileJson,
+      seoProfileJson:
+        input.seoProfile !== undefined
+          ? this.serializeJson(input.seoProfile)
+          : existing.seoProfileJson,
+      distributionProfileJson:
+        input.distributionProfile !== undefined
+          ? this.serializeJson(input.distributionProfile)
+          : existing.distributionProfileJson,
+      complianceProfileJson:
+        input.complianceProfile !== undefined
+          ? this.serializeJson(input.complianceProfile)
+          : existing.complianceProfileJson,
+      localizationProfileJson:
+        input.localizationProfile !== undefined
+          ? this.serializeJson(input.localizationProfile)
+          : existing.localizationProfileJson,
+      socialProofJson:
+        input.socialProof !== undefined
+          ? this.serializeJson(input.socialProof)
+          : existing.socialProofJson,
+      analyticsProfileJson:
+        input.analyticsProfile !== undefined
+          ? this.serializeJson(input.analyticsProfile)
+          : existing.analyticsProfileJson,
+      status: input.status ?? existing.status,
+    };
+    const updated = await updateProduct(id, updateData);
 
     const eventContext = buildProductEventContext({
       brandId: desiredBrandId ?? updated.brandId ?? undefined,
@@ -308,10 +254,7 @@ class ProductService {
   }
 
   async remove(id: string, context?: ProductActionContext) {
-    const existing = await this.db.brandProduct.findUnique({
-      where: { id },
-      select: { id: true, brandId: true },
-    });
+    const existing = await findProductIdentifiersById(id);
     if (!existing) {
       throw notFound("Product not found");
     }
@@ -319,12 +262,7 @@ class ProductService {
       throw forbidden("Access denied for this brand");
     }
 
-    await this.db.$transaction([
-      this.db.productPriceDraft.deleteMany({ where: { productId: id } }),
-      this.db.competitorPrice.deleteMany({ where: { productId: id } }),
-      this.db.productPricing.deleteMany({ where: { productId: id } }),
-      this.db.brandProduct.delete({ where: { id } }),
-    ]);
+    await deleteProductWithDependencies(id);
 
     const eventContext = buildProductEventContext({
       brandId: context?.brandId ?? existing.brandId ?? undefined,
@@ -342,23 +280,7 @@ class ProductService {
     brandId: string,
     options?: { forceRegenerate?: boolean; tenantId?: string },
   ): Promise<ProductInsightResponse> {
-    const product = await this.db.brandProduct.findFirst({
-      where: { id: productId, brandId },
-      select: {
-        id: true,
-        brandId: true,
-        name: true,
-        description: true,
-        slug: true,
-        pricing: {
-          select: {
-            b2cNet: true,
-            dealerNet: true,
-            standPartnerNet: true,
-          },
-        },
-      },
-    });
+    const product = await findProductForInsight(productId, brandId);
 
     if (!product) {
       throw notFound("Product not found for this brand");
@@ -391,16 +313,13 @@ class ProductService {
       fallback: () => this.buildRuleBasedInsight(payload),
     });
 
-    const insight = await this.db.aIInsight.create({
-      data: {
-        brandId,
-        os: "product",
-        entityType: "product",
-        entityId: productId,
-        summary: aiResponse.result.summary,
-        details: aiResponse.result.details,
-      },
-      select: aiInsightSelect,
+    const insight = await createProductInsight({
+      brandId,
+      os: "product",
+      entityType: "product",
+      entityId: productId,
+      summary: aiResponse.result.summary,
+      details: aiResponse.result.details,
     });
 
     return this.mapInsight(insight);
@@ -458,24 +377,12 @@ class ProductService {
   }
 
   async getLatestInsight(productId: string): Promise<ProductInsightResponse | null> {
-    const product = await this.db.brandProduct.findUnique({
-      where: { id: productId },
-      select: { brandId: true },
-    });
+    const product = await findProductIdentifiersById(productId);
     if (!product) {
       throw notFound("Product not found");
     }
     if (!product.brandId) return null;
-    const insight = await this.db.aIInsight.findFirst({
-      where: {
-        brandId: product.brandId,
-        os: "product",
-        entityType: "product",
-        entityId: productId,
-      },
-      orderBy: { updatedAt: "desc" },
-      select: aiInsightSelect,
-    });
+    const insight = await findLatestProductInsight(productId, product.brandId);
     return insight ? this.mapInsight(insight) : null;
   }
 
@@ -491,18 +398,12 @@ class ProductService {
 
     for (const item of payload.items) {
       const nextSku = item.sku ?? item.barcode ?? undefined;
-      let existing =
-        item.id != null
-          ? await this.db.brandProduct.findUnique({
-              where: { id: item.id },
-              select: { id: true, brandId: true, slug: true, sku: true },
-            })
-          : null;
+      let existing: ProductIdentifierPayload | null = null;
+      if (item.id != null) {
+        existing = await findProductIdentifiersById(item.id);
+      }
       if (!existing) {
-        existing = await this.db.brandProduct.findUnique({
-          where: { slug: item.slug },
-          select: { id: true, brandId: true, slug: true, sku: true },
-        });
+        existing = await findProductIdentifiersBySlug(item.slug);
       }
 
       if (existing && scopedBrandId && existing.brandId && existing.brandId !== scopedBrandId) {
@@ -511,22 +412,22 @@ class ProductService {
 
       if (existing) {
         if (item.slug !== existing.slug) {
-          await this.ensureSlugUnique(item.slug);
+          await this.ensureSlugUnique(item.slug, existing.id);
         }
         if (nextSku && nextSku !== existing.sku) {
-          await this.ensureSkuUnique(nextSku);
+          await this.ensureSkuUnique(nextSku, existing.id);
         }
 
         const updateData = this.buildProductImportUpdateData(item);
         if (Object.keys(updateData).length) {
-          await this.db.brandProduct.update({
-            where: { id: existing.id },
-            data: updateData,
-            select: productSelect,
-          });
+          await updateProduct(existing.id, updateData);
         }
 
-        await this.savePricingForImport(existing.id, scopedBrandId ?? existing.brandId ?? undefined, item.pricing);
+        await this.savePricingForImport(
+          existing.id,
+          scopedBrandId ?? existing.brandId ?? undefined,
+          item.pricing,
+        );
         updated += 1;
         primaryProductId ??= existing.id;
         continue;
@@ -537,10 +438,8 @@ class ProductService {
         await this.ensureSkuUnique(nextSku);
       }
 
-      const created = await this.db.brandProduct.create({
-        data: this.buildProductImportCreateData(item, scopedBrandId),
-        select: productSelect,
-      });
+      const createData = this.buildProductImportCreateData(item, scopedBrandId);
+      const created = await createProduct(createData);
       await this.savePricingForImport(created.id, scopedBrandId ?? created.brandId ?? undefined, item.pricing);
       imported += 1;
       primaryProductId ??= created.id;
@@ -561,7 +460,7 @@ class ProductService {
 
   async exportProducts(filters: ProductExportFilters, context?: ProductActionContext): Promise<ProductExportResult> {
     const brandId = context?.brandId ?? filters.brandId ?? undefined;
-    const where: Prisma.BrandProductWhereInput = {};
+    const where: ProductWhereInput = {};
     if (brandId) where.brandId = brandId;
     if (filters.status) where.status = filters.status;
     if (filters.lifecycleStage) where.lifecycleStage = filters.lifecycleStage;
@@ -573,12 +472,11 @@ class ProductService {
       ];
     }
 
-    const products = await this.db.brandProduct.findMany({
+    const products = await listProducts({
       where,
-      select: productSelect,
       orderBy: { createdAt: "desc" },
     });
-    const payload = products.map((product: any) => this.mapProduct(product));
+    const payload = products.map((product) => this.mapProduct(product));
     const format = filters.format ?? "json";
 
     if (format === "csv") {
@@ -603,14 +501,11 @@ class ProductService {
     return this.updateProductMedia(productId, payload, context, "detach");
   }
 
-  private buildProductImportCreateData(
-    item: ProductImportItem,
-    brandId?: string,
-  ): Prisma.BrandProductCreateInput {
+  private buildProductImportCreateData(item: ProductImportItem, brandId?: string): ProductCreateInput {
     const skuValue = item.sku ?? item.barcode ?? null;
     return {
-      brand: brandId ? { connect: { id: brandId } } : undefined, // Updated to use brand object
-      category: item.categoryId ? { connect: { id: item.categoryId } } : undefined,
+      brandId: brandId ?? undefined,
+      categoryId: item.categoryId ?? undefined,
       name: item.name,
       slug: item.slug,
       description: item.description ?? null,
@@ -622,9 +517,9 @@ class ProductService {
       lifecycleStage: item.lifecycleStage ?? "concept",
       tags:
         item.tags === null
-          ? Prisma.DbNull
+          ? DbNull
           : item.tags !== undefined
-            ? (item.tags as Prisma.InputJsonValue)
+            ? (item.tags as InputJsonValue)
             : undefined,
       marketingProfileJson: this.serializeJson(item.marketingProfile),
       seoProfileJson: this.serializeJson(item.seoProfile),
@@ -640,9 +535,9 @@ class ProductService {
     };
   }
 
-  private buildProductImportUpdateData(item: ProductImportItem): Prisma.BrandProductUpdateInput {
+  private buildProductImportUpdateData(item: ProductImportItem): ProductUpdateInput {
     const nextSku = item.sku ?? item.barcode ?? undefined;
-    const data: Prisma.BrandProductUpdateInput = {
+    const data: ProductUpdateInput = {
       name: item.name,
       slug: item.slug,
     };
@@ -651,7 +546,7 @@ class ProductService {
       data.description = item.description ?? null;
     }
     if (item.categoryId !== undefined) {
-      data.category = item.categoryId ? { connect: { id: item.categoryId } } : { disconnect: true };
+      data.categoryId = item.categoryId ?? null;
     }
     if (nextSku !== undefined) {
       data.sku = nextSku;
@@ -672,7 +567,7 @@ class ProductService {
       data.lifecycleStage = item.lifecycleStage;
     }
     if (item.tags !== undefined) {
-      data.tags = item.tags === null ? Prisma.DbNull : (item.tags as Prisma.InputJsonValue);
+      data.tags = item.tags === null ? DbNull : (item.tags as InputJsonValue);
     }
     if (item.marketingProfile !== undefined) {
       data.marketingProfileJson = this.serializeJson(item.marketingProfile);
@@ -724,11 +619,11 @@ class ProductService {
       pricing.standPartnerNet != null;
     if (!hasPricingValue) return;
 
-    const createData: Prisma.ProductPricingUncheckedCreateInput = {
+    const createData: ProductPricingUncheckedCreateInput = {
       productId,
       brandId: brandId ?? undefined,
     };
-    const updateData: Prisma.ProductPricingUncheckedUpdateInput = {};
+    const updateData: ProductPricingUncheckedUpdateInput = {};
 
     if (pricing.cogsEur != null) {
       createData.cogsEur = pricing.cogsEur;
@@ -752,18 +647,13 @@ class ProductService {
       updateData.standPartnerNet = pricing.standPartnerNet;
     }
 
-    const existing = await this.db.productPricing.findUnique({ where: { productId } });
+    const existing = await findProductPricingByProductId(productId);
     if (existing) {
       if (!Object.keys(updateData).length) return;
-      await this.db.productPricing.update({
-        where: { id: existing.id },
-        data: updateData,
-      });
+      await updateProductPricingById(existing.id, updateData);
       return;
     }
-    await this.db.productPricing.create({
-      data: createData,
-    });
+    await createProductPricing(createData);
   }
 
   private buildExportCsv(rows: ProductResponse[]): string {
@@ -816,10 +706,7 @@ class ProductService {
     context: ProductActionContext | undefined,
     mode: "attach" | "detach",
   ): Promise<ProductResponse> {
-    const existing = await this.db.brandProduct.findUnique({
-      where: { id: productId },
-      select: { id: true, brandId: true, mediaIds: true },
-    });
+    const existing = await findProductById(productId);
     if (!existing) {
       throw notFound("Product not found");
     }
@@ -831,10 +718,8 @@ class ProductService {
       mode === "attach"
         ? Array.from(new Set([...current, ...payload.mediaIds]))
         : current.filter((id: any) => !payload.mediaIds.includes(id));
-    const updated = await this.db.brandProduct.update({
-      where: { id: productId },
-      data: { mediaIds: next.length ? next : undefined }, // Changed null to undefined
-      select: productSelect,
+    const updated = await updateProduct(productId, {
+      mediaIds: next.length ? next : undefined,
     });
     const eventContext = buildProductEventContext({
       brandId: updated.brandId ?? undefined,
@@ -847,9 +732,7 @@ class ProductService {
     return this.mapProduct(updated);
   }
 
-  private mapProduct(
-    record: Prisma.BrandProductGetPayload<{ select: typeof productSelect }>,
-  ): ProductResponse {
+  private mapProduct(record: ProductPayload): ProductResponse {
     return {
       id: record.id,
       brandId: record.brandId ?? undefined,
@@ -894,9 +777,7 @@ class ProductService {
     };
   }
 
-  private mapPricing(
-    pricing: Prisma.ProductPricingGetPayload<{ select: typeof pricingSelect }> | null,
-  ): ProductPricingSnapshot | null {
+  private mapPricing(pricing: ProductPricingPayload | null): ProductPricingSnapshot | null {
     if (!pricing) return null;
     return {
       id: pricing.id,
@@ -916,14 +797,12 @@ class ProductService {
     };
   }
 
-  private decimalToNumber(value?: Prisma.Decimal | null) {
+  private decimalToNumber(value?: Decimal | null) {
     if (value === null || value === undefined) return null;
     return Number(value);
   }
 
-  private mapInsight(
-    record: Prisma.AIInsightGetPayload<{ select: typeof aiInsightSelect }>,
-  ): ProductInsightResponse {
+  private mapInsight(record: ProductInsightPayload): ProductInsightResponse {
     return {
       id: record.id,
       summary: record.summary ?? "",
@@ -933,23 +812,23 @@ class ProductService {
     };
   }
 
-  private async ensureSlugUnique(slug: string) {
-    const existing = await this.db.brandProduct.findUnique({ where: { slug } });
-    if (existing) {
+  private async ensureSlugUnique(slug: string, excludeId?: string) {
+    const existing = await findProductIdentifiersBySlug(slug);
+    if (existing && existing.id !== excludeId) {
       throw badRequest("Product slug already in use");
     }
   }
 
-  private async ensureSkuUnique(sku?: string | null) {
+  private async ensureSkuUnique(sku?: string | null, excludeId?: string) {
     if (!sku) return;
-    const existing = await this.db.brandProduct.findUnique({ where: { sku } });
-    if (existing) {
+    const existing = await findProductIdentifiersBySku(sku);
+    if (existing && existing.id !== excludeId) {
       throw badRequest("SKU already in use");
     }
   }
 
   private async ensureBrandExists(brandId: string) {
-    const brand = await this.db.brand.findUnique({ where: { id: brandId }, select: { id: true } });
+    const brand = await findBrandById(brandId);
     if (!brand) {
       throw badRequest("Brand not found for provided brandId");
     }
@@ -975,7 +854,7 @@ class ProductService {
     }
   }
 
-  private parseStringArray(value?: Prisma.JsonValue | null): string[] | undefined {
+  private parseStringArray(value?: JsonValue | null): string[] | undefined {
     if (!value) return undefined;
     if (Array.isArray(value)) {
       return value.filter((item: any): item is string => typeof item === "string");

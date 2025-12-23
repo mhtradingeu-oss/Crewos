@@ -124,7 +124,7 @@ export async function aiQa(req: AuthenticatedRequest, res: Response, next: NextF
     const brandId = payload.brandId;
 
     const permissions = req.user?.id ? await getUserPermissions(req.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.kb"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:kb"]));
 
     const pipeline = await runAIPipeline({
       agentId: "KNOWLEDGE_QA",

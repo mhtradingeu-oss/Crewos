@@ -1,4 +1,5 @@
 import { subscribeToAll } from "../../core/events/event-bus.js";
+import { logger } from "../../core/logger.js";
 import { activityLogService } from "./activity-log.service.js";
 
 export function registerActivityLogSubscriber() {
@@ -9,7 +10,10 @@ export function registerActivityLogSubscriber() {
       }
       await activityLogService.record(event);
     } catch (err) {
-      console.error("[activity-log] Failed to record event", event.name, err);
+      logger.error("[activity-log] Failed to record event", {
+        event: event.name,
+        error: err,
+      });
     }
   });
 }

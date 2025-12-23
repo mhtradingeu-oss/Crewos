@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { logger } from "../logger.js";
 
 const envFilePath = resolveEnvFilePath();
 if (envFilePath) {
@@ -38,7 +39,7 @@ export function loadEnv(): Env {
 
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    console.error("❌ Invalid environment configuration", parsed.error.flatten().fieldErrors);
+    logger.error("❌ Invalid environment configuration", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");
   }
 

@@ -8,14 +8,14 @@ const router = Router();
 
 router.post(
   "/preview",
-  requirePermission("ai.white-label.run"),
+  requirePermission("ai:white-label:run"),
   validateBody(whiteLabelProductMockupSchema),
   controller.preview,
 );
 
 router.post(
   "/batch",
-  requirePermission("ai.white-label.run"),
+  requirePermission("ai:white-label:run"),
   validateBody(whiteLabelBatchSchema),
   controller.batch,
 );

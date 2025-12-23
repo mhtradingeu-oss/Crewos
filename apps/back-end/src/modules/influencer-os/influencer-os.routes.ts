@@ -14,7 +14,7 @@ const router = Router();
 
 router.post(
   "/discover",
-  requirePermission(["influencer.manage", "influencer:manage", "marketing.manage"]),
+  requirePermission(["influencer:manage", "marketing:manage"]),
   requireFeature("influencerToolkit"),
   validateBody(discoverSchema),
   controller.discover,
@@ -22,14 +22,14 @@ router.post(
 
 router.get(
   "/scores",
-  requirePermission(["influencer.read", "influencer:read", "marketing.read"]),
+  requirePermission(["influencer:read", "marketing:read"]),
   requireFeature("influencerToolkit"),
   controller.listScores,
 );
 
 router.post(
   "/recommend",
-  requirePermission(["influencer.read", "influencer.manage", "marketing.manage"]),
+  requirePermission(["influencer:read", "influencer:manage", "marketing:manage"]),
   requireFeature("influencerToolkit"),
   validateBody(recommendSchema),
   controller.recommend,
@@ -37,7 +37,7 @@ router.post(
 
 router.post(
   "/negotiations",
-  requirePermission(["influencer.manage", "influencer:manage"]),
+  requirePermission(["influencer:manage"]),
   requireFeature("influencerToolkit"),
   validateBody(negotiationSchema),
   controller.createNegotiation,
@@ -45,14 +45,14 @@ router.post(
 
 router.get(
   "/negotiations",
-  requirePermission(["influencer.read", "influencer:read"]),
+  requirePermission(["influencer:read"]),
   requireFeature("influencerToolkit"),
   controller.listNegotiations,
 );
 
 router.post(
   "/campaign-links",
-  requirePermission(["influencer.manage", "influencer:manage", "marketing.manage"]),
+  requirePermission(["influencer:manage", "marketing:manage"]),
   requireFeature("influencerToolkit"),
   validateBody(campaignLinkSchema),
   controller.createCampaignLink,
@@ -60,7 +60,7 @@ router.post(
 
 router.get(
   "/campaign-links",
-  requirePermission(["influencer.read", "influencer:read", "marketing.read"]),
+  requirePermission(["influencer:read", "marketing:read"]),
   requireFeature("influencerToolkit"),
   controller.listCampaignLinks,
 );

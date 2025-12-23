@@ -142,7 +142,7 @@ export async function triageTicket(req: Request, res: Response, next: NextFuncti
     const ticketId = parsed.ticketId ?? requireParam(req.params.id, "id");
     const authReq = req as AuthenticatedRequest;
     const permissions = authReq.user?.id ? await getUserPermissions(authReq.user.id) : [];
-    const actorPermissions = Array.from(new Set([...permissions, "ai.context.support"]));
+    const actorPermissions = Array.from(new Set([...permissions, "ai:context:support"]));
     const brandId = parsed.brandId ?? authReq.user?.brandId ?? undefined;
 
     const pipeline = await runAIPipeline({

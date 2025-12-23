@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerRunner } from "../registry.js";
 import type { ActionContext, ActionResult } from "../types.js";
+import { logger } from "../../../logger.js";
 
 const schema = z.object({
   level: z.enum(["info", "warn", "error"]).default("info"),
@@ -40,8 +41,8 @@ const internalLogRunner = {
       eventId: context.event.id,
       meta: safeMeta,
     };
-    const logger = console[level] ?? console.info;
-    logger(`[automation][action][INTERNAL_LOG] ${message}`, logPayload);
+    const logFn = logger[level] ?? logger.info;
+    logFn(`[automation][action][INTERNAL_LOG] ${message}`, logPayload);
     return { data: { logged: true } };
   },
 };

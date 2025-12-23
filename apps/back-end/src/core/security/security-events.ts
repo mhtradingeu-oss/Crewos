@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { Request } from "express";
 import { publishDomainEvent } from "../events/domain/bus.js";
+import { logger } from "../logger.js";
 
 export type SecurityEvent =
   | { type: "AUTH_LOGIN_SUCCESS"; userId: string; tenantId?: string; ip: string; ua: string; time: string }
@@ -52,9 +53,9 @@ export function emitSecurityEvent(event: SecurityEvent) {
     event.type === "SESSION_INVALID" ||
     event.type === "RATE_LIMITED"
   ) {
-    console.warn("[security-event]", sanitized);
+    logger.warn("[security-event]", sanitized);
   } else {
-    console.info("[security-event]", sanitized);
+    logger.info("[security-event]", sanitized);
   }
 }
 

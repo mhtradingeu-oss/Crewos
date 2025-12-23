@@ -16,7 +16,7 @@ function toActor(req: AuthenticatedRequest): PipelineActor | undefined {
   return {
     userId: req.user.id,
     role: req.user.role,
-    permissions: ["ai.context.finance"],
+    permissions: ["ai:context:finance"],
     brandId: req.user.brandId ?? undefined,
     tenantId: req.user.tenantId ?? undefined,
   };

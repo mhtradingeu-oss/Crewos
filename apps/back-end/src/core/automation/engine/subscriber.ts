@@ -1,3 +1,4 @@
+import { logger } from "../../logger.js";
 import { subscribeToAllDomainEvents } from "../../events/domain/bus.js";
 import { runAutomationEngine } from "./engine.js";
 
@@ -9,7 +10,7 @@ export function registerAutomationEngineSubscriber() {
     try {
       await runAutomationEngine(event);
     } catch (err) {
-      console.error(`[automation][engine] failed to process event ${event.type}`, err);
+      logger.error(`[automation][engine] failed to process event ${event.type}`, err);
     }
   });
   registered = true;

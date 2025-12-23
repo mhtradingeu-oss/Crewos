@@ -2,6 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@mh-os/shared";
 import { csrfInvalid } from "../http/errors.js";
+import { logger } from "../logger.js";
 import { readCookie } from "./cookies.js";
 
 const CSRF_REQUIRED_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -25,7 +26,7 @@ export function issueCsrfCookie(res: Response) {
     res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions);
   } catch (err) {
      
-    console.error("Failed to set CSRF cookie", err);
+    logger.error("Failed to set CSRF cookie", err);
     throw err;
   }
 }

@@ -10,24 +10,24 @@ router.get("/status", requirePermission("ai:read"), controller.status);
 router.get("/pending", requirePermission("ai:read"), controller.pending);
 router.post(
   "/approve/:taskId",
-  requirePermission(["ai:run", "ai.autonomy.manage", "ai:manage"]),
+  requirePermission(["ai:run", "ai:autonomy:manage", "ai:manage"]),
   controller.approve,
 );
 router.post(
   "/reject/:taskId",
-  requirePermission(["ai:run", "ai.autonomy.manage", "ai:manage"]),
+  requirePermission(["ai:run", "ai:autonomy:manage", "ai:manage"]),
   controller.reject,
 );
 router.post(
   "/run-cycle",
-  requirePermission(["ai:run", "ai.autonomy.manage"]),
+  requirePermission(["ai:run", "ai:autonomy:manage"]),
   validateBody(runAutonomyCycleSchema),
   controller.runCycle,
 );
-router.get("/config", requirePermission("ai.config.read"), controller.getConfig);
+router.get("/config", requirePermission("ai:config:read"), controller.getConfig);
 router.post(
   "/config",
-  requirePermission("ai.config.update"),
+  requirePermission("ai:config:update"),
   controller.updateConfig,
 );
 
