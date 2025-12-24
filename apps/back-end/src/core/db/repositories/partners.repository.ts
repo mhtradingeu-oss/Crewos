@@ -1,6 +1,142 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaPromise } from "@prisma/client";
 import { prisma } from "../../prisma.js";
 
+/**
+ * Atomically creates or updates a partner contract.
+ * @param contractId - If provided, updates; else creates new contract.
+ * @param data - Prisma.PartnerContractCreateInput or UpdateInput (internal)
+ * @returns PartnerContract with contractSelect shape
+ */
+async function createOrUpdatePartnerContractAtomic({
+  contractId,
+  data,
+}: {
+  contractId?: string | null;
+  data: any;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const operations: PrismaPromise<unknown>[] = [];
+    const contractPromise = contractId
+      ? tx.partnerContract.update({
+          where: { id: contractId },
+          data,
+          select: contractSelect,
+        })
+      : tx.partnerContract.create({
+          data,
+          select: contractSelect,
+        });
+
+    operations.push(contractPromise);
+    const [contract] = await Promise.all(operations);
+    return contract;
+  });
+}
+/**
+ * Atomically upserts partner pricing for (partnerId, productId).
+ * @param partnerId - Partner ID
+ * @param productId - Product ID
+ * @param netPrice - Net price value
+ * @param currency - Currency string (optional)
+ * @returns PartnerPricing with pricingSelect shape
+ */
+async function upsertPartnerPricingAtomic({
+  partnerId,
+  productId,
+  netPrice,
+  currency,
+}: {
+  partnerId: string;
+  productId: string;
+  netPrice: number;
+  currency?: string | null;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const operations: PrismaPromise<unknown>[] = [];
+
+    const existingPromise = tx.partnerPricing.findFirst({
+      where: { partnerId, productId },
+      select: { id: true },
+    });
+    operations.push(existingPromise);
+
+    const pricingPromise = existingPromise.then((existing) => {
+      if (existing) {
+        return tx.partnerPricing.update({
+          where: { id: existing.id },
+          data: { netPrice, currency },
+          select: pricingSelect,
+        });
+      }
+      return tx.partnerPricing.create({
+        data: {
+          partner: { connect: { id: partnerId } },
+          product: { connect: { id: productId } },
+          netPrice,
+          currency,
+        },
+        select: pricingSelect,
+      });
+    });
+    operations.push(pricingPromise);
+
+    const [, pricing] = await Promise.all(operations);
+    return pricing;
+  });
+}
+/**
+ * Atomically creates a user (if needed) and links to a partner as a PartnerUser.
+ * @param userData - If provided, creates a new user; otherwise links existing userId.
+ * @param userId - If userData is not provided, must provide userId to link.
+ * @param partnerId - Partner to link.
+ * @param role - Role to assign.
+ * @returns PartnerUser with user include (same as createPartnerUser)
+ */
+export async function attachUserToPartnerAtomic({
+  userData,
+  userId,
+  partnerId,
+  role,
+}: {
+  userData?: { email: string; password: string; role: string };
+  userId?: string;
+  partnerId: string;
+  role: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const operations: PrismaPromise<unknown>[] = [];
+
+    if (userData) {
+      const createUser = tx.user.create({ data: userData });
+      const partnerUserPromise = createUser.then((createdUser) =>
+        tx.partnerUser.create({
+          data: {
+            partner: { connect: { id: partnerId } },
+            user: { connect: { id: createdUser.id } },
+            role,
+          },
+          include: partnerUserInclude,
+        }),
+      );
+      operations.push(createUser, partnerUserPromise);
+      const [, createdPartnerUser] = await Promise.all(operations);
+      return createdPartnerUser;
+    }
+
+    if (!userId) throw new Error("userId is required if userData is not provided");
+    const partnerUser = tx.partnerUser.create({
+      data: {
+        partner: { connect: { id: partnerId } },
+        user: { connect: { id: userId } },
+        role,
+      },
+      include: partnerUserInclude,
+    });
+    operations.push(partnerUser);
+    const [createdPartnerUser] = await Promise.all(operations);
+    return createdPartnerUser;
+  });
+}
 const partnerSelect = {
   id: true,
   brandId: true,
@@ -52,6 +188,7 @@ const pricingSelect = {
 } satisfies Prisma.PartnerPricingSelect;
 
 export const partnersRepository = {
+    attachUserToPartnerAtomic,
   listPartners(where: Prisma.PartnerWhereInput, skip: number, take: number) {
     return prisma.$transaction([
       prisma.partner.count({ where }),
@@ -303,4 +440,6 @@ export const partnersRepository = {
   getUserById(userId: string) {
     return prisma.user.findUnique({ where: { id: userId } });
   },
+  upsertPartnerPricingAtomic,
+  createOrUpdatePartnerContractAtomic,
 };

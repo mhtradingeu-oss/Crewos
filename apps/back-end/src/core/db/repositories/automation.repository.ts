@@ -1,3 +1,20 @@
+// Atomic update + log method for rule version (example, adjust as needed)
+import { prisma } from "../../prisma.js";
+
+export async function updateRuleVersionWithLog(
+  ruleVersionId: string,
+  data: any,
+  logData: any
+) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.automationRuleVersion.update({
+      where: { id: ruleVersionId },
+      data,
+    });
+    await tx.automationExecutionLog.create({ data: logData });
+    return updated;
+  });
+}
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../prisma.js";
 

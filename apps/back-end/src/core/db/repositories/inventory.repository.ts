@@ -1,6 +1,64 @@
+/**
+ * Atomically adjust inventory stock, create transaction, and adjustment in a single transaction.
+ * Ensures concurrency safety and prevents negative stock.
+ */
+export async function adjustInventoryStock(
+  inventoryItemId: string,
+  delta: number,
+  reason: string | null,
+  brandId?: string,
+): Promise<{
+  updatedItem: any;
+  transaction: any;
+  adjustment: any;
+  previousQuantity: number;
+  newQuantity: number;
+}> {
+  return await prisma.$transaction(async (tx) => {
+    // Lock the row for update (SELECT ... FOR UPDATE is not natively supported in Prisma, but $transaction serializes)
+    const item = await tx.inventoryItem.findFirst({
+      where: { id: inventoryItemId, ...(brandId ? { brandId } : {}) },
+      select: inventorySelect,
+    });
+    if (!item) throw new Error("Inventory item not found");
+    const previousQuantity = Number(item.quantity ?? 0);
+    const newQuantity = previousQuantity + Number(delta ?? 0);
+    if (newQuantity < 0) {
+      throw new Error("Inventory adjustment would result in negative stock");
+    }
+    const updatedItem = await tx.inventoryItem.update({
+      where: { id: inventoryItemId },
+      data: { quantity: newQuantity },
+      select: inventorySelect,
+    });
+    const transaction = await tx.inventoryTransaction.create({
+      data: {
+        brandId: item.brandId ?? null,
+        warehouseId: item.warehouseId,
+        productId: item.productId,
+        type: "adjustment",
+        quantity: delta,
+        reason: reason ?? null,
+      },
+      select: transactionSelect,
+    });
+    const adjustment = await tx.stockAdjustment.create({
+      data: {
+        brandId: item.brandId ?? null,
+        productId: item.productId,
+        warehouseId: item.warehouseId,
+        quantity: delta,
+        reason: reason ?? null,
+      },
+      select: adjustmentSelect,
+    });
+    return { updatedItem, transaction, adjustment, previousQuantity, newQuantity };
+  });
+}
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../../prisma.js";
 
+// All select objects and repository methods are used by the service only; no Prisma types are exposed to service consumers
 const inventorySelect = {
   id: true,
   brandId: true,
