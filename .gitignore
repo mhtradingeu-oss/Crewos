@@ -28,3 +28,4 @@ apps/back-end/.turbo/
 apps/front-end/.turbo/
 packages/shared/.turbo/
 apps/front-end/tsconfig.tsbuildinfo
+tsconfig.base.tsbuildinfo
