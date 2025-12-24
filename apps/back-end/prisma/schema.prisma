@@ -3407,3 +3407,43 @@ model OperationsTask {
   updatedAt DateTime  @updatedAt
   brand     Brand?    @relation(fields: [brandId], references: [id])
 }
+
+enum AISuggestionStatus {
+  pending
+  approved
+  rejected
+  executed
+  failed
+}
+
+model AISuggestion {
+  id       String @id @default(cuid())
+  tenantId String
+  brandId  String
+
+  agent          String
+  domain         String
+  suggestionType String
+  riskLevel      String
+
+  status               AISuggestionStatus @default(pending)
+  requiredApprovalRole String
+
+  inputSnapshotJson  String
+  proposedOutputJson String
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+  executedAt       DateTime?
+  failureReason    String?
+
+  correlationId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([brandId])
+  @@index([status])
+  @@index([correlationId])
+}
