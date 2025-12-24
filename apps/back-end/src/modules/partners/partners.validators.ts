@@ -31,6 +31,23 @@ export const partnerStatsSchema = z.object({
 
 const partnerUserRoleSchema = z.enum(PARTNER_USER_ROLES);
 
+const partnerContractTermsSchema = z
+  .object({
+    discount: z.string().trim().optional(),
+    reference: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+  })
+  .catchall(z.unknown());
+
+const partnerPricingMetadataSchema = z
+  .object({
+    reason: z.string().trim().optional(),
+    source: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+    tags: z.array(z.string().trim()).optional(),
+  })
+  .catchall(z.unknown());
+
 export const createPartnerUserSchema = z
   .object({
     userId: z.string().cuid().optional(),
@@ -82,7 +99,7 @@ export const createPartnerContractSchema = z.object({
   brandId: z.string().trim().min(1),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
-  terms: z.record(z.string(), z.unknown()).optional(),
+  terms: partnerContractTermsSchema.optional(),
 });
 
 export const updatePartnerContractSchema = createPartnerContractSchema.partial();
@@ -99,4 +116,5 @@ export const upsertPartnerPricingSchema = z.object({
   productId: z.string().trim().min(1),
   netPrice: z.number().nonnegative(),
   currency: z.string().trim().optional(),
+  metadata: partnerPricingMetadataSchema.optional(),
 });

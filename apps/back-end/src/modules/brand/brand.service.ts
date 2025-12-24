@@ -4,7 +4,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { prisma } from "../../core/prisma.js";
+import { BrandRepository } from "../../core/db/repositories/brand.repository.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import type { AIMessage } from "../../core/ai-service/ai-client.js";
@@ -114,7 +114,7 @@ export type BrandAccessContext = {
 };
 
 class BrandService {
-  constructor(private readonly db = prisma) {}
+  constructor(private readonly repo = BrandRepository) {}
 
   async list(params: BrandListParams = {}, context: BrandAccessContext = {}): Promise<PaginatedBrands> {
     const { search, page = 1, pageSize = 20 } = params;
@@ -136,16 +136,7 @@ class BrandService {
       ];
     }
 
-    const [total, items] = await this.db.$transaction([
-      this.db.brand.count({ where }),
-      this.db.brand.findMany({
-        where,
-        select: brandSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, items] = await this.repo.listBrandsWithCount({ where, skip, take });
 
     return {
       items: items.map((brand) => this.mapResponse(brand)),
@@ -174,7 +165,7 @@ class BrandService {
     };
     const brandSettings = this.mergeSettings({}, settingsUpdates);
 
-    const brand = await this.db.brand.create({
+    const brand = await this.repo.createBrand({
       data: {
         name: input.name,
         slug: input.slug,
@@ -223,7 +214,7 @@ class BrandService {
       settingsUpdates,
     );
 
-    const updated = await this.db.brand.update({
+    const updated = await this.repo.updateBrand({
       where: { id },
       data: {
         name: input.name ?? existing.name,
@@ -248,7 +239,7 @@ class BrandService {
   async remove(id: string, context: BrandAccessContext = {}) {
     const brand = await this.fetchScopedBrand(id, context);
 
-    await this.db.brand.delete({ where: { id } });
+    await this.repo.deleteBrand({ where: { id } });
     await emitBrandDeleted(
       { id: brand.id, name: brand.name },
       { brandId: brand.id, tenantId: brand.tenantId ?? undefined, source: "api" },
@@ -316,7 +307,7 @@ class BrandService {
 
   async getIdentity(brandId: string, context: BrandAccessContext = {}): Promise<BrandIdentityResponse | null> {
     await this.fetchScopedBrand(brandId, context);
-    const identity = await this.db.brandIdentity.findUnique({
+    const identity = await this.repo.findBrandIdentity({
       where: { brandId },
       select: identitySelect,
     });
@@ -329,7 +320,7 @@ class BrandService {
     context: BrandAccessContext = {},
   ): Promise<BrandIdentityResponse> {
     const brand = await this.fetchScopedBrand(brandId, context);
-    const identity = await this.db.brandIdentity.upsert({
+    const identity = await this.repo.upsertBrandIdentity({
       where: { brandId },
       update: this.buildIdentityUpdateData(input),
       create: {
@@ -410,7 +401,7 @@ class BrandService {
       metadata: { cached: aiResult.cached },
     });
 
-    const insight = await this.db.aIInsight.create({
+    const insight = await this.repo.createAIInsight({
       data: {
         brandId,
         os: "brand",
@@ -546,7 +537,7 @@ class BrandService {
 
   async getRules(brandId: string, context: BrandAccessContext = {}): Promise<BrandRulesResponse | null> {
     await this.fetchScopedBrand(brandId, context);
-    const rules = await this.db.brandRules.findUnique({ where: { brandId }, select: rulesSelect });
+    const rules = await this.repo.findBrandRules({ where: { brandId }, select: rulesSelect });
     return rules ? this.mapRules(rules) : null;
   }
 
@@ -556,7 +547,7 @@ class BrandService {
     context: BrandAccessContext = {},
   ): Promise<BrandRulesResponse> {
     const brand = await this.fetchScopedBrand(brandId, context);
-    const record = await this.db.brandRules.upsert({
+    const record = await this.repo.upsertBrandRules({
       where: { brandId },
       update: this.buildRulesUpdateData(input),
       create: {
@@ -579,7 +570,7 @@ class BrandService {
     context: BrandAccessContext = {},
   ): Promise<BrandAIConfigResponse | null> {
     await this.fetchScopedBrand(brandId, context);
-    const config = await this.db.brandAIConfig.findUnique({ where: { brandId }, select: aiConfigSelect });
+    const config = await this.repo.findBrandAIConfig({ where: { brandId }, select: aiConfigSelect });
     return config ? this.mapAiConfig(config) : null;
   }
 
@@ -589,7 +580,7 @@ class BrandService {
     context: BrandAccessContext = {},
   ): Promise<BrandAIConfigResponse> {
     const brand = await this.fetchScopedBrand(brandId, context);
-    const record = await this.db.brandAIConfig.upsert({
+    const record = await this.repo.upsertBrandAIConfig({
       where: { brandId },
       update: this.buildAiConfigUpdateData(input),
       create: {
@@ -833,7 +824,7 @@ class BrandService {
   }
 
   private async ensureSlugIsUnique(slug: string) {
-    const existing = await this.db.brand.findUnique({ where: { slug } });
+    const existing = await this.repo.findBrandBySlug({ where: { slug } });
     if (existing) {
       throw badRequest("Slug already in use");
     }
@@ -875,7 +866,7 @@ class BrandService {
     if (!tenantId) return;
     const limit = planContext?.features.brandLimit ?? Infinity;
     if (!Number.isFinite(limit)) return;
-    const count = await this.db.brand.count({ where: { tenantId } });
+    const count = await this.repo.countBrands({ where: { tenantId } });
     if (count >= limit) {
       throw badRequest(`Brand limit reached for this plan (max ${limit}).`);
     }
@@ -892,7 +883,7 @@ class BrandService {
     }
 
     const uniqueIds = Array.from(new Set(userIds));
-    const users = await this.db.user.findMany({
+    const users = await this.repo.findUsers({
       where: {
         id: { in: uniqueIds },
         ...(tenantId ? { tenantId } : {}),
@@ -943,7 +934,7 @@ class BrandService {
   }
 
   private async fetchScopedBrand(brandId: string, context: BrandAccessContext) {
-    const brand = await this.db.brand.findUnique({ where: { id: brandId }, select: brandSelect });
+    const brand = await this.repo.findBrandById({ where: { id: brandId }, select: brandSelect });
     if (!brand) {
       throw notFound("Brand not found");
     }

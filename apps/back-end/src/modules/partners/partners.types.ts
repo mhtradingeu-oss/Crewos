@@ -3,6 +3,22 @@ import type { PaginationParams } from "../../core/utils/pagination.js";
 export const PARTNER_USER_ROLES = ["PARTNER_OWNER", "PARTNER_ADMIN", "PARTNER_USER"] as const;
 export type PartnerUserRole = (typeof PARTNER_USER_ROLES)[number];
 
+export interface PartnerContractTerms {
+  discount?: string;
+  reference?: string;
+  notes?: string;
+  effectiveDate?: string;
+  [key: string]: unknown;
+}
+
+export interface PartnerPricingMetadata {
+  reason?: string;
+  source?: string;
+  tags?: string[];
+  notes?: string;
+  [key: string]: unknown;
+}
+
 export interface CreatePartnerInput {
   brandId: string;
   type: string;
@@ -111,7 +127,7 @@ export interface PartnerContractDTO {
   brandId?: string;
   startDate?: Date;
   endDate?: Date;
-  terms?: Record<string, unknown> | string;
+  terms?: PartnerContractTerms | string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -134,13 +150,13 @@ export interface PartnerContractCreateInput {
   brandId: string;
   startDate?: string;
   endDate?: string;
-  terms?: Record<string, unknown> | string;
+  terms?: PartnerContractTerms | string;
 }
 
 export interface PartnerContractUpdateInput {
   startDate?: string;
   endDate?: string;
-  terms?: Record<string, unknown> | string;
+  terms?: PartnerContractTerms | string;
 }
 
 export interface PartnerPricingDTO {
@@ -173,6 +189,7 @@ export interface PartnerPricingUpsertInput {
   productId: string;
   netPrice: number;
   currency?: string;
+  metadata?: PartnerPricingMetadata;
 }
 
 export interface PartnersEventPayload {

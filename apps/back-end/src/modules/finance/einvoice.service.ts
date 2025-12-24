@@ -6,7 +6,13 @@ import type {
   ValidateEInvoiceDto,
 } from "@mh-os/shared";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
-import { prisma } from "../../core/prisma.js";
+import {
+  findInvoiceWithItems,
+  createEInvoice,
+  updateEInvoice,
+  updateManyEInvoice,
+  findEInvoice
+} from "../../core/db/repositories/finance.repository.js";
 import type { PipelineActor } from "../../core/ai/pipeline/pipeline-types.js";
 import { runEngine, type EInvoiceEngineOutput } from "../../core/ai/engines/einvoice.engine.js";
 import { runAIPipeline } from "../../core/ai/pipeline/pipeline-runner.js";
@@ -40,17 +46,11 @@ function normalizeActor(actor?: PipelineActor) {
   };
 }
 
+
 class EInvoiceService {
-  constructor(private readonly db = prisma) {}
 
   private async loadInvoice(invoiceId: string) {
-    const invoice = await this.db.invoice.findUnique({
-      where: { id: invoiceId },
-      include: {
-        items: true,
-        brand: { select: { id: true, tenantId: true, name: true, defaultCurrency: true } },
-      },
-    });
+    const invoice = await findInvoiceWithItems(invoiceId);
     if (!invoice) {
       throw notFound("Invoice not found");
     }
@@ -94,18 +94,16 @@ class EInvoiceService {
       normalizeActor(actor) ?? { brandId: invoice.brandId ?? undefined, tenantId: invoice.brand?.tenantId ?? undefined },
     );
 
-    const persisted = await this.db.eInvoice.create({
-      data: {
-        invoiceId: invoice.id,
-        format,
-        xmlData: engineResult.output.xml,
-        validationErrors: engineResult.output.validationErrors?.length
-          ? engineResult.output.validationErrors
-          : undefined,
-        validated: engineResult.output.validated,
-        peppolSent: false,
-        peppolMessageId: null,
-      },
+    const persisted = await createEInvoice({
+      invoiceId: invoice.id,
+      format,
+      xmlData: engineResult.output.xml,
+      validationErrors: engineResult.output.validationErrors?.length
+        ? engineResult.output.validationErrors
+        : undefined,
+      validated: engineResult.output.validated,
+      peppolSent: false,
+      peppolMessageId: null,
     });
 
     const policy = this.evaluatePeppolPolicy(Number(invoice.totalGross ?? invoice.totalNet ?? 0), false);
@@ -152,14 +150,11 @@ class EInvoiceService {
     const validation = this.normalizeValidationResult(pipeline.output);
 
     if (validation.validated) {
-      await this.db.eInvoice.updateMany({
-        where: { invoiceId: input.invoiceId, format },
-        data: {
-          validated: true,
-          validationErrors: validation.validationErrors?.length
-            ? validation.validationErrors
-            : undefined,
-        },
+      await updateManyEInvoice({ invoiceId: input.invoiceId, format }, {
+        validated: true,
+        validationErrors: validation.validationErrors?.length
+          ? validation.validationErrors
+          : undefined,
       });
     }
 
@@ -169,10 +164,7 @@ class EInvoiceService {
   async send(input: SendEInvoiceDto, actor?: PipelineActor) {
     const format = normalizeFormat(input.format);
     const invoice = await this.loadInvoice(input.invoiceId);
-    const existing = await this.db.eInvoice.findFirst({
-      where: { invoiceId: input.invoiceId, format },
-      orderBy: { createdAt: "desc" },
-    });
+    const existing = await findEInvoice({ invoiceId: input.invoiceId, format }, { orderBy: { createdAt: "desc" } });
 
     if (!existing) {
       throw badRequest("Generate an e-invoice before sending");
@@ -193,23 +185,17 @@ class EInvoiceService {
       xmlData: existing.xmlData,
     });
 
-    const updated = await this.db.eInvoice.update({
-      where: { id: existing.id },
-      data: {
-        peppolSent: true,
-        peppolMessageId: response.id,
-        validationErrors: existing.validationErrors ?? undefined,
-      },
+    const updated = await updateEInvoice(existing.id, {
+      peppolSent: true,
+      peppolMessageId: response.id,
+      validationErrors: existing.validationErrors ?? undefined,
     });
 
     return { status: "SENT", peppolMessageId: response.id, record: updated, requiresApproval: policy.requiresApproval } as const;
   }
 
   async getByInvoice(invoiceId: string, format?: SupportedEInvoiceFormat) {
-    const record = await this.db.eInvoice.findFirst({
-      where: { invoiceId, ...(format ? { format } : {}) },
-      orderBy: { createdAt: "desc" },
-    });
+    const record = await findEInvoice({ invoiceId, ...(format ? { format } : {}) }, { orderBy: { createdAt: "desc" } });
     if (!record) {
       throw notFound("E-invoice not found for invoice");
     }

@@ -2,7 +2,7 @@
  * SUPPORT SERVICE — MH-OS v2
  */
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import * as supportRepository from "../../core/db/repositories/support.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -288,15 +288,15 @@ export const supportService = {
     }
 
     const [total, rows] = await prisma.$transaction([
-      prisma.ticket.count({ where }),
-      prisma.ticket.findMany({
-        where,
-        select: ticketListSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+        await supportRepository.countTickets(where),
+        await supportRepository.findManyTickets({
+          where,
+          select: ticketListSelect,
+          orderBy: { updatedAt: "desc" },
+          skip,
+          take,
+        }),
+      ];
 
     return {
       items: rows.map(toTicketSummary),
@@ -311,8 +311,8 @@ export const supportService = {
       where: { id, brandId },
       select: ticketDetailSelect,
     });
-    if (!record) return null;
-    return toTicketDTO(record as TicketDetailRecord);
+      if (!record) return null;
+      return toTicketDTO(record as TicketDetailRecord);
   },
 
   async createTicket(input: CreateTicketInput): Promise<TicketDTO> {
@@ -332,6 +332,7 @@ export const supportService = {
       },
       select: ticketDetailSelect,
     });
+      // ...existing code...
 
     try {
       const routing = await runSupportRouter({
@@ -350,6 +351,7 @@ export const supportService = {
             priority: ticket.priority ?? routing.urgency ?? null,
           },
         });
+          // ...existing code...
       }
     } catch (err) {
       logger.warn(`[support] routing classification failed for ${ticket.id}: ${String(err)}`);
@@ -363,6 +365,7 @@ export const supportService = {
           content: input.content,
         },
       });
+        // ...existing code...
       logger.info(`[support] Created ticket ${ticket.id} with initial message`);
       const createdTicket = await this.getTicketWithMessages(ticket.id, input.brandId);
       if (!createdTicket) {

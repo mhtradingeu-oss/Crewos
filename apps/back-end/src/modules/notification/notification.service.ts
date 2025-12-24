@@ -1,5 +1,4 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { communicationService } from "../communication/communication.service.js";
 import { logger } from "../../core/logger.js";
@@ -10,25 +9,14 @@ import type {
   NotificationFilters,
   NotificationRecord,
 } from "./notification.types.js";
+import { NotificationRepository } from "../../core/db/repositories/notification.repository.js";
+
 
 class NotificationService {
-  constructor(private readonly db = prisma) {}
+  constructor(private readonly repo = NotificationRepository) {}
 
   async createNotification(input: CreateNotificationInput): Promise<NotificationRecord> {
-    const created = await this.db.notification.create({
-      data: {
-        brandId: input.brandId ?? null,
-        userId: input.userId ?? null,
-        type: input.type ?? null,
-        channel: "in-app",
-        title: input.title,
-        body: input.message,
-        status: input.status ?? "unread",
-        metaJson: null,
-        dataJson: input.data ? JSON.stringify(input.data) : null,
-      },
-    });
-
+    const created = await this.repo.createNotification(input);
     await emitNotificationCreated({
       notificationId: created.id,
       brandId: created.brandId ?? undefined,
@@ -36,7 +24,6 @@ class NotificationService {
       type: created.type ?? undefined,
       channel: created.channel ?? undefined,
     });
-
     return this.map(created);
   }
 
@@ -70,81 +57,37 @@ class NotificationService {
     userId: string,
     filters: NotificationFilters = {},
   ): Promise<{ data: NotificationRecord[]; total: number; page: number; pageSize: number }> {
-    const {
-      status,
-      brandId,
-      type,
-      unreadOnly,
-      page = 1,
-      pageSize = 20,
-    } = filters;
-    const { skip, take } = buildPagination({ page, pageSize });
-
-    const where: Prisma.NotificationWhereInput = {
-      OR: [{ userId }, { userId: null }],
-    };
-    if (unreadOnly) {
-      where.status = "unread";
-    } else if (status) {
-      where.status = status;
-    }
-    if (brandId) where.brandId = brandId;
-    if (type) where.type = type;
-
-    const [total, rows] = await this.db.$transaction([
-      this.db.notification.count({ where }),
-      this.db.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
-    ]);
-
+    const { page = 1, pageSize = 20 } = filters;
+    const { data, total } = await this.repo.listForUser(userId, filters);
     return {
-      data: rows.map((row) => this.map(row)),
+      data: data.map((row: any) => this.map(row)),
       total,
       page,
-      pageSize: take,
+      pageSize,
     };
   }
 
   async markRead(ids: string[], userId: string): Promise<void> {
-    const records = await this.db.notification.findMany({
-      where: { id: { in: ids }, OR: [{ userId }, { userId: null }] },
-      select: { id: true, brandId: true },
-    });
-    if (!records.length) {
-      return;
-    }
-    const recordIds = records.map((record) => record.id);
-    await this.db.notification.updateMany({
-      where: { id: { in: recordIds } },
-      data: { status: "read", readAt: new Date() },
-    });
+    const { recordIds, brandId } = await this.repo.markRead(ids, userId);
+    if (!recordIds.length) return;
     await emitNotificationRead({
       notificationIds: recordIds,
-      brandId: records[0]?.brandId ?? undefined,
+      brandId,
       userId,
     });
   }
 
   async markAllReadForUser(userId: string): Promise<void> {
-    const records = await this.db.notification.findMany({
-      where: { OR: [{ userId }, { userId: null }], status: { not: "read" } },
-      select: { id: true, brandId: true },
-    });
-    if (!records.length) {
-      return;
-    }
-    const recordIds = records.map((record) => record.id);
-    await this.db.notification.updateMany({
-      where: { id: { in: recordIds } },
-      data: { status: "read", readAt: new Date() },
-    });
+    const { recordIds, brandId } = await this.repo.markAllReadForUser(userId);
+    if (!recordIds.length) return;
     await emitNotificationRead({
       notificationIds: recordIds,
-      brandId: records[0]?.brandId ?? undefined,
+      brandId,
       userId,
     });
   }
 
-  private map(row: Prisma.NotificationGetPayload<{}>): NotificationRecord {
+  private map(row: any): NotificationRecord {
     return {
       id: row.id,
       brandId: row.brandId ?? undefined,

@@ -3,7 +3,7 @@
  * Spec: docs/os/17_crm-os.md (MASTER_INDEX)
  */
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { CrmRepository } from "../../core/db/repositories/crm.repository.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import {
@@ -87,8 +87,7 @@ const crmCustomerSelect = {
   updatedAt: true,
 } satisfies Prisma.CrmCustomerSelect;
 
-class CrmService {
-  constructor(private readonly db = prisma) {}
+
 
   async list(
     params: {
@@ -117,16 +116,8 @@ class CrmService {
       ];
     }
 
-    const [total, rows] = await this.db.$transaction([
-      this.db.lead.count({ where }),
-      this.db.lead.findMany({
-        where,
-        select: leadSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+
+    const { total, rows } = await CrmRepository.listLeads({ where, skip, take, select: leadSelect });
 
     return {
       items: rows.map((row) => this.mapLead(row)),
@@ -137,7 +128,7 @@ class CrmService {
   }
 
   async getById(id: string, context?: CrmActionContext): Promise<LeadRecord> {
-    const lead = await this.db.lead.findUnique({ where: { id }, select: leadSelect });
+    const lead = await CrmRepository.findLeadById(id, leadSelect);
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -146,13 +137,7 @@ class CrmService {
   }
 
   async scoreLead(leadId: string, intent?: string, context?: CrmActionContext): Promise<CrmScoreResult> {
-    const lead = await this.db.lead.findUnique({
-      where: { id: leadId },
-      select: {
-        brandId: true,
-        person: { select: { firstName: true, lastName: true } },
-      },
-    });
+    const lead = await CrmRepository.findLeadForScore(leadId);
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -178,7 +163,7 @@ class CrmService {
   async create(input: CreateLeadInput, context?: CrmActionContext): Promise<LeadRecord> {
     const personId = await this.ensurePerson(input);
     const brandId = context?.brandId ?? input.brandId ?? null;
-    const created = await this.db.lead.create({
+    const created = await CrmRepository.createLead({
       data: {
         brandId,
         personId,
@@ -208,7 +193,7 @@ class CrmService {
   }
 
   async update(id: string, input: UpdateLeadInput, context?: CrmActionContext): Promise<LeadRecord> {
-    const existing = await this.db.lead.findUnique({ where: { id }, select: leadSelect });
+    const existing = await CrmRepository.findLeadById(id, leadSelect);
     if (!existing) throw notFound("Lead not found");
     if (context?.brandId && existing.brandId && existing.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -220,8 +205,8 @@ class CrmService {
         : undefined;
 
     const finalBrandId = context?.brandId ?? input.brandId ?? existing.brandId;
-    const updated = await this.db.lead.update({
-      where: { id },
+    const updated = await CrmRepository.updateLead({
+      id,
       data: {
         brandId: finalBrandId,
         status: input.status ?? existing.status,
@@ -251,15 +236,12 @@ class CrmService {
   }
 
   async remove(id: string, context?: CrmActionContext) {
-    const lead = await this.db.lead.findUnique({
-      where: { id },
-      select: { id: true, brandId: true },
-    });
+    const lead = await CrmRepository.findLeadIdBrand(id);
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
     }
-    await this.db.lead.delete({ where: { id } });
+    await CrmRepository.deleteLead(id);
     const eventContext = buildCrmEventContext({
       brandId: context?.brandId ?? lead.brandId ?? undefined,
       actorUserId: context?.actorUserId,
@@ -276,17 +258,14 @@ class CrmService {
     input: ConvertLeadToContactInput,
     context?: CrmActionContext,
   ): Promise<LeadRecord> {
-    const lead = await this.db.lead.findUnique({
-      where: { id: leadId },
-      select: { id: true, brandId: true, ownerId: true },
-    });
+    const lead = await CrmRepository.findLeadContact(leadId);
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
     }
 
-    const updated = await this.db.lead.update({
-      where: { id: leadId },
+    const updated = await CrmRepository.updateLead({
+      id: leadId,
       data: {
         status: "contact",
         ownerId: input.ownerId ?? lead.ownerId ?? null,
@@ -312,26 +291,13 @@ class CrmService {
       throw badRequest("orderId or revenueRecordId is required");
     }
 
-    const lead = await this.db.lead.findUnique({
-      where: { id: leadId },
-      select: { id: true, brandId: true, personId: true, companyId: true, ownerId: true },
-    });
+    const lead = await CrmRepository.findLeadForCustomer(leadId);
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
     }
 
-    const [order, revenueRecord] = await Promise.all([
-      input.orderId
-        ? this.db.salesOrder.findUnique({ where: { id: input.orderId }, select: { id: true, brandId: true } })
-        : null,
-      input.revenueRecordId
-        ? this.db.revenueRecord.findUnique({
-            where: { id: input.revenueRecordId },
-            select: { id: true, brandId: true },
-          })
-        : null,
-    ]);
+    const [order, revenueRecord] = await CrmRepository.findOrderAndRevenue(input.orderId, input.revenueRecordId);
 
     if (input.orderId && !order) {
       throw notFound("Sales order not found");
@@ -340,7 +306,7 @@ class CrmService {
       throw notFound("Revenue record not found");
     }
 
-    if (await this.db.crmCustomer.findFirst({ where: { leadId } })) {
+    if (await CrmRepository.crmCustomerExists(leadId)) {
       throw badRequest("Lead already converted to customer");
     }
 
@@ -354,30 +320,14 @@ class CrmService {
     }
     const resolvedBrandId = brandCandidates.size === 1 ? Array.from(brandCandidates)[0] : null;
 
-    const { customer, updatedLead } = await this.db.$transaction(async (tx) => {
-      const created = await tx.crmCustomer.create({
-        data: {
-          leadId: lead.id,
-          brandId: resolvedBrandId,
-          personId: lead.personId ?? null,
-          companyId: lead.companyId ?? null,
-          firstOrderId: order?.id ?? null,
-          firstRevenueRecordId: revenueRecord?.id ?? null,
-        },
-        select: crmCustomerSelect,
-      });
-
-      const updated = await tx.lead.update({
-        where: { id: leadId },
-        data: {
-          status: "customer",
-          ownerId: input.ownerId ?? lead.ownerId ?? null,
-          brandId: resolvedBrandId ?? lead.brandId ?? null,
-        },
-        select: leadSelect,
-      });
-
-      return { customer: created, updatedLead: updated };
+    const { customer, updatedLead } = await CrmRepository.convertLeadToCustomer({
+      lead,
+      order,
+      revenueRecord,
+      resolvedBrandId,
+      input,
+      leadSelect,
+      crmCustomerSelect,
     });
 
     const payload: CrmCustomerEventPayload = {
@@ -398,25 +348,7 @@ class CrmService {
     if (!input.email && !input.name && !input.phone) {
       throw badRequest("Lead requires at least a name or email");
     }
-    if (input.email) {
-      const existing = await this.db.person.findUnique({
-        where: { email: input.email },
-        select: { id: true },
-      });
-      if (existing) return existing.id;
-    }
-    const [firstName, ...rest] = (input.name ?? "").split(" ");
-    const lastName = rest.join(" ") || undefined;
-    const person = await this.db.person.create({
-      data: {
-        brandId: input.brandId ?? brandId ?? null,
-        firstName: firstName || null,
-        lastName: lastName ?? null,
-        email: input.email ?? null,
-        phone: input.phone ?? null,
-      },
-    });
-    return person.id;
+    return await CrmRepository.ensurePerson(input, brandId);
   }
 
   private mapLead(row: Prisma.LeadGetPayload<{ select: typeof leadSelect }>): LeadRecord {
@@ -457,19 +389,10 @@ class CrmService {
     brandId: string | undefined,
     payload: CrmScoreResult,
   ) {
-    await this.db.aIInsight.create({
-      data: {
-        brandId: brandId ?? null,
-        os: "crm",
-        entityType: "lead-score",
-        entityId: leadId,
-        summary: `Lead score ${payload.score}`,
-        details: JSON.stringify({
-          payload,
-          confidence: payload.probability,
-          risk: payload.nextAction,
-        }),
-      },
+    await CrmRepository.logCrmInsight({
+      leadId,
+      brandId,
+      payload,
     });
   }
 
@@ -478,7 +401,7 @@ class CrmService {
     context?: CrmActionContext,
   ): Promise<CrmSegmentRecord> {
     const brandId = context?.brandId ?? input.brandId ?? null;
-    const created = await this.db.cRMSegment.create({
+    const created = await CrmRepository.createSegment({
       data: {
         brandId,
         name: input.name,
@@ -498,24 +421,12 @@ class CrmService {
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const { skip, take } = buildPagination({ page, pageSize });
-    const [total, rows] = await this.db.$transaction([
-      this.db.cRMSegment.count({ where }),
-      this.db.cRMSegment.findMany({
-        where,
-        select: segmentSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const { total, rows } = await CrmRepository.listSegments({ where, skip, take, select: segmentSelect });
     return { items: rows.map((row) => this.mapSegment(row)), total, page, pageSize: take };
   }
 
   async getSegmentById(id: string, context?: CrmActionContext): Promise<CrmSegmentRecord> {
-    const segment = await this.db.cRMSegment.findUnique({
-      where: { id },
-      select: segmentSelect,
-    });
+    const segment = await CrmRepository.findSegmentById(id, segmentSelect);
     if (!segment) {
       throw notFound("Segment not found");
     }
@@ -532,10 +443,7 @@ class CrmService {
     if (!ids.length) return [];
     const where: Prisma.CRMSegmentWhereInput = { id: { in: ids } };
     if (context?.brandId) where.brandId = context.brandId;
-    const rows = await this.db.cRMSegment.findMany({
-      where,
-      select: segmentSelect,
-    });
+    const rows = await CrmRepository.findSegmentsByIds(where, segmentSelect);
     if (context?.brandId) {
       const missing = ids.filter((id) => !rows.find((row) => row.id === id));
       if (missing.length) {
@@ -550,10 +458,7 @@ class CrmService {
     options: { limit?: number } = {},
     context?: CrmActionContext,
   ): Promise<CrmSegmentLeadsResult> {
-    const segment = await this.db.cRMSegment.findUnique({
-      where: { id: segmentId },
-      select: segmentSelect,
-    });
+    const segment = await CrmRepository.findSegmentById(segmentId, segmentSelect);
     if (!segment) {
       throw notFound("Segment not found");
     }
@@ -564,15 +469,7 @@ class CrmService {
     const filter = this.parseSegmentFilter(segment.filterJson);
     const where = this.buildSegmentWhere(filter, brandId);
     const limit = Math.min(Math.max(options.limit ?? 5, 1), 50);
-    const [total, rows] = await this.db.$transaction([
-      this.db.lead.count({ where }),
-      this.db.lead.findMany({
-        where,
-        select: leadSelect,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
-    ]);
+    const { total, rows } = await CrmRepository.resolveSegmentLeads({ where, take: limit, select: leadSelect });
     return {
       segmentId,
       total,

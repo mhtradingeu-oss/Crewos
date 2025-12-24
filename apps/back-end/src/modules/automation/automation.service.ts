@@ -1,5 +1,5 @@
 
-import { Prisma } from "@prisma/client";
+// Removed Prisma import; all db logic is in repository
 import { z } from "zod";
 import type { PolicyViolation, AutomationGateError } from "./automation.types.js";
 import {
@@ -88,9 +88,9 @@ export class AutomationService {
       publishActivity: (...args: any[]) => Promise<void>;
       badRequest: (m: string) => Error;
       notFound: (m: string) => Error;
-      ruleVersionSelect?: Prisma.AutomationRuleVersionSelect;
-      ruleSelect?: Prisma.AutomationRuleSelect;
-      ruleVersionSelectUnsafe?: Prisma.AutomationRuleVersionSelect;
+      ruleVersionSelect?: any;
+      ruleSelect?: any;
+      ruleVersionSelectUnsafe?: any;
     },
   ) {}
 
@@ -246,11 +246,13 @@ export class AutomationService {
   }
 
 
-  private async createRuleVersion(data: Prisma.AutomationRuleVersionCreateInput) {
+  private async createRuleVersion(data: any) {
+    // All db logic is in repository
     return createAutomationRuleVersion(data);
   }
 
-  private async updateRuleVersion(ruleVersionId: string, input: Prisma.AutomationRuleVersionUpdateInput) {
+  private async updateRuleVersion(ruleVersionId: string, input: any) {
+    // All db logic is in repository
     return updateAutomationRuleVersion(ruleVersionId, input);
   }
 

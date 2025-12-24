@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { searchDocumentsForAI, getDocumentById, listDocumentsForContext, createAIInsightWithJournalAndSummary } from "../../core/db/repositories/knowledge-base.repository.js";
 import type { AIMessage } from "../../core/ai-service/ai-client.js";
 import { runAIRequest } from "../../core/ai-service/ai-client.js";
 import { notFound } from "../../core/http/errors.js";
@@ -22,16 +22,7 @@ export async function generateKnowledgeSummary({
   brandId: string;
   documentId: string;
 }): Promise<KnowledgeSummaryDTO> {
-  const document = await prisma.knowledgeDocument.findFirst({
-    where: { id: documentId, brandId },
-    include: {
-      category: { select: { name: true } },
-      tags: { select: { name: true }, orderBy: { createdAt: "asc" } },
-      brand: { select: { name: true, slug: true } },
-      product: { select: { id: true, name: true, brandId: true } },
-      campaign: { select: { id: true, name: true, brandId: true } },
-    },
-  });
+  const document = await getDocumentById({ brandId, documentId });
   if (!document) {
     throw notFound("Knowledge document not found");
   }
@@ -65,36 +56,14 @@ export async function generateKnowledgeSummary({
   const details = response.content?.trim() ?? "AI summary could not be generated.";
   const summary = details.split("\n")[0] ?? "AI summary generated";
 
-  const [insight] = await prisma.$transaction([
-    prisma.aIInsight.create({
-      data: {
-        brandId,
-        os: "knowledge-base",
-        entityType: "document",
-        entityId: documentId,
-        summary,
-        details,
-      },
-      select: insightSelect,
-    }),
-    prisma.aILearningJournal.create({
-      data: {
-        brandId,
-        source: "knowledge-base-summary",
-        eventType: "summary",
-        inputSnapshotJson: JSON.stringify({
-          documentId,
-          title: document.title,
-          tags: document.tags.map((tag) => tag.name),
-        }),
-        outputSnapshotJson: JSON.stringify({ summary, details }),
-      },
-    }),
-    prisma.knowledgeDocument.update({
-      where: { id: documentId },
-      data: { summary },
-    }),
-  ]);
+  const insight = await createAIInsightWithJournalAndSummary({
+    brandId,
+    documentId,
+    document,
+    summary,
+    details,
+    insightSelect,
+  });
 
   await emitKnowledgeBaseSummarized({
     brandId,

@@ -1,9 +1,12 @@
-import type { Prisma } from "@prisma/client";
+// No Prisma imports allowed in service layer
 
 // --- Mappers ---
-function decimalToNumber(value: Prisma.Decimal | null | undefined): number | undefined {
+function decimalToNumber(value: any): number | undefined {
   if (value === null || value === undefined) return undefined;
-  return typeof value === "object" && "toNumber" in value ? (value as any).toNumber() : Number(value);
+  if (typeof value === "object" && typeof value.toNumber === "function") {
+    return value.toNumber();
+  }
+  return Number(value);
 }
 
 function mapAffiliateTierToDTO(tier: any): AffiliateTierDTO | null {
@@ -12,7 +15,7 @@ function mapAffiliateTierToDTO(tier: any): AffiliateTierDTO | null {
     id: tier.id,
     brandId: tier.brandId ?? undefined,
     name: tier.name,
-    rules: tier.rulesJson ?? null,
+    rules: tier.rulesJson ?? undefined,
   };
 }
 
@@ -27,7 +30,7 @@ function mapAffiliateToDTO(record: any): AffiliateDTO {
     status: record.status ?? undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-    tier: mapAffiliateTierToDTO(record.tier),
+    tier: record.tier ? mapAffiliateTierToDTO(record.tier) : undefined,
   };
 }
 
@@ -50,7 +53,7 @@ function mapAffiliateConversionToDTO(record: any): AffiliateConversionDTO {
     orderId: record.orderId ?? undefined,
     amount: decimalToNumber(record.amount),
     currency: record.currency ?? undefined,
-    metadata: record.metadata ?? undefined,
+    metadata: record.metadata ? JSON.parse(record.metadata) : undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -204,8 +207,8 @@ export const affiliateService = {
       affiliateRepository.aggregateSales([affiliateId]),
       affiliateRepository.aggregatePayouts([affiliateId]),
     ]);
-    const perf = (perfRows[0]?._sum ?? { clicks: 0, orders: 0, revenue: null }) as Prisma.AffiliatePerformanceSumAggregateOutputType;
-    const sales = (salesRows[0]?._sum ?? { commission: null }) as Prisma.AffiliateSaleSumAggregateOutputType;
+    const perfSum = perfRows[0]?._sum ?? { clicks: 0, orders: 0, revenue: null };
+    const salesSum = salesRows[0]?._sum ?? { commission: null };
     const payoutAgg = { paid: 0, pending: 0 };
     for (const row of payoutRows) {
       const sum = decimalToNumber(row._sum.amount) ?? 0;
@@ -215,10 +218,10 @@ export const affiliateService = {
     return {
       ...mapAffiliateToDTO(record),
       stats: {
-        totalClicks: perf.clicks ?? 0,
-        totalOrders: perf.orders ?? 0,
-        totalRevenue: decimalToNumber(perf.revenue) ?? 0,
-        totalCommission: decimalToNumber(sales.commission) ?? 0,
+        totalClicks: perfSum.clicks ?? 0,
+        totalOrders: perfSum.orders ?? 0,
+        totalRevenue: decimalToNumber(perfSum.revenue) ?? 0,
+        totalCommission: decimalToNumber(salesSum.commission) ?? 0,
         paidPayouts: payoutAgg.paid,
         pendingPayouts: payoutAgg.pending,
       },
@@ -278,8 +281,8 @@ export const affiliateService = {
       affiliateRepository.aggregateSales([affiliateId]),
       affiliateRepository.aggregatePayouts([affiliateId]),
     ]);
-    const perf = (perfRows[0]?._sum ?? { clicks: 0, orders: 0, revenue: null }) as Prisma.AffiliatePerformanceSumAggregateOutputType;
-    const sales = (salesRows[0]?._sum ?? { commission: null }) as Prisma.AffiliateSaleSumAggregateOutputType;
+    const perfSum = perfRows[0]?._sum ?? { clicks: 0, orders: 0, revenue: null };
+    const salesSum = salesRows[0]?._sum ?? { commission: null };
     const payoutAgg = { paid: 0, pending: 0 };
     for (const row of payoutRows) {
       const sum = decimalToNumber(row._sum.amount) ?? 0;
@@ -287,10 +290,10 @@ export const affiliateService = {
       else if (row.status === "PENDING") payoutAgg.pending += sum;
     }
     return {
-      totalClicks: perf.clicks ?? 0,
-      totalOrders: perf.orders ?? 0,
-      totalRevenue: decimalToNumber(perf.revenue) ?? 0,
-      totalCommission: decimalToNumber(sales.commission) ?? 0,
+      totalClicks: perfSum.clicks ?? 0,
+      totalOrders: perfSum.orders ?? 0,
+      totalRevenue: decimalToNumber(perfSum.revenue) ?? 0,
+      totalCommission: decimalToNumber(salesSum.commission) ?? 0,
       paidPayouts: payoutAgg.paid,
       pendingPayouts: payoutAgg.pending,
     };

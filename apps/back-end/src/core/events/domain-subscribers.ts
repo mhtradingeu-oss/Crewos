@@ -9,6 +9,7 @@ import { SalesRepsEvents } from "../../modules/sales-reps/sales-reps.events.js";
 import { StandPosEvents } from "../../modules/stand-pos/stand-pos.events.js";
 import { BrandEvents } from "../../modules/brand/brand.events.js";
 import { SecurityGovernanceEvents } from "../../modules/security-governance/security-governance.events.js";
+import { PartnersEvents } from "../../modules/partners/partners.events.js";
 
 type PayloadWithBrandTenant = { brandId?: string | null; tenantId?: string | null; id?: string }; // minimal shape guard
 
@@ -64,6 +65,10 @@ export function registerDomainEventSubscribers() {
 
   Object.values(SecurityGovernanceEvents).forEach((eventName) => {
     subscribe(eventName, (payload) => handleActivity("security")(payload, eventName));
+  });
+
+  Object.values(PartnersEvents).forEach((eventName) => {
+    subscribe(eventName, (payload) => handleActivity("partners")(payload, eventName));
   });
 
   // mappings placeholder ensures we can extend without unused variable lint issues.

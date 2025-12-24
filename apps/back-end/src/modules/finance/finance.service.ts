@@ -2,8 +2,30 @@
  * FINANCE SERVICE — MH-OS v2
  * Spec: docs/os/21_finance-os.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import {
+  findRevenueRecords,
+  countRevenueRecords,
+  findRevenueRecordById,
+  createRevenueRecord,
+  updateRevenueRecord,
+  deleteRevenueRecord,
+  findExpenses,
+  countExpenses,
+  createExpense,
+  findExpenseById,
+  updateExpense,
+  deleteExpense,
+  findInvoices,
+  countInvoices,
+  createInvoice,
+  findInvoiceById,
+  updateInvoice,
+  deleteInvoice,
+  aggregateRevenue,
+  aggregateExpenses,
+  aggregateOutstandingInvoices,
+  runFinanceTransaction
+} from "../../core/db/repositories/finance.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import {
@@ -26,110 +48,62 @@ import type {
   UpdateFinanceInvoiceStatusInput,
 } from "./finance.types.js";
 
-const revenueSelect = {
-  id: true,
-  brandId: true,
-  productId: true,
-  channel: true,
-  amount: true,
-  currency: true,
-  periodStart: true,
-  periodEnd: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.RevenueRecordSelect;
+// Repository controls DB shape
 
-const expenseSelect = {
-  id: true,
-  brandId: true,
-  category: true,
-  amount: true,
-  currency: true,
-  incurredAt: true,
-  description: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.FinanceExpenseSelect;
-
-const invoiceSelect = {
-  id: true,
-  brandId: true,
-  customerId: true,
-  externalId: true,
-  amount: true,
-  currency: true,
-  status: true,
-  issuedAt: true,
-  dueAt: true,
-  paidAt: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.FinanceInvoiceSelect;
-
-function mapExpense(record: Prisma.FinanceExpenseGetPayload<{ select: typeof expenseSelect }>): FinanceExpenseDTO {
+function mapExpense(record: any): FinanceExpenseDTO {
   return {
     id: record.id,
     brandId: record.brandId,
     category: record.category,
-    amount: Number(record.amount),
+    amount: record.amount ? (typeof record.amount.toNumber === "function" ? record.amount.toNumber() : Number(record.amount)) : 0,
     currency: record.currency,
-    incurredAt: record.incurredAt.toISOString(),
+    incurredAt: record.incurredAt ? record.incurredAt.toISOString() : undefined,
     description: record.description ?? undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
 }
 
-function mapInvoice(record: Prisma.FinanceInvoiceGetPayload<{ select: typeof invoiceSelect }>): FinanceInvoiceDTO {
+function mapInvoice(record: any): FinanceInvoiceDTO {
   return {
     id: record.id,
     brandId: record.brandId,
     customerId: record.customerId ?? undefined,
     externalId: record.externalId ?? undefined,
-    amount: Number(record.amount),
+    amount: record.amount ? (typeof record.amount.toNumber === "function" ? record.amount.toNumber() : Number(record.amount)) : 0,
     currency: record.currency,
     status: record.status ?? "draft",
     issuedAt: record.issuedAt ? record.issuedAt.toISOString() : undefined,
     dueAt: record.dueAt ? record.dueAt.toISOString() : undefined,
-    paidAt: record.paidAt ? record.paidAt.toISOString() : undefined,
+    paidAt: record.paidAt ?? undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
 }
 
+
 class FinanceService {
-  constructor(private readonly db = prisma) {}
 
   async list(
     params: { brandId?: string; productId?: string; page?: number; pageSize?: number } = {},
   ) {
     const { brandId, productId, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.RevenueRecordWhereInput = {};
+    const where: any = {};
     if (brandId) where.brandId = brandId;
     if (productId) where.productId = productId;
-
-        const [total, rows] = await this.db.$transaction([
-      this.db.revenueRecord.count({ where }),
-      this.db.revenueRecord.findMany({
-        where,
-        select: revenueSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
-        return {
-          items: rows.map((row) => this.map(row)),
-          total,
-          page,
-          pageSize: take,
-        };
+    const ops = [countRevenueRecords(where), findRevenueRecords(where)];
+    const [total, rows] = await runFinanceTransaction(ops);
+    return {
+      items: rows.map((row) => this.map(row)),
+      total,
+      page,
+      pageSize: take,
+    };
   }
 
   async getById(id: string): Promise<FinanceRecord> {
-    const record = await this.db.revenueRecord.findUnique({ where: { id }, select: revenueSelect });
+    const record = await findRevenueRecordById(id);
     if (!record) throw notFound("Finance record not found");
     return this.map(record);
   }
@@ -138,17 +112,14 @@ class FinanceService {
     if (input.amount === undefined || input.amount === null) {
       throw badRequest("amount is required");
     }
-    const created = await this.db.revenueRecord.create({
-      data: {
-        brandId: input.brandId ?? null,
-        productId: input.productId ?? null,
-        channel: input.channel ?? null,
-        amount: input.amount,
-        currency: input.currency ?? "EUR",
-        periodStart: input.periodStart ? new Date(input.periodStart) : null,
-        periodEnd: input.periodEnd ? new Date(input.periodEnd) : null,
-      },
-      select: revenueSelect,
+    const created = await createRevenueRecord({
+      brandId: input.brandId ?? undefined,
+      productId: input.productId ?? undefined,
+      channel: input.channel ?? undefined,
+      amount: input.amount,
+      currency: input.currency ?? "EUR",
+      periodStart: input.periodStart ? new Date(input.periodStart) : undefined,
+      periodEnd: input.periodEnd ? new Date(input.periodEnd) : undefined,
     });
     await emitFinanceCreated(
       { id: created.id, brandId: created.brandId ?? undefined },
@@ -158,24 +129,17 @@ class FinanceService {
   }
 
   async update(id: string, input: UpdateFinanceInput): Promise<FinanceRecord> {
-    const existing = await this.db.revenueRecord.findUnique({
-      where: { id },
-      select: revenueSelect,
-    });
+    const existing = await findRevenueRecordById(id);
     if (!existing) throw notFound("Finance record not found");
 
-    const updated = await this.db.revenueRecord.update({
-      where: { id },
-      data: {
-        brandId: input.brandId ?? existing.brandId,
-        productId: input.productId ?? existing.productId,
-        channel: input.channel ?? existing.channel,
-        amount: input.amount ?? existing.amount,
-        currency: input.currency ?? existing.currency,
-        periodStart: input.periodStart ? new Date(input.periodStart) : existing.periodStart,
-        periodEnd: input.periodEnd ? new Date(input.periodEnd) : existing.periodEnd,
-      },
-      select: revenueSelect,
+    const updated = await updateRevenueRecord(id, {
+      brandId: input.brandId ?? existing.brandId,
+      productId: input.productId ?? existing.productId,
+      channel: input.channel ?? existing.channel,
+      amount: input.amount ?? existing.amount,
+      currency: input.currency ?? existing.currency,
+      periodStart: input.periodStart ? new Date(input.periodStart) : existing.periodStart ?? undefined,
+      periodEnd: input.periodEnd ? new Date(input.periodEnd) : existing.periodEnd ?? undefined,
     });
     await emitFinanceUpdated(
       { id: updated.id, brandId: updated.brandId ?? undefined },
@@ -185,12 +149,9 @@ class FinanceService {
   }
 
   async remove(id: string) {
-    const record = await this.db.revenueRecord.findUnique({
-      where: { id },
-      select: { id: true, brandId: true },
-    });
+    const record = await findRevenueRecordById(id);
     if (!record) throw notFound("Finance record not found");
-    await this.db.revenueRecord.delete({ where: { id } });
+    await deleteRevenueRecord(id);
     await emitFinanceDeleted(
       { id, brandId: record.brandId ?? undefined },
       { brandId: record.brandId ?? undefined, source: "api" },
@@ -208,44 +169,31 @@ class FinanceService {
   }) {
     const { brandId, category, startDate, endDate, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.FinanceExpenseWhereInput = { brandId };
+    const where: any = { brandId };
     if (category) where.category = category;
     if (startDate || endDate) {
       where.incurredAt = {};
       if (startDate) where.incurredAt.gte = new Date(startDate);
       if (endDate) where.incurredAt.lte = new Date(endDate);
     }
-
-        const [total, rows] = await this.db.$transaction([
-      this.db.financeExpense.count({ where }),
-      this.db.financeExpense.findMany({
-        where,
-        select: expenseSelect,
-        orderBy: { incurredAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
-        return {
-          items: rows.map((row) => mapExpense(row)),
-          total,
-          page,
-          pageSize: take,
-        };
+    const ops = [countExpenses(where), findExpenses(where)];
+    const [total, rows] = await runFinanceTransaction(ops);
+    return {
+      items: rows.map((row) => mapExpense(row)),
+      total,
+      page,
+      pageSize: take,
+    };
   }
 
   async createExpense(input: CreateFinanceExpenseInput): Promise<FinanceExpenseDTO> {
-    const created = await this.db.financeExpense.create({
-      data: {
-        brandId: input.brandId,
-        category: input.category,
-        amount: input.amount,
-        currency: input.currency,
-        incurredAt: new Date(input.incurredAt),
-        description: input.description ?? null,
-      },
-      select: expenseSelect,
+    const created = await createExpense({
+      brandId: input.brandId,
+      category: input.category,
+      amount: input.amount,
+      currency: input.currency,
+      incurredAt: new Date(input.incurredAt),
+      description: input.description ?? undefined,
     });
 
     await emitFinanceExpenseCreated(
@@ -271,42 +219,25 @@ class FinanceService {
   }) {
     const { brandId, status, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.FinanceInvoiceWhereInput = { brandId };
+    const where: any = { brandId };
     if (status) where.status = status;
-
-        const [total, rows] = await this.db.$transaction([
-      this.db.financeInvoice.count({ where }),
-      this.db.financeInvoice.findMany({
-        where,
-        select: invoiceSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
-        return {
-          items: rows.map((row) => mapInvoice(row)),
-          total,
-          page,
-          pageSize: take,
-        };
+    const ops = [countInvoices(where), findInvoices(where, { skip, take })];
+    const [total, rows] = await runFinanceTransaction(ops);
+    return {
+      items: rows.map((row) => mapInvoice(row)),
+      total,
+      page,
+      pageSize: take,
+    };
   }
 
   async createInvoice(input: CreateFinanceInvoiceInput): Promise<FinanceInvoiceDTO> {
-    const created = await this.db.financeInvoice.create({
-      data: {
-        brandId: input.brandId,
-        customerId: input.customerId ?? null,
-        externalId: input.externalId ?? null,
-        amount: input.amount,
-        currency: input.currency,
-        status: input.status ?? "draft",
-        issuedAt: input.issuedAt ? new Date(input.issuedAt) : null,
-        dueAt: input.dueAt ? new Date(input.dueAt) : null,
-        paidAt: input.paidAt ? new Date(input.paidAt) : null,
-      },
-      select: invoiceSelect,
+    const created = await createInvoice({
+      brandId: input.brandId,
+      customerId: input.customerId,
+      currency: input.currency,
+      amount: input.amount,
+      items: [], // Add items if needed
     });
 
     await emitFinanceInvoiceCreated(
@@ -327,19 +258,12 @@ class FinanceService {
     invoiceId: string,
     input: UpdateFinanceInvoiceStatusInput,
   ): Promise<FinanceInvoiceDTO> {
-    const existing = await this.db.financeInvoice.findUnique({
-      where: { id: invoiceId },
-      select: invoiceSelect,
-    });
+    const existing = await findInvoiceById(invoiceId);
     if (!existing) throw notFound("Invoice not found");
 
-    const updated = await this.db.financeInvoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: input.status,
-        paidAt: input.paidAt ? new Date(input.paidAt) : existing.paidAt,
-      },
-      select: invoiceSelect,
+    const updated = await updateInvoice(invoiceId, {
+      status: input.status as any, // Ensure correct enum
+      paidAt: input.paidAt ? new Date(input.paidAt) : existing.paidAt ?? undefined,
     });
 
     await emitFinanceInvoiceStatusChanged(
@@ -358,25 +282,15 @@ class FinanceService {
   }
 
   async buildFinancialSnapshot(brandId: string): Promise<FinanceSnapshot> {
-    const [revenueAgg, expenseAgg, invoiceAgg] = await this.db.$transaction([
-      this.db.revenueRecord.aggregate({
-        where: { brandId },
-        _sum: { amount: true },
-      }),
-      this.db.financeExpense.aggregate({
-        where: { brandId },
-        _sum: { amount: true },
-      }),
-      this.db.financeInvoice.aggregate({
-        where: { brandId, status: { not: "paid" } },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const revenue = Number(revenueAgg._sum.amount ?? 0);
-    const expenses = Number(expenseAgg._sum.amount ?? 0);
-    const outstandingInvoices = Number(invoiceAgg._sum.amount ?? 0);
-
+    const ops = [
+      aggregateRevenue({ brandId }),
+      aggregateExpenses({ brandId }),
+      aggregateOutstandingInvoices({ brandId, status: "issued" })
+    ];
+    const [revenueAgg, expenseAgg, invoiceAgg] = await runFinanceTransaction(ops);
+    const revenue = revenueAgg._sum?.amount ? (typeof revenueAgg._sum.amount.toNumber === "function" ? revenueAgg._sum.amount.toNumber() : Number(revenueAgg._sum.amount)) : 0;
+    const expenses = expenseAgg._sum?.amount ? (typeof expenseAgg._sum.amount.toNumber === "function" ? expenseAgg._sum.amount.toNumber() : Number(expenseAgg._sum.amount)) : 0;
+    const outstandingInvoices = invoiceAgg._sum?.amount ? (typeof invoiceAgg._sum.amount.toNumber === "function" ? invoiceAgg._sum.amount.toNumber() : Number(invoiceAgg._sum.amount)) : 0;
     return {
       revenue,
       expenses,
@@ -386,10 +300,7 @@ class FinanceService {
   }
 
   async ensureInvoiceBelongsToBrand(invoiceId: string, brandId: string) {
-    const record = await this.db.financeInvoice.findUnique({
-      where: { id: invoiceId },
-      select: invoiceSelect,
-    });
+    const record = await findInvoiceById(invoiceId);
     if (!record) {
       throw notFound("Invoice not found");
     }
@@ -400,7 +311,7 @@ class FinanceService {
   }
 
   private map(
-    row: Prisma.RevenueRecordGetPayload<{ select: typeof revenueSelect }>,
+    row: any,
   ): FinanceRecord {
     return {
       id: row.id,

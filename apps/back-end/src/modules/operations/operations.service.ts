@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { OperationsRepository } from "../../core/db/repositories/operations.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -92,15 +92,15 @@ export const operationsService = {
     }
 
     const [total, rows] = await prisma.$transaction([
-      prisma.operationsTask.count({ where }),
-      prisma.operationsTask.findMany({
-        where,
-        select: taskSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+        await OperationsRepository.countOpsTasks(where),
+        await OperationsRepository.listOpsTasks({
+          where,
+          select: taskSelect,
+          orderBy: { updatedAt: "desc" },
+          skip,
+          take,
+        }),
+      ];
 
     return {
       items: rows.map(toTaskDTO),
@@ -111,7 +111,7 @@ export const operationsService = {
   },
 
   async createTask(input: CreateOperationsTaskInput): Promise<OperationsTaskDTO> {
-    const created = await prisma.operationsTask.create({
+    const created = await OperationsRepository.createOpsTask({
       data: {
         brandId: input.brandId,
         title: input.title,
@@ -126,38 +126,14 @@ export const operationsService = {
   },
 
   async updateTask(id: string, brandId: string, input: UpdateOperationsTaskInput): Promise<OperationsTaskDTO> {
-    const existing = await prisma.operationsTask.findFirst({
-      where: { id, brandId },
-      select: taskSelect,
-    });
-    if (!existing) throw notFound("Operations task not found");
-
-    const updated = await prisma.operationsTask.update({
-      where: { id },
-      data: {
-        title: input.title ?? existing.title,
-        status: input.status ?? existing.status,
-        dueDate: input.dueDate ?? existing.dueDate,
-      },
-      select: taskSelect,
-    });
+    const updated = await OperationsRepository.updateOpsTask(id, brandId, input, taskSelect);
 
     logger.info(`[operations] Updated task ${id}`);
     return toTaskDTO(updated);
   },
 
   async completeTask(id: string, brandId: string): Promise<OperationsTaskDTO> {
-    const existing = await prisma.operationsTask.findFirst({
-      where: { id, brandId },
-      select: taskSelect,
-    });
-    if (!existing) throw notFound("Operations task not found");
-
-    const completed = await prisma.operationsTask.update({
-      where: { id },
-      data: { status: "COMPLETED" },
-      select: taskSelect,
-    });
+    const completed = await OperationsRepository.updateOpsTaskStatus(id, brandId, "COMPLETED", taskSelect);
 
     logger.info(`[operations] Completed task ${id}`);
     return toTaskDTO(completed);
@@ -181,16 +157,13 @@ export const operationsService = {
       if (dateTo) where.createdAt.lte = dateTo;
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.activityLog.count({ where }),
-      prisma.activityLog.findMany({
-        where,
-        select: activitySelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await OperationsRepository.listActivityLogs({
+      where,
+      select: activitySelect,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    });
 
     return {
       items: rows.map(toActivityLogDTO),

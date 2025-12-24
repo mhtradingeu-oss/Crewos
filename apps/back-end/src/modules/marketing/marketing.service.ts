@@ -100,8 +100,8 @@ class MarketingService {
     await this.ensureSlugIsUnique(input.name, brandId);
     const validatedSegments = await this.ensureValidSegments(input.targetSegmentIds, brandId ?? undefined);
     const created = await marketingRepository.createCampaign({
-      brandId,
-      channelId: input.channelId ?? null,
+      brand: brandId ? { connect: { id: brandId } } : undefined,
+      channel: input.channelId ? { connect: { id: input.channelId } } : undefined,
       name: input.name,
       objective: input.objective ?? null,
       budget: input.budget ?? null,
@@ -143,8 +143,8 @@ class MarketingService {
         : existingSegments;
 
     const updated = await marketingRepository.updateCampaign(id, {
-      brandId: desiredBrandId,
-      channelId: input.channelId ?? existing.channelId,
+      brand: desiredBrandId ? { connect: { id: desiredBrandId } } : undefined,
+      channel: input.channelId ? { connect: { id: input.channelId } } : undefined,
       name: input.name ?? existing.name,
       objective: input.objective ?? existing.objective,
       budget: input.budget ?? existing.budget,
@@ -190,7 +190,7 @@ class MarketingService {
     payload: { date: Date; impressions?: number; clicks?: number; spend?: number },
   ) {
     await marketingRepository.logPerformance({
-      campaignId,
+      campaign: { connect: { id: campaignId } },
       date: payload.date,
       impressions: payload.impressions ?? null,
       clicks: payload.clicks ?? null,
@@ -220,10 +220,10 @@ class MarketingService {
     }
 
     const created = await marketingRepository.createCampaignAttribution({
-      campaignId,
-      brandId: campaign.brandId ?? null,
-      leadId: input.leadId ?? undefined,
-      customerId: input.customerId ?? undefined,
+      campaign: { connect: { id: campaignId } },
+      brandId: campaign.brandId ?? undefined,
+      lead: input.leadId ? { connect: { id: input.leadId } } : undefined,
+      customer: input.customerId ? { connect: { id: input.customerId } } : undefined,
       source: input.source ?? null,
     });
 
@@ -261,10 +261,10 @@ class MarketingService {
 
     const metadataValue = input.metadata ? (input.metadata as InputJsonValue) : undefined;
     const created = await marketingRepository.createCampaignInteraction({
-      campaignId,
+      campaign: { connect: { id: campaignId } },
       type: input.type,
-      leadId: input.leadId ?? undefined,
-      customerId: input.customerId ?? undefined,
+      lead: input.leadId ? { connect: { id: input.leadId } } : undefined,
+      customer: input.customerId ? { connect: { id: input.customerId } } : undefined,
       metadata: metadataValue,
     });
 
@@ -529,7 +529,7 @@ export const marketingAIService = {
     payload: MarketingGenerateResult | MarketingSeoResult | MarketingCaptionsResult,
   ) {
     await marketingRepository.logAIInsight({
-      brandId: brandId ?? null,
+      brand: brandId ? { connect: { id: brandId } } : undefined,
       os: "marketing",
       entityType: `marketing-${insightType}`,
       entityId: brandId ?? insightType,

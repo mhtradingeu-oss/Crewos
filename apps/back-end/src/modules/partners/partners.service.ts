@@ -2,7 +2,6 @@ import { partnersRepository } from "../../core/db/repositories/partners.reposito
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
-import { usersService } from "../users/users.service.js";
 import type {
   CreatePartnerInput,
   CreatePartnerUserInput,
@@ -10,6 +9,7 @@ import type {
   PartnerContractDTO,
   PartnerContractListParams,
   PartnerContractListResponse,
+  PartnerContractTerms,
   PartnerContractUpdateInput,
   PartnerDTO,
   PartnerDetailDTO,
@@ -17,6 +17,7 @@ import type {
   PartnerPricingDTO,
   PartnerPricingListParams,
   PartnerPricingListResponse,
+  PartnerPricingMetadata,
   PartnerPricingUpsertInput,
   PartnerStatsDTO,
   PartnerUserRecord,
@@ -30,6 +31,7 @@ import type {
 import {
   emitPartnersCreated,
   emitPartnersDeleted,
+  emitPartnersPricingUpdated,
   emitPartnersUpdated,
 } from "./partners.events.js";
 
@@ -91,11 +93,14 @@ class PartnerService {
   async createPartnerContract(input: PartnerContractCreateInput): Promise<PartnerContractDTO> {
     await this.ensurePartner(input.partnerId, input.brandId);
     const serializedTerms = this.serializeTerms(input.terms);
-    const created = await partnersRepository.createPartnerContract({
-      partnerId: input.partnerId,
-      startDate: input.startDate ? new Date(input.startDate) : null,
-      endDate: input.endDate ? new Date(input.endDate) : null,
-      termsJson: serializedTerms,
+    const created = await partnersRepository.createOrUpdatePartnerContractAtomic({
+      contractId: null,
+      data: {
+        partner: { connect: { id: input.partnerId } },
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        termsJson: serializedTerms,
+      },
     });
     logger.info(`[partners] Created contract ${created.id} for partner ${input.partnerId}`);
     return this.mapPartnerContract(created);
@@ -112,10 +117,13 @@ class PartnerService {
     if (!contract) throw notFound("Contract not found");
 
     const serializedTerms = this.serializeTerms(input.terms);
-    const updated = await partnersRepository.updatePartnerContract(contractId, {
-      startDate: input.startDate ? new Date(input.startDate) : undefined,
-      endDate: input.endDate ? new Date(input.endDate) : undefined,
-      termsJson: serializedTerms ?? undefined,
+    const updated = await partnersRepository.createOrUpdatePartnerContractAtomic({
+      contractId,
+      data: {
+        startDate: input.startDate ? new Date(input.startDate) : undefined,
+        endDate: input.endDate ? new Date(input.endDate) : undefined,
+        termsJson: serializedTerms ?? undefined,
+      },
     });
 
     logger.info(`[partners] Updated contract ${updated.id} for partner ${partnerId}`);
@@ -155,24 +163,25 @@ class PartnerService {
     const product = await partnersRepository.getProductForBrand(input.productId, input.brandId);
     if (!product) throw notFound("Product not found for this brand");
 
-    const currency = input.currency ?? (await this.getBrandCurrency(input.brandId)) ?? undefined;
+    const currency = input.currency ?? (await this.getBrandCurrency(input.brandId)) ?? null;
 
-    const existing = await partnersRepository.getPartnerPricing(input.partnerId, input.productId);
-
-    const data = {
+    const result = await partnersRepository.upsertPartnerPricingAtomic({
       partnerId: input.partnerId,
       productId: input.productId,
       netPrice: input.netPrice,
-      currency: currency ?? null,
-    };
-
-    const result = existing
-      ? await partnersRepository.updatePartnerPricing(existing.id, data)
-      : await partnersRepository.createPartnerPricing(data);
+      currency,
+    });
 
     logger.info(
       `[partners] Upserted pricing (${result.id}) for partner ${input.partnerId} / product ${input.productId}`,
     );
+    const pricingMetadata = this.buildPricingMetadataPayload(input, currency);
+    await emitPartnersPricingUpdated({
+      partnerId: input.partnerId,
+      brandId: input.brandId,
+      entityId: result.id,
+      metadata: pricingMetadata,
+    });
     return this.mapPartnerPricing(result);
   }
 
@@ -206,12 +215,12 @@ class PartnerService {
     const normalizedCity = this.normalizeLocation(input.city);
 
     const created = await partnersRepository.createPartner({
-      brandId: input.brandId,
+      brand: { connect: { id: input.brandId } },
       type: input.type,
       name: input.name,
       country: normalizedCountry,
       city: normalizedCity,
-      tierId: input.tierId ?? null,
+      tier: input.tierId ? { connect: { id: input.tierId } } : undefined,
       status: input.status ?? "ACTIVE",
     });
 
@@ -240,7 +249,7 @@ class PartnerService {
       name: input.name ?? existing.name,
       country: normalizedCountry,
       city: normalizedCity,
-      tierId: input.tierId ?? existing.tierId,
+      tier: input.tierId ? { connect: { id: input.tierId } } : undefined,
       status: input.status ?? existing.status,
     });
 
@@ -326,35 +335,33 @@ class PartnerService {
   ): Promise<PartnerUserRecord> {
     await this.ensurePartner(partnerId, brandId);
     const role = input.role ?? ("PARTNER_USER" as PartnerUserRole);
-    let userId = input.userId;
+    const userId = input.userId;
 
-    if (!userId) {
-      if (!input.email || !input.password) {
-        throw badRequest("email and password are required when creating a new user");
-      }
-      const user = await usersService.create({
-        email: input.email,
-        password: input.password,
-        role,
-      });
-      userId = user.id;
-    } else {
+    // Validation: must have userId or (email+password)
+    if (!userId && (!input.email || !input.password)) {
+      throw badRequest("email and password are required when creating a new user");
+    }
+    if (userId) {
       const existingUser = await partnersRepository.getUserById(userId);
       if (!existingUser) throw notFound("User not found");
     }
-
-    const alreadyLinked = await partnersRepository.getPartnerUserByPartnerAndUser(partnerId, userId);
+    // Check for existing link
+    const alreadyLinked = userId
+      ? await partnersRepository.getPartnerUserByPartnerAndUser(partnerId, userId)
+      : null;
     if (alreadyLinked) {
       throw badRequest("User already assigned to this partner");
     }
 
-    const created = await partnersRepository.createPartnerUser({
-      partnerId,
+    // Atomic: create user if needed, then link
+    const created = await partnersRepository.attachUserToPartnerAtomic({
+      userData: !userId ? { email: input.email!, password: input.password!, role } : undefined,
       userId,
+      partnerId,
       role,
     });
 
-    logger.info(`[partners] Linked user ${userId} to partner ${partnerId}`);
+    logger.info(`[partners] Linked user ${created.userId} to partner ${partnerId}`);
     return this.mapPartnerUser(created);
   }
 
@@ -393,16 +400,16 @@ class PartnerService {
   private mapPartner(row: any): PartnerDTO {
     return {
       id: row.id,
-      brandId: row.brandId ?? undefined,
+      brandId: this.mapNullable(row.brandId),
       type: row.type,
       name: row.name,
-      country: row.country ?? undefined,
-      city: row.city ?? undefined,
-      status: row.status ?? undefined,
-      tierId: row.tierId ?? undefined,
-      tierName: row.tier?.name ?? undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      country: this.mapNullable(row.country),
+      city: this.mapNullable(row.city),
+      status: this.mapNullable(row.status),
+      tierId: this.mapNullable(row.tierId),
+      tierName: this.mapNullable(row.tier?.name),
+      createdAt: this.mapDateField(row.createdAt)!,
+      updatedAt: this.mapDateField(row.updatedAt)!,
     };
   }
 
@@ -410,11 +417,11 @@ class PartnerService {
     return {
       id: row.id,
       partnerId: row.partnerId,
-      userId: row.userId ?? undefined,
-      role: row.role as PartnerUserRole | undefined,
-      userEmail: row.user?.email ?? undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      userId: this.mapNullable(row.userId),
+      role: this.mapNullable(row.role) as PartnerUserRole | undefined,
+      userEmail: this.mapNullable(row.user?.email),
+      createdAt: this.mapDateField(row.createdAt)!,
+      updatedAt: this.mapDateField(row.updatedAt)!,
     };
   }
 
@@ -447,12 +454,12 @@ class PartnerService {
     return {
       id: row.id,
       partnerId: row.partnerId,
-      startDate: row.startDate ?? undefined,
-      endDate: row.endDate ?? undefined,
-      brandId: row.partner?.brandId ?? undefined,
-      terms: this.parseTerms(row.termsJson),
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      startDate: this.mapDateField(row.startDate),
+      endDate: this.mapDateField(row.endDate),
+      brandId: this.mapNullable(row.partner?.brandId),
+      terms: this.mapContractTerms(row.termsJson),
+      createdAt: this.mapDateField(row.createdAt)!,
+      updatedAt: this.mapDateField(row.updatedAt)!,
     };
   }
 
@@ -461,27 +468,100 @@ class PartnerService {
       id: row.id,
       partnerId: row.partnerId,
       productId: row.productId,
-      productName: row.product?.name ?? undefined,
-      netPrice: row.netPrice ? Number(row.netPrice.toString()) : undefined,
-      currency: row.currency ?? undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      productName: this.mapNullable(row.product?.name),
+      netPrice: this.mapDecimalValue(row.netPrice),
+      currency: this.mapNullable(row.currency),
+      createdAt: this.mapDateField(row.createdAt)!,
+      updatedAt: this.mapDateField(row.updatedAt)!,
     };
   }
 
-  private serializeTerms(value?: Record<string, unknown> | string | null): string | null {
-    if (!value) return null;
-    if (typeof value === "string") return value;
-    return JSON.stringify(value);
+  private mapNullable<T>(value: T | null | undefined): T | undefined {
+    return value === null ? undefined : value;
   }
 
-  private parseTerms(value?: string | null): Record<string, unknown> | string | undefined {
-    if (!value) return undefined;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
+  private mapDateField(value: Date | string | null | undefined): Date | string | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (value instanceof Date) return value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+      return trimmed;
     }
+    return undefined;
+  }
+
+  private mapDecimalValue(value: unknown): number | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : undefined;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    if (typeof value === "object" && value !== null && "toString" in value) {
+      const parsed = Number((value as { toString: () => string }).toString());
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  }
+
+  private parseJsonField<T extends Record<string, unknown>>(
+    value?: string | null,
+    fallback: T = {} as T,
+  ): T | undefined {
+    if (value === null || value === undefined) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed as T;
+      }
+    } catch {
+      // fall through to fallback
+    }
+    return fallback;
+  }
+
+  private stringifyJsonField(value?: Record<string, unknown> | string | null): string | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return null;
+    }
+  }
+
+  private mapContractTerms(value?: string | null): PartnerContractTerms | undefined {
+    return this.parseJsonField<PartnerContractTerms>(value);
+  }
+
+  private serializeTerms(value?: PartnerContractTerms | string | null): string | null {
+    return this.stringifyJsonField(value);
+  }
+
+  private buildPricingMetadataPayload(input: PartnerPricingUpsertInput, currency: string | null): PartnerPricingMetadata {
+    return {
+      ...(input.metadata ?? {}),
+      action: "pricing-upsert",
+      partnerId: input.partnerId,
+      brandId: input.brandId,
+      productId: input.productId,
+      netPrice: input.netPrice,
+      currency,
+    };
   }
 
   private async ensureTierBelongs(tierId: string, brandId: string) {

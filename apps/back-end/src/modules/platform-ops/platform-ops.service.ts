@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { PlatformOpsRepository } from "../../core/db/repositories/platform-ops.repository.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { resolvePermissionsForRoleSet } from "../../core/security/rbac.js";
@@ -42,12 +42,12 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 class PlatformOpsService {
-  constructor(private readonly db = prisma) {}
+  constructor(private readonly repo = PlatformOpsRepository) {}
 
   async getHealth(): Promise<PlatformOpsHealthResponse> {
     const checkedAt = new Date().toISOString();
     const dbStart = Date.now();
-    await this.db.$queryRaw`SELECT 1`;
+    await this.repo.healthCheck();
     const latencyMs = Date.now() - dbStart;
 
     return {
@@ -103,11 +103,7 @@ class PlatformOpsService {
   async listJobs(status?: string): Promise<PlatformOpsJobsResponse> {
     const where: Prisma.ScheduledJobWhereInput = {};
     if (status) where.status = status;
-    const jobs = await this.db.scheduledJob.findMany({
-      where,
-      orderBy: { lastRunAt: "desc" },
-      take: 10,
-    });
+    const jobs = await this.repo.listJobs(where);
 
     const lastBackup =
       jobs.find((job) => job.name.toLowerCase().includes("backup"))?.lastRunAt ??
@@ -131,18 +127,7 @@ class PlatformOpsService {
   }
 
   async listSecurity(): Promise<PlatformOpsSecurityResponse> {
-    const users = await this.db.user.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      take: 50,
-    });
+    const users = await this.repo.listUsers();
 
     const roles: Record<string, number> = {};
     users.forEach((user) => {
@@ -201,41 +186,14 @@ class PlatformOpsService {
   }
 
   async getTenantOverview(): Promise<TenantOverviewResponse> {
-    const tenants = await this.db.tenant.findMany({
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
-        plan: { select: { key: true } },
-        brands: { select: { id: true, name: true, slug: true } },
-        _count: { select: { users: true, brands: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const tenants = await this.repo.listTenants();
 
     const brandIds = Array.from(
       new Set(tenants.flatMap((tenant) => tenant.brands.map((brand) => brand.id))),
     );
-    const brandMetrics = brandIds.length
-      ? await this.db.brand.findMany({
-          where: { id: { in: brandIds } },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            _count: { select: { users: true, products: true, revenueRecords: true } },
-          },
-        })
-      : [];
+    const brandMetrics = brandIds.length ? await this.repo.listBrandMetrics(brandIds) : [];
 
-    const revenueByBrand = brandIds.length
-      ? await this.db.revenueRecord.groupBy({
-          by: ["brandId"],
-          where: { brandId: { in: brandIds } },
-          _sum: { amount: true },
-        })
-      : [];
+    const revenueByBrand = brandIds.length ? await this.repo.groupRevenueByBrand(brandIds) : [];
 
     const revenueMap = new Map<string, number>();
     revenueByBrand.forEach((entry) => {
@@ -303,16 +261,7 @@ class PlatformOpsService {
       ];
     }
 
-    const [total, users] = await this.db.$transaction([
-      this.db.user.count({ where }),
-      this.db.user.findMany({
-        where,
-        select: userSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const { total, users } = await this.repo.listUsersWithRBAC(where, skip, take);
 
     const data = await Promise.all(users.map((user) => this.buildUserRBACRecord(user)));
 
@@ -334,7 +283,7 @@ class PlatformOpsService {
       throw notFound("Role not found");
     }
 
-    const user = await this.db.user.findUnique({ where: { id: userId }, select: userSelect });
+    const user = await this.repo.findUserById(userId);
     if (!user) {
       throw notFound("User not found");
     }
@@ -357,14 +306,7 @@ class PlatformOpsService {
       nextExtraRoles.push(role.name);
     }
 
-    const updated = await this.db.user.update({
-      where: { id: user.id },
-      data: {
-        role: nextPrimaryRole,
-        rolesJson: normalizeRolesJson(nextExtraRoles, nextPrimaryRole),
-      },
-      select: userSelect,
-    });
+    const updated = await this.repo.updateUserRole(user.id, nextPrimaryRole, normalizeRolesJson(nextExtraRoles, nextPrimaryRole));
 
     await emitUserRoleAssigned({
       actorUserId,
@@ -400,7 +342,7 @@ class PlatformOpsService {
       throw notFound("Role not found");
     }
 
-    const user = await this.db.user.findUnique({ where: { id: userId }, select: userSelect });
+    const user = await this.repo.findUserById(userId);
     if (!user) {
       throw notFound("User not found");
     }
@@ -422,14 +364,7 @@ class PlatformOpsService {
       nextExtraRoles = nextExtraRoles.filter((r) => r !== nextPrimaryRole);
     }
 
-    const updated = await this.db.user.update({
-      where: { id: user.id },
-      data: {
-        role: nextPrimaryRole,
-        rolesJson: normalizeRolesJson(nextExtraRoles, nextPrimaryRole),
-      },
-      select: userSelect,
-    });
+    const updated = await this.repo.updateUserRole(user.id, nextPrimaryRole, normalizeRolesJson(nextExtraRoles, nextPrimaryRole));
 
     await emitUserRoleRemoved({
       actorUserId,
@@ -455,10 +390,10 @@ class PlatformOpsService {
 
   private async resolveRole(input: RoleAssignmentInput) {
     if (input.roleId) {
-      return this.db.role.findUnique({ where: { id: input.roleId } });
+      return this.repo.findRoleById(input.roleId);
     }
     if (input.roleName) {
-      return this.db.role.findUnique({ where: { name: input.roleName } });
+      return this.repo.findRoleByName(input.roleName);
     }
     return null;
   }
@@ -487,9 +422,7 @@ class PlatformOpsService {
   }
 
   private async ensureAnotherSuperAdmin(excludeUserId: string) {
-    const remaining = await this.db.user.count({
-      where: { role: "SUPER_ADMIN", id: { not: excludeUserId } },
-    });
+    const remaining = await this.repo.countSuperAdmins(excludeUserId);
     if (remaining === 0) {
       throw badRequest("Cannot remove the last SUPER_ADMIN");
     }

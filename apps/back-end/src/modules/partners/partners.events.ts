@@ -5,6 +5,7 @@ export enum PartnersEvents {
   CREATED = "partners.created",
   UPDATED = "partners.updated",
   DELETED = "partners.deleted",
+  PRICING_UPDATED = "partners.pricing.updated",
 }
 
 export async function emitPartnersCreated(payload: PartnersEventPayload) {
@@ -17,4 +18,8 @@ export async function emitPartnersUpdated(payload: PartnersEventPayload) {
 
 export async function emitPartnersDeleted(payload: PartnersEventPayload) {
   await publish(PartnersEvents.DELETED, payload);
+}
+
+export async function emitPartnersPricingUpdated(payload: PartnersEventPayload) {
+  await publish(PartnersEvents.PRICING_UPDATED, payload);
 }

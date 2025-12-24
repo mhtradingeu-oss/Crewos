@@ -1,5 +1,15 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import {
+  findKnowledgeCategory,
+  findBrandProduct,
+  findCampaign,
+  listKnowledgeDocumentsWithCount,
+  findKnowledgeDocument,
+  createKnowledgeDocument,
+  updateKnowledgeDocument,
+  transactionalUpdateDocumentAndTags,
+  transactionalDeleteDocumentAndTags
+} from "../../core/db/repositories/knowledge-base.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -80,10 +90,7 @@ function toDocumentDTO(record: Prisma.KnowledgeDocumentGetPayload<{ select: type
 }
 
 async function ensureCategoryIsValid(categoryId: string, brandId: string) {
-  const category = await prisma.knowledgeCategory.findUnique({
-    where: { id: categoryId },
-    select: { id: true, brandId: true },
-  });
+  const category = await findKnowledgeCategory({ id: categoryId });
   if (!category) {
     throw notFound("Knowledge category not found");
   }
@@ -93,10 +100,7 @@ async function ensureCategoryIsValid(categoryId: string, brandId: string) {
 }
 
 async function ensureProductMatchesBrand(productId: string, brandId: string) {
-  const product = await prisma.brandProduct.findUnique({
-    where: { id: productId },
-    select: { id: true, brandId: true },
-  });
+  const product = await findBrandProduct({ id: productId });
   if (!product) {
     throw notFound("Product not found");
   }
@@ -106,10 +110,7 @@ async function ensureProductMatchesBrand(productId: string, brandId: string) {
 }
 
 async function ensureCampaignMatchesBrand(campaignId: string, brandId: string) {
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: { id: true, brandId: true },
-  });
+  const campaign = await findCampaign({ id: campaignId });
   if (!campaign) {
     throw notFound("Campaign not found");
   }
@@ -160,17 +161,7 @@ export const knowledgeBaseService = {
       where.tags = { some: { AND: tagConditions } };
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.knowledgeDocument.count({ where }),
-      prisma.knowledgeDocument.findMany({
-        where,
-        select: documentSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
+    const { total, rows } = await listKnowledgeDocumentsWithCount(where, { skip, take });
     return {
       items: rows.map(toDocumentDTO),
       total,
@@ -180,10 +171,7 @@ export const knowledgeBaseService = {
   },
 
   async getDocumentById(id: string, brandId: string): Promise<KnowledgeDocumentDTO | null> {
-    const record = await prisma.knowledgeDocument.findFirst({
-      where: { id, brandId },
-      select: documentSelect,
-    });
+    const record = await findKnowledgeDocument({ id, brandId });
     if (!record) return null;
     return toDocumentDTO(record);
   },
@@ -219,20 +207,14 @@ export const knowledgeBaseService = {
         : undefined,
     };
 
-    const created = await prisma.knowledgeDocument.create({
-      data,
-      select: documentSelect,
-    });
+    const created = await createKnowledgeDocument(data);
 
     logger.info(`[knowledge-base] Created document ${created.id} for brand ${input.brandId}`);
     return toDocumentDTO(created);
   },
 
   async updateDocument(id: string, input: UpdateKnowledgeDocumentInput): Promise<KnowledgeDocumentDTO> {
-    const existing = await prisma.knowledgeDocument.findUnique({
-      where: { id },
-      select: { id: true, brandId: true },
-    });
+    const existing = await findKnowledgeDocument({ id });
     if (!existing || existing.brandId !== input.brandId) {
       throw notFound("Knowledge document not found");
     }
@@ -291,45 +273,26 @@ export const knowledgeBaseService = {
     const tagsProvided = Object.prototype.hasOwnProperty.call(input, "tags");
     const tags = input.tags ?? [];
 
-    const updated = await prisma.$transaction(async (tx) => {
-      if (tagsProvided) {
-        await tx.knowledgeTag.deleteMany({ where: { documentId: id } });
-        if (tags.length) {
-          await tx.knowledgeTag.createMany({
-            data: tags.map((name) => ({ documentId: id, name })),
-          });
-        }
-      }
-
-      const updatedDocument = await tx.knowledgeDocument.update({
-        where: { id },
-        data,
-        select: documentSelect,
-      });
-
-      return updatedDocument;
-    });
+    let updated;
+    if (tagsProvided) {
+      updated = await transactionalUpdateDocumentAndTags(id, data, tags);
+    } else {
+      updated = await updateKnowledgeDocument(id, data);
+    }
 
     logger.info(`[knowledge-base] Updated document ${id}`);
     return toDocumentDTO(updated);
   },
 
   async attachFile(id: string, brandId: string, fileUrl?: string | null, storageKey?: string | null) {
-    const existing = await prisma.knowledgeDocument.findFirst({
-      where: { id, brandId },
-      select: { id: true },
-    });
+    const existing = await findKnowledgeDocument({ id, brandId });
     if (!existing) {
       throw notFound("Knowledge document not found");
     }
 
-    const updated = await prisma.knowledgeDocument.update({
-      where: { id },
-      data: {
-        fileUrl: fileUrl ?? null,
-        storageKey: storageKey ?? null,
-      },
-      select: documentSelect,
+    const updated = await updateKnowledgeDocument(id, {
+      fileUrl: fileUrl ?? null,
+      storageKey: storageKey ?? null,
     });
 
     logger.info(`[knowledge-base] Attached file metadata to document ${id}`);
@@ -337,19 +300,13 @@ export const knowledgeBaseService = {
   },
 
   async deleteDocument(id: string, brandId: string) {
-    const existing = await prisma.knowledgeDocument.findFirst({
-      where: { id, brandId },
-      select: { id: true },
-    });
+    // Use repository to find document by id and brandId
+    const existing = await findKnowledgeDocument({ id, brandId });
     if (!existing) {
       throw notFound("Knowledge document not found");
     }
-
-    await prisma.$transaction([
-      prisma.knowledgeTag.deleteMany({ where: { documentId: id } }),
-      prisma.knowledgeDocument.delete({ where: { id } }),
-    ]);
-
+    // Transactional delete (document + tags)
+    await transactionalDeleteDocumentAndTags(id);
     logger.info(`[knowledge-base] Deleted document ${id}`);
     return { id };
   },

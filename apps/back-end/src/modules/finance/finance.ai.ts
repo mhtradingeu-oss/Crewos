@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { createFinanceAIInsight, createFinanceAILearningJournal } from "../../core/db/repositories/finance-ai.repository.js";
 import { aiOrchestrator } from "../../core/ai/orchestrator.js";
 import type { FinanceRunwaySummary } from "../ai-brain/ai-brain.types.js";
 
@@ -24,31 +24,26 @@ export async function summarizeFinanceRunway(brandId?: string): Promise<FinanceR
   const cashBalance = response?.result?.cashBalance ?? null;
   const burnRate = response?.result?.burnRate ?? null;
 
-  const insight = await prisma.aIInsight.create({
-    data: {
-      brandId: brandId ?? null,
-      os: "finance",
-      entityType: "finance-runway",
-      entityId: brandId ?? "global-runway",
-      summary,
-      details: JSON.stringify({
-        details,
-        runwayMonths,
-        cashBalance,
-        burnRate,
-      }),
-    },
-    select: insightSelect,
+  const insight = await createFinanceAIInsight({
+    brandId: brandId ?? null,
+    os: "finance",
+    entityType: "finance-runway",
+    entityId: brandId ?? "global-runway",
+    summary,
+    details: JSON.stringify({
+      details,
+      runwayMonths,
+      cashBalance,
+      burnRate,
+    }),
   });
 
-  await prisma.aILearningJournal.create({
-    data: {
-      brandId: brandId ?? null,
-      source: "finance-runway",
-      eventType: "summary",
-      inputSnapshotJson: JSON.stringify({ brandId }),
-      outputSnapshotJson: JSON.stringify({ summary, details, runwayMonths, cashBalance, burnRate }),
-    },
+  await createFinanceAILearningJournal({
+    brandId: brandId ?? null,
+    source: "finance-runway",
+    eventType: "summary",
+    inputSnapshotJson: JSON.stringify({ brandId }),
+    outputSnapshotJson: JSON.stringify({ summary, details, runwayMonths, cashBalance, burnRate }),
   });
 
   return {
