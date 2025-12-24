@@ -1,6 +1,12 @@
 
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type { PolicyViolation, AutomationGateError } from "./automation.types.js";
+import {
+  createAutomationRuleVersion,
+  findLatestAutomationRuleVersion,
+  updateAutomationRuleVersion,
+} from "../../core/db/repositories/automation.repository.js";
 
 /**
  * Minimal shared types (keep your project's real types if already defined elsewhere)
@@ -75,7 +81,6 @@ const conditionsWrapperSchema = z
 
 export class AutomationService {
   constructor(
-    private readonly db: any,
     private readonly deps: {
       notificationService: any;
       pricingService: any;
@@ -83,9 +88,9 @@ export class AutomationService {
       publishActivity: (...args: any[]) => Promise<void>;
       badRequest: (m: string) => Error;
       notFound: (m: string) => Error;
-      ruleVersionSelect: unknown;
-      ruleSelect: unknown;
-      ruleVersionSelectUnsafe?: unknown;
+      ruleVersionSelect?: Prisma.AutomationRuleVersionSelect;
+      ruleSelect?: Prisma.AutomationRuleSelect;
+      ruleVersionSelectUnsafe?: Prisma.AutomationRuleVersionSelect;
     },
   ) {}
 
@@ -222,11 +227,7 @@ export class AutomationService {
       createdById?: string;
     },
   ) {
-    const latest = await this.db.automationRuleVersion.findFirst({
-      where: { ruleId },
-      orderBy: { versionNumber: "desc" },
-      select: this.deps.ruleVersionSelect,
-    });
+    const latest = await findLatestAutomationRuleVersion(ruleId, this.deps.ruleVersionSelect);
 
     if (!latest) throw this.deps.notFound("No version found for rule");
 
@@ -245,15 +246,12 @@ export class AutomationService {
   }
 
 
-  private async createRuleVersion(_data: any) {
-    return this.db.automationRuleVersion.create({ data: _data });
+  private async createRuleVersion(data: Prisma.AutomationRuleVersionCreateInput) {
+    return createAutomationRuleVersion(data);
   }
 
-  private async updateRuleVersion(ruleVersionId: string, input: any) {
-    return this.db.automationRuleVersion.update({
-      where: { id: ruleVersionId },
-      data: input,
-    });
+  private async updateRuleVersion(ruleVersionId: string, input: Prisma.AutomationRuleVersionUpdateInput) {
+    return updateAutomationRuleVersion(ruleVersionId, input);
   }
 
   // ------------------ Keep your existing methods below ------------------
@@ -262,14 +260,13 @@ export class AutomationService {
 }
 
 // --- Singleton export (must be last) ---
-import { prisma } from '../../core/prisma.js';
 // import { notificationService } from '../notification/notification.service.js';
 // import { pricingService } from '../pricing/pricing.service.js';
 import { publish } from '../../core/events/event-bus.js';
 import { publishActivity } from '../../core/activity/activity.js';
 import { badRequest, notFound } from '../../core/http/errors.js';
 
-export const automationService = new AutomationService(prisma, {
+export const automationService = new AutomationService({
   notificationService: {}, // TODO: wire real service
   pricingService: {}, // TODO: wire real service
   publish,

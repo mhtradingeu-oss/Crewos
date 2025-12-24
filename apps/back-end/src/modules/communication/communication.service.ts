@@ -2,8 +2,14 @@
  * COMMUNICATION SERVICE — MH-OS v2
  * Spec: docs/ai/30_notification-os.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { communicationRepository } from "../../core/db/repositories/communication.repository.js";
+import type {
+  NotificationMetadataPayload,
+  NotificationPayload,
+  NotificationTemplatePayload,
+  NotificationTemplateWhereInput,
+  NotificationWhereInput,
+} from "../../core/db/repositories/communication.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -22,31 +28,6 @@ import {
   emitCommunicationMessageFailed,
   emitCommunicationMessageSent,
 } from "./communication.events.js";
-
-const templateSelect = {
-  id: true,
-  brandId: true,
-  code: true,
-  channel: true,
-  version: true,
-  subject: true,
-  body: true,
-  variablesJson: true,
-  isActive: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.NotificationTemplateSelect;
-
-const notificationSelect = {
-  id: true,
-  brandId: true,
-  channel: true,
-  type: true,
-  status: true,
-  dataJson: true,
-  metaJson: true,
-  createdAt: true,
-} satisfies Prisma.NotificationSelect;
 
 function parseJSON(value?: string | null) {
   if (!value) return null;
@@ -84,9 +65,7 @@ async function sendSmsStub(payload: { to: string; body?: string | null }): Promi
   return { success: true, message: "sms.delivered" };
 }
 
-function templateToDTO(
-  record: Prisma.NotificationTemplateGetPayload<{ select: typeof templateSelect }>,
-): NotificationTemplateDTO {
+function templateToDTO(record: NotificationTemplatePayload): NotificationTemplateDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -109,7 +88,7 @@ export const communicationService = {
   ): Promise<PaginatedNotificationTemplates> {
     const { channel, active, search, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.NotificationTemplateWhereInput = {
+    const where: NotificationTemplateWhereInput = {
       brandId,
     };
 
@@ -122,16 +101,7 @@ export const communicationService = {
       ];
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.notificationTemplate.count({ where }),
-      prisma.notificationTemplate.findMany({
-        where,
-        select: templateSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await communicationRepository.listTemplates(where, skip, take);
 
     return {
       items: rows.map((item: any) => templateToDTO(item)),
@@ -142,10 +112,7 @@ export const communicationService = {
   },
 
   async getTemplateById(brandId: string, templateId: string): Promise<NotificationTemplateDTO> {
-    const template = await prisma.notificationTemplate.findFirst({
-      where: { id: templateId, brandId },
-      select: templateSelect,
-    });
+    const template = await communicationRepository.findTemplate({ id: templateId, brandId });
     if (!template) throw notFound("Template not found");
     return templateToDTO(template);
   },
@@ -154,23 +121,18 @@ export const communicationService = {
     brandId: string,
     input: CreateNotificationTemplateInput,
   ): Promise<NotificationTemplateDTO> {
-    const existing = await prisma.notificationTemplate.findFirst({
-      where: { brandId, code: input.code },
-    });
+    const existing = await communicationRepository.findTemplate({ brandId, code: input.code });
     if (existing) {
       throw badRequest("Template code already exists for this brand");
     }
 
-    const created = await prisma.notificationTemplate.create({
-      data: {
-        brandId,
-        code: input.code,
-        channel: input.channel,
-        subject: input.subject ?? null,
-        body: input.body ?? null,
-        variablesJson: input.variables ? JSON.stringify(input.variables) : null,
-      },
-      select: templateSelect,
+    const created = await communicationRepository.createTemplate({
+      brandId,
+      code: input.code,
+      channel: input.channel,
+      subject: input.subject ?? null,
+      body: input.body ?? null,
+      variablesJson: input.variables ? JSON.stringify(input.variables) : null,
     });
 
     logger.info(`[communication] Created template ${created.code} for brand ${brandId}`);
@@ -183,45 +145,37 @@ export const communicationService = {
     templateId: string,
     input: UpdateNotificationTemplateInput,
   ): Promise<NotificationTemplateDTO> {
-    const existing = await prisma.notificationTemplate.findFirst({
-      where: { id: templateId, brandId },
-    });
+    const existing = await communicationRepository.findTemplate({ id: templateId, brandId });
     if (!existing) throw notFound("Template not found");
 
-    const updated = await prisma.notificationTemplate.update({
-      where: { id: templateId },
-      data: {
-        channel: input.channel ?? existing.channel,
-        subject: input.subject ?? existing.subject,
-        body: input.body ?? existing.body,
-        variablesJson:
-          input.variables !== undefined ? JSON.stringify(input.variables) : existing.variablesJson,
-        isActive: input.isActive ?? existing.isActive,
-      },
-      select: templateSelect,
+    const updated = await communicationRepository.updateTemplate(templateId, {
+      channel: input.channel ?? existing.channel,
+      subject: input.subject ?? existing.subject,
+      body: input.body ?? existing.body,
+      variablesJson:
+        input.variables !== undefined ? JSON.stringify(input.variables) : existing.variablesJson,
+      isActive: input.isActive ?? existing.isActive,
     });
 
     return templateToDTO(updated);
   },
 
   async removeTemplate(brandId: string, templateId: string): Promise<void> {
-    const deleted = await prisma.notificationTemplate.deleteMany({
-      where: { id: templateId, brandId },
+    const deleted = await communicationRepository.deleteTemplates({
+      id: templateId,
+      brandId,
     });
     if (!deleted.count) throw notFound("Template not found");
   },
 
   async recordNotificationSend(input: CreateNotificationLogInput) {
-    const template = input.templateId
-      ? await prisma.notificationTemplate.findUnique({
-          where: { id: input.templateId },
-          select: { code: true, subject: true, body: true },
-        })
+    const template: NotificationMetadataPayload | null = input.templateId
+      ? await communicationRepository.findTemplateMetadata(input.templateId)
       : null;
 
     const title = template?.subject ?? input.channel;
     const body = template?.body ?? input.channel;
-    const log = await prisma.notification.create({
+    const log = await communicationRepository.createNotificationLog({
       data: {
         brandId: input.brandId,
         channel: input.channel,
@@ -235,7 +189,6 @@ export const communicationService = {
           templateId: input.templateId ?? null,
         }),
       },
-      select: notificationSelect,
     });
 
     logger.info(`[communication] Logged ${input.channel} notification for ${input.recipient}`);
@@ -259,9 +212,10 @@ export const communicationService = {
   async sendMessage(input: SendMessageInput): Promise<NotificationLogDTO> {
     const template =
       input.templateId && input.channel
-        ? await prisma.notificationTemplate.findFirst({
-            where: { id: input.templateId, brandId: input.brandId, channel: input.channel },
-            select: templateSelect,
+        ? await communicationRepository.findTemplate({
+            id: input.templateId,
+            brandId: input.brandId,
+            channel: input.channel,
           })
         : null;
 
@@ -327,7 +281,7 @@ export const communicationService = {
   ): Promise<{ items: NotificationLogDTO[]; total: number; page: number; pageSize: number }> {
     const { channel, status, startDate, endDate, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.NotificationWhereInput = { brandId };
+    const where: NotificationWhereInput = { brandId };
 
     if (channel) where.channel = channel;
     if (status) where.status = status;
@@ -337,16 +291,7 @@ export const communicationService = {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.notification.count({ where }),
-      prisma.notification.findMany({
-        where,
-        select: notificationSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await communicationRepository.listNotifications(where, skip, take);
 
     const items = rows.map((row: any) => {
       const payload = parseJSON(row.dataJson);

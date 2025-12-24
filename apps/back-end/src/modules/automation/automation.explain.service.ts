@@ -1,13 +1,16 @@
 
-import { prisma } from "../../core/prisma.js";
+import {
+  findAutomationActionRunWithContext,
+  findAutomationRunWithDetails,
+  findAutomationRuleVersionById,
+} from "../../core/db/repositories/automation.repository.js";
 import { getRuleVersionMetrics } from "./automation.observability.service.js";
 import type { ExplainResponse, ExplainOutcome } from "./automation.explain.types.js";
 
 // A) explainRuleVersion
 export async function explainRuleVersion({ brandId, ruleVersionId, timeRange }: { brandId: string; ruleVersionId: string; timeRange?: { from?: Date; to?: Date } }): Promise<ExplainResponse | null> {
 	// 1. Query ruleVersion + parent rule (brandId)
-	const ruleVersion = await prisma.automationRuleVersion.findUnique({
-		where: { id: ruleVersionId },
+	const ruleVersion = await findAutomationRuleVersionById(ruleVersionId, {
 		select: { id: true, rule: { select: { brandId: true } }, metaSnapshotJson: true },
 	});
 	if (!ruleVersion || ruleVersion.rule.brandId !== brandId) return null;
@@ -67,22 +70,7 @@ export async function explainRuleVersion({ brandId, ruleVersionId, timeRange }: 
 // B) explainRun
 export async function explainRun({ brandId, runId }: { brandId: string; runId: string }): Promise<ExplainResponse | null> {
 	// Query run + joins
-	const run = await prisma.automationRun.findUnique({
-		where: { id: runId },
-		select: {
-			id: true,
-			status: true,
-			errorJson: true,
-			startedAt: true,
-			finishedAt: true,
-			ruleVersion: { select: { id: true, rule: { select: { brandId: true } } } },
-			actionRuns: { select: { id: true, status: true, errorJson: true, startedAt: true, finishedAt: true } },
-			summaryJson: true,
-			conditionsJson: true,
-			actionsJson: true,
-			triggerEventJson: true,
-		},
-	});
+	const run = await findAutomationRunWithDetails(runId);
 	if (!run || run.ruleVersion.rule.brandId !== brandId) return null;
 
 	// Outcome logic
@@ -135,23 +123,7 @@ export async function explainRun({ brandId, runId }: { brandId: string; runId: s
 // C) explainActionRun
 export async function explainActionRun({ brandId, actionRunId }: { brandId: string; actionRunId: string }): Promise<ExplainResponse | null> {
 	// Query actionRun + join run -> ruleVersion -> rule
-	const actionRun = await prisma.automationActionRun.findUnique({
-		where: { id: actionRunId },
-		select: {
-			id: true,
-			status: true,
-			errorJson: true,
-			startedAt: true,
-			finishedAt: true,
-			actionType: true,
-			run: {
-				select: {
-					id: true,
-					ruleVersion: { select: { id: true, rule: { select: { brandId: true } } } },
-				},
-			},
-		},
-	});
+	const actionRun = await findAutomationActionRunWithContext(actionRunId);
 	if (!actionRun || actionRun.run.ruleVersion.rule.brandId !== brandId) return null;
 
 	// Failure classification (deterministic)

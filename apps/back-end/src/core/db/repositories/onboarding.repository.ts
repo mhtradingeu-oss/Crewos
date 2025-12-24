@@ -28,7 +28,7 @@ export type FinalizePlanSelectionInput = {
   targetPlanId: string;
   targetPlanKey: string;
   currentPlanId?: string | null;
-  modulesJson?: Prisma.InputJsonValue;
+  modulesJson?: Record<string, unknown> | null;
   changedByUserId: string;
 };
 
@@ -96,13 +96,14 @@ export async function findPlanByKey(key: string) {
 export async function finalizePlanSelection(input: FinalizePlanSelectionInput) {
   const { tenantId, targetPlanId, currentPlanId, modulesJson, changedByUserId, profileId, targetPlanKey } =
     input;
+  const modulesJsonValue: Prisma.InputJsonValue | undefined = modulesJson ?? undefined;
 
   await prisma.$transaction(async (tx) => {
     await tx.tenant.update({
       where: { id: tenantId },
       data: {
         planId: targetPlanId,
-        planOverridesJson: modulesJson,
+        planOverridesJson: modulesJsonValue,
       },
     });
 
@@ -112,7 +113,7 @@ export async function finalizePlanSelection(input: FinalizePlanSelectionInput) {
         fromPlanId: currentPlanId ?? undefined,
         toPlanId: targetPlanId,
         changedByUserId,
-        metadataJson: modulesJson,
+        metadataJson: modulesJsonValue,
       },
     });
 
@@ -120,7 +121,7 @@ export async function finalizePlanSelection(input: FinalizePlanSelectionInput) {
       where: { id: profileId },
       data: {
         selectedPlanKey: targetPlanKey,
-        selectedModulesJson: modulesJson,
+        selectedModulesJson: modulesJsonValue,
         status: "completed",
         completedAt: new Date(),
       },

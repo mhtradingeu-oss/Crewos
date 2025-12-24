@@ -1,6 +1,5 @@
 import { badRequest, unauthorized } from "../../core/http/errors.js";
 import { getPlanDefinition, planDefinitions, type PlanKey, type PlanFeatureSet } from "../../core/plans.js";
-import type { Prisma } from "@prisma/client";
 import {
   createOnboardingProfile,
   finalizePlanSelection,
@@ -81,7 +80,7 @@ export async function selectPlan(userId: string, input: PlanSelectionInput) {
 
   const currentPlanId = tenant.planId ?? undefined;
   const modulesJson = input.selectedModules
-    ? (input.selectedModules as Prisma.InputJsonValue)
+    ? input.selectedModules
     : undefined;
 
   await finalizePlanSelection({

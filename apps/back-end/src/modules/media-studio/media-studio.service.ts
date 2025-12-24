@@ -10,6 +10,7 @@ import {
 } from "../../core/ai/engines/media.engine.js";
 import type { MediaCallContext, MediaEngineId } from "../../core/ai/providers/media/media.types.js";
 import { logger } from "../../core/logger.js";
+import { mediaStudioRepository } from "../../core/db/repositories/media-studio.repository.js";
 
 export type WhiteLabelRequest = {
   brandId?: string;
@@ -101,6 +102,23 @@ export const mediaStudioService = {
       outputs,
       recipe: buildRecipe(normalized, ctx, outputs.map((o) => o.url)),
     };
+  },
+
+  async recordMediaInsight(payload: {
+    brandId?: string;
+    entityType: string;
+    entityId: string;
+    summary: string;
+    details: string;
+  }) {
+    return mediaStudioRepository.createAIInsight({
+      brandId: payload.brandId ?? null,
+      os: "media",
+      entityType: payload.entityType,
+      entityId: payload.entityId,
+      summary: payload.summary,
+      details: payload.details,
+    });
   },
 };
 

@@ -2,8 +2,16 @@
  * MARKETING SERVICE — MH-OS v2
  * Spec: docs/os/18_marketing-os.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
+import { marketingRepository } from "../../core/db/repositories/marketing.repository.js";
+import type {
+  CampaignAttributionPayload,
+  CampaignInteractionPayload,
+  CampaignPayload,
+  CampaignWhereInput,
+  InputJsonValue,
+  JsonValue,
+  NullableJsonNullValueInput,
+} from "../../core/db/repositories/marketing.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import {
@@ -55,65 +63,19 @@ function buildMarketingEventContext(context?: MarketingActionContext): EventCont
   };
 }
 
-const campaignSelect = {
-  id: true,
-  brandId: true,
-  channelId: true,
-  name: true,
-  objective: true,
-  budget: true,
-  status: true,
-  targetSegmentIds: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.CampaignSelect;
-
-const campaignAttributionSelect = {
-  id: true,
-  campaignId: true,
-  brandId: true,
-  leadId: true,
-  customerId: true,
-  source: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.CampaignLeadAttributionSelect;
-
-const campaignInteractionSelect = {
-  id: true,
-  campaignId: true,
-  type: true,
-  leadId: true,
-  customerId: true,
-  metadata: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.CampaignInteractionSelect;
-
 class MarketingService {
-  constructor(private readonly db = prisma) {}
-
   async list(
     params: { brandId?: string; status?: string; page?: number; pageSize?: number } = {},
     context?: MarketingActionContext,
   ) {
     const { brandId, status, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.CampaignWhereInput = {};
+    const where: CampaignWhereInput = {};
     const scopedBrandId = context?.brandId ?? brandId;
     if (scopedBrandId) where.brandId = scopedBrandId;
     if (status) where.status = status;
 
-    const [total, rows] = await this.db.$transaction([
-      this.db.campaign.count({ where }),
-      this.db.campaign.findMany({
-        where,
-        select: campaignSelect,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await marketingRepository.listCampaigns(where, skip, take);
 
     return {
       items: rows.map((row) => this.map(row)),
@@ -124,7 +86,7 @@ class MarketingService {
   }
 
   async getById(id: string, context?: MarketingActionContext): Promise<CampaignRecord> {
-    const campaign = await this.db.campaign.findUnique({ where: { id }, select: campaignSelect });
+    const campaign = await marketingRepository.findCampaignById(id);
     if (!campaign) throw notFound("Campaign not found");
     if (context?.brandId && campaign.brandId && campaign.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -137,17 +99,14 @@ class MarketingService {
     const brandId = context?.brandId ?? input.brandId ?? null;
     await this.ensureSlugIsUnique(input.name, brandId);
     const validatedSegments = await this.ensureValidSegments(input.targetSegmentIds, brandId ?? undefined);
-    const created = await this.db.campaign.create({
-      data: {
-        brandId,
-        channelId: input.channelId ?? null,
-        name: input.name,
-        objective: input.objective ?? null,
-        budget: input.budget ?? null,
-        status: input.status ?? "draft",
-        targetSegmentIds: this.serializeSegmentIds(validatedSegments),
-      },
-      select: campaignSelect,
+    const created = await marketingRepository.createCampaign({
+      brandId,
+      channelId: input.channelId ?? null,
+      name: input.name,
+      objective: input.objective ?? null,
+      budget: input.budget ?? null,
+      status: input.status ?? "draft",
+      targetSegmentIds: this.serializeSegmentIds(validatedSegments),
     });
     const eventContext = buildMarketingEventContext({
       brandId: context?.brandId ?? created.brandId ?? undefined,
@@ -166,7 +125,7 @@ class MarketingService {
     input: UpdateMarketingInput,
     context?: MarketingActionContext,
   ): Promise<CampaignRecord> {
-    const existing = await this.db.campaign.findUnique({ where: { id }, select: campaignSelect });
+    const existing = await marketingRepository.findCampaignById(id);
     if (!existing) throw notFound("Campaign not found");
     if (context?.brandId && existing.brandId && existing.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -183,18 +142,14 @@ class MarketingService {
         ? await this.ensureValidSegments(input.targetSegmentIds, desiredBrandId ?? undefined)
         : existingSegments;
 
-    const updated = await this.db.campaign.update({
-      where: { id },
-      data: {
-        brandId: desiredBrandId,
-        channelId: input.channelId ?? existing.channelId,
-        name: input.name ?? existing.name,
-        objective: input.objective ?? existing.objective,
-        budget: input.budget ?? existing.budget,
-        status: input.status ?? existing.status,
-        targetSegmentIds: this.serializeSegmentIds(segmentIdsToStore),
-      },
-      select: campaignSelect,
+    const updated = await marketingRepository.updateCampaign(id, {
+      brandId: desiredBrandId,
+      channelId: input.channelId ?? existing.channelId,
+      name: input.name ?? existing.name,
+      objective: input.objective ?? existing.objective,
+      budget: input.budget ?? existing.budget,
+      status: input.status ?? existing.status,
+      targetSegmentIds: this.serializeSegmentIds(segmentIdsToStore),
     });
     const eventContext = buildMarketingEventContext({
       brandId: context?.brandId ?? updated.brandId ?? undefined,
@@ -213,15 +168,12 @@ class MarketingService {
   }
 
   async remove(id: string, context?: MarketingActionContext) {
-    const existing = await this.db.campaign.findUnique({
-      where: { id },
-      select: { id: true, brandId: true },
-    });
+    const existing = await marketingRepository.findCampaignById(id);
     if (!existing) throw notFound("Campaign not found");
     if (context?.brandId && existing.brandId && existing.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
     }
-    await this.db.campaign.delete({ where: { id } });
+    await marketingRepository.deleteCampaign(id);
     const eventContext = buildMarketingEventContext({
       brandId: context?.brandId ?? existing.brandId ?? undefined,
       actorUserId: context?.actorUserId,
@@ -237,14 +189,12 @@ class MarketingService {
     campaignId: string,
     payload: { date: Date; impressions?: number; clicks?: number; spend?: number },
   ) {
-    await this.db.marketingPerformanceLog.create({
-      data: {
-        campaignId,
-        date: payload.date,
-        impressions: payload.impressions ?? null,
-        clicks: payload.clicks ?? null,
-        spend: payload.spend ?? null,
-      },
+    await marketingRepository.logPerformance({
+      campaignId,
+      date: payload.date,
+      impressions: payload.impressions ?? null,
+      clicks: payload.clicks ?? null,
+      spend: payload.spend ?? null,
     });
   }
 
@@ -253,10 +203,7 @@ class MarketingService {
     input: CampaignAttributionInput,
     context?: MarketingActionContext,
   ): Promise<CampaignAttributionRecord> {
-    const campaign = await this.db.campaign.findUnique({
-      where: { id: campaignId },
-      select: { id: true, brandId: true },
-    });
+    const campaign = await marketingRepository.findCampaignById(campaignId);
     if (!campaign) {
       throw notFound("Campaign not found");
     }
@@ -272,15 +219,12 @@ class MarketingService {
       await this.ensureCustomerBelongsToBrand(input.customerId, campaign.brandId);
     }
 
-    const created = await this.db.campaignLeadAttribution.create({
-      data: {
-        campaignId,
-        brandId: campaign.brandId ?? null,
-        leadId: input.leadId ?? undefined,
-        customerId: input.customerId ?? undefined,
-        source: input.source ?? null,
-      },
-      select: campaignAttributionSelect,
+    const created = await marketingRepository.createCampaignAttribution({
+      campaignId,
+      brandId: campaign.brandId ?? null,
+      leadId: input.leadId ?? undefined,
+      customerId: input.customerId ?? undefined,
+      source: input.source ?? null,
     });
 
     const payload: CampaignAttributionEventPayload = {
@@ -299,10 +243,7 @@ class MarketingService {
     input: CampaignInteractionInput,
     context?: MarketingActionContext,
   ): Promise<CampaignInteractionRecord> {
-    const campaign = await this.db.campaign.findUnique({
-      where: { id: campaignId },
-      select: { id: true, brandId: true },
-    });
+    const campaign = await marketingRepository.findCampaignById(campaignId);
     if (!campaign) {
       throw notFound("Campaign not found");
     }
@@ -318,18 +259,13 @@ class MarketingService {
       await this.ensureCustomerBelongsToBrand(input.customerId, campaign.brandId);
     }
 
-    const metadataValue = input.metadata
-      ? (input.metadata as Prisma.InputJsonValue)
-      : undefined;
-    const created = await this.db.campaignInteraction.create({
-      data: {
-        campaignId,
-        type: input.type,
-        leadId: input.leadId ?? undefined,
-        customerId: input.customerId ?? undefined,
-        metadata: metadataValue,
-      },
-      select: campaignInteractionSelect,
+    const metadataValue = input.metadata ? (input.metadata as InputJsonValue) : undefined;
+    const created = await marketingRepository.createCampaignInteraction({
+      campaignId,
+      type: input.type,
+      leadId: input.leadId ?? undefined,
+      customerId: input.customerId ?? undefined,
+      metadata: metadataValue,
     });
 
     const payload: CampaignInteractionEventPayload = {
@@ -352,10 +288,7 @@ class MarketingService {
   }
 
   private async ensureLeadBelongsToBrand(leadId: string, brandId?: string | null) {
-    const lead = await this.db.lead.findUnique({
-      where: { id: leadId },
-      select: { brandId: true },
-    });
+    const lead = await marketingRepository.findLeadById(leadId);
     if (!lead) {
       throw notFound("Lead not found");
     }
@@ -365,10 +298,7 @@ class MarketingService {
   }
 
   private async ensureCustomerBelongsToBrand(customerId: string, brandId?: string | null) {
-    const customer = await this.db.crmCustomer.findUnique({
-      where: { id: customerId },
-      select: { brandId: true },
-    });
+    const customer = await marketingRepository.findCustomerById(customerId);
     if (!customer) {
       throw notFound("Customer not found");
     }
@@ -378,7 +308,7 @@ class MarketingService {
   }
 
   private buildCampaignEventPayload(
-    campaign: Prisma.CampaignGetPayload<{ select: typeof campaignSelect }>,
+    campaign: CampaignPayload,
     segments?: string[],
   ): MarketingCampaignEventPayload {
     const resolved =
@@ -398,12 +328,12 @@ class MarketingService {
 
   private serializeSegmentIds(
     ids?: string[] | null,
-  ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
+  ): NullableJsonNullValueInput | InputJsonValue | undefined {
     if (!ids?.length) return undefined;
     return ids;
   }
 
-  private parseTargetSegmentIds(value?: Prisma.JsonValue | null): string[] | undefined {
+  private parseTargetSegmentIds(value?: JsonValue | null): string[] | undefined {
     if (!value) return undefined;
     if (Array.isArray(value)) {
       return value.filter((item): item is string => typeof item === "string").map((item) => item);
@@ -426,10 +356,7 @@ class MarketingService {
     context?: MarketingActionContext,
     limit = 5,
   ): Promise<CampaignTargetPreview> {
-    const campaign = await this.db.campaign.findUnique({
-      where: { id: campaignId },
-      select: { id: true, brandId: true, targetSegmentIds: true },
-    });
+    const campaign = await marketingRepository.findCampaignTargetSegments(campaignId);
     if (!campaign) {
       throw notFound("Campaign not found");
     }
@@ -468,7 +395,7 @@ class MarketingService {
     };
   }
 
-  private map(row: Prisma.CampaignGetPayload<{ select: typeof campaignSelect }>): CampaignRecord {
+  private map(row: CampaignPayload): CampaignRecord {
     return {
       id: row.id,
       brandId: row.brandId ?? undefined,
@@ -483,9 +410,7 @@ class MarketingService {
     };
   }
 
-  private mapAttribution(
-    record: Prisma.CampaignLeadAttributionGetPayload<{ select: typeof campaignAttributionSelect }>,
-  ): CampaignAttributionRecord {
+  private mapAttribution(record: CampaignAttributionPayload): CampaignAttributionRecord {
     return {
       id: record.id,
       campaignId: record.campaignId,
@@ -498,9 +423,7 @@ class MarketingService {
     };
   }
 
-  private mapInteraction(
-    record: Prisma.CampaignInteractionGetPayload<{ select: typeof campaignInteractionSelect }>,
-  ): CampaignInteractionRecord {
+  private mapInteraction(record: CampaignInteractionPayload): CampaignInteractionRecord {
     return {
       id: record.id,
       campaignId: record.campaignId,
@@ -529,13 +452,7 @@ class MarketingService {
     excludeId?: string,
   ) {
     const slug = this.slugify(value);
-    const where: Prisma.CampaignWhereInput = {
-      brandId: brandId ?? null,
-    };
-    const campaigns = await this.db.campaign.findMany({
-      where,
-      select: { id: true, name: true },
-    });
+    const campaigns = await marketingRepository.findCampaignsByBrand(brandId ?? null);
     const duplicate = campaigns.find((campaign) => {
       if (excludeId && campaign.id === excludeId) return false;
       return this.slugify(campaign.name) === slug;
@@ -611,19 +528,17 @@ export const marketingAIService = {
     insightType: string,
     payload: MarketingGenerateResult | MarketingSeoResult | MarketingCaptionsResult,
   ) {
-    await prisma.aIInsight.create({
-      data: {
-        brandId: brandId ?? null,
-        os: "marketing",
-        entityType: `marketing-${insightType}`,
-        entityId: brandId ?? insightType,
-        summary: `Marketing ${insightType} insight`,
-        details: JSON.stringify({
-          payload,
-          confidence: null,
-          risk: null,
-        }),
-      },
+    await marketingRepository.logAIInsight({
+      brandId: brandId ?? null,
+      os: "marketing",
+      entityType: `marketing-${insightType}`,
+      entityId: brandId ?? insightType,
+      summary: `Marketing ${insightType} insight`,
+      details: JSON.stringify({
+        payload,
+        confidence: null,
+        risk: null,
+      }),
     });
   },
 };

@@ -2,14 +2,16 @@
  * USERS SERVICE — MH-OS v2
  * Spec: docs/01_system_overview.md (MASTER_INDEX)
  */
-import type { Prisma } from "@prisma/client";
 import {
+  createUser,
   findUsers,
   findUserById,
   updateUser,
   updateUserStatus,
   updateUserRole,
+  userSelect,
 } from "../../core/db/repositories/users.repository.js";
+import type { SelectedUser } from "../../core/db/repositories/users.repository.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { hashPassword } from "../../core/security/password.js";
 import { resolvePermissionsForRoleSet } from "../../core/security/rbac.js";
@@ -22,17 +24,18 @@ import type {
   UpdateUserInput,
   UserRecord,
   UserRoleInfo,
-} from "./users.types.js";
+} from "@mh-os/shared";
 
-const userSelect = {
-  id: true,
-  email: true,
-  role: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-  rolesJson: true,
-} satisfies Prisma.UserSelect;
+type UserUpdatePayload = {
+  email?: string;
+  password?: string;
+  role?: string;
+  status?: string;
+};
+
+type FindUsersArgs = NonNullable<Parameters<typeof findUsers>[0]>;
+type UserWhereInput = NonNullable<FindUsersArgs["where"]>;
+type UpdateUserArgs = Parameters<typeof updateUser>[1];
 
 class UsersService {
   constructor() {}
@@ -41,7 +44,7 @@ class UsersService {
     const { search, role, status, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.UserWhereInput = {};
+    const where: UserWhereInput = {};
     if (role) where.role = role;
     if (status) where.status = status;
     if (search) {
@@ -95,7 +98,7 @@ class UsersService {
 
     const passwordHash = await hashPassword(input.password);
     // Use repository for user creation
-    const user = await updateUser("new", {
+    const user = await createUser({
       email: input.email,
       password: passwordHash,
       role,
@@ -113,7 +116,7 @@ class UsersService {
       throw notFound("User not found");
     }
 
-    const updates: Prisma.UserUpdateInput = {};
+    const updates: UpdateUserArgs = {};
 
     if (input.email && input.email !== user.email) {
       const emailUsers = await findUsers({ where: { email: input.email } });
@@ -180,18 +183,15 @@ class UsersService {
     // }
   }
 
-  private async fetchRoleDetails(roleNames: string[]): Promise<Map<string, UserRoleInfo>> {
+  private async fetchRoleDetails(roleNames: string[]): Promise<Map<string, UserRoleInfo | undefined>> {
     const uniqueRoles = Array.from(new Set(roleNames)).filter(Boolean);
     if (!uniqueRoles.length) return new Map();
 
     // Placeholder until role lookup is implemented
-    return new Map(uniqueRoles.map((roleName) => [roleName, undefined as UserRoleInfo]));
+    return new Map(uniqueRoles.map((roleName) => [roleName, undefined]));
   }
 
-  private async attachPermissions(
-    user: Prisma.UserGetPayload<{ select: typeof userSelect }>,
-    roleDetails: Map<string, UserRoleInfo>,
-  ): Promise<UserRecord> {
+  private async attachPermissions(user: SelectedUser, roleDetails: Map<string, UserRoleInfo | undefined>): Promise<UserRecord> {
     const { rolesJson, ...base } = user;
     const permissions = await resolvePermissionsForRoleSet(user.role, rolesJson);
     return {

@@ -1,36 +1,10 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
-import { buildPagination } from "../../core/utils/pagination.js";
+import type { InfluencerScoreRecord } from "../../core/db/repositories/influencer-os.repository.js";
+import { influencerOSRepository, mapProfileToScoreRecord } from "../../core/db/repositories/influencer-os.repository.js";
 import type { InfluencerCandidate } from "../../core/ai/engines/influencer.engine.js";
 import { runInfluencerEngine } from "../../core/ai/engines/influencer.engine.js";
 
-export type InfluencerScoreRecord = {
-  id: string;
-  brandId?: string | null;
-  handle: string;
-  displayName?: string | null;
-  platform: string;
-  followers?: number | null;
-  engagementRate?: number | null;
-  fakeFollowerRisk?: number | null;
-  marketFitScore?: number | null;
-  authenticityScore?: number | null;
-  category?: string | null;
-  country?: string | null;
-  language?: string | null;
-  tags?: string | null;
-  status?: string | null;
-  riskNotes?: string | null;
-  score: number;
-  scoreBreakdown: {
-    engagement: number;
-    marketFit: number;
-    authenticity: number;
-    fakeFollowerRisk: number;
-  };
-  latestStat?: Prisma.InfluencerStatSnapshotGetPayload<{ select: typeof statSelect }> | null;
-};
+export type { InfluencerScoreRecord };
 
 type ActionContext = {
   brandId?: string;
@@ -38,21 +12,7 @@ type ActionContext = {
   tenantId?: string;
 };
 
-const statSelect = {
-  id: true,
-  followers: true,
-  engagementRate: true,
-  fakeFollowerPct: true,
-  audienceMatchScore: true,
-  marketFitScore: true,
-  authenticityScore: true,
-  metricsJson: true,
-  collectedAt: true,
-} satisfies Prisma.InfluencerStatSnapshotSelect;
-
 class InfluencerOSService {
-  constructor(private readonly db = prisma) {}
-
   async discover(
     input: {
       brandId?: string;
@@ -68,82 +28,60 @@ class InfluencerOSService {
     const limit = input.limit ?? 10;
     const simulated = this.simulateDiscovery(input.platforms, input.categories, limit);
 
-    const task = await this.db.influencerDiscoveryTask.create({
-      data: {
-        brandId,
-        query: input.query ?? null,
-        categories: input.categories?.join(",") ?? null,
-        platforms: input.platforms?.join(",") ?? null,
-        status: "completed",
-        resultCount: simulated.length,
-        findingsJson: JSON.stringify(simulated),
-        requestedByUserId: context?.actorUserId ?? null,
-      },
+    const task = await influencerOSRepository.createDiscoveryTask({
+      brandId,
+      query: input.query ?? null,
+      categories: input.categories?.join(",") ?? null,
+      platforms: input.platforms?.join(",") ?? null,
+      status: "completed",
+      resultCount: simulated.length,
+      findingsJson: JSON.stringify(simulated),
+      requestedByUserId: context?.actorUserId ?? null,
     });
 
     const influencers: InfluencerScoreRecord[] = [];
     for (const row of simulated) {
-      const existing = await this.db.influencerProfile.findFirst({
-        where: { handle: row.handle, platform: row.platform, brandId },
-        select: { id: true },
+      const existing = await influencerOSRepository.findProfileByHandle({
+        brandId,
+        handle: row.handle,
+        platform: row.platform,
       });
+
+      const profileData = {
+        brandId,
+        handle: row.handle,
+        displayName: row.displayName ?? row.handle,
+        platform: row.platform,
+        followers: row.followers,
+        engagementRate: row.engagementRate,
+        fakeFollowerRisk: row.fakeFollowerRisk,
+        marketFitScore: row.marketFitScore,
+        authenticityScore: row.authenticityScore,
+        category: row.category,
+        country: row.country,
+        language: row.language,
+        contactEmail: row.contactEmail,
+        tags: row.tags?.join(", ") ?? null,
+        profileUrl: row.profileUrl,
+        riskNotes: row.riskNotes,
+      };
 
       const profile = existing
-        ? await this.db.influencerProfile.update({
-            where: { id: existing.id },
-            data: {
-              followers: row.followers,
-              engagementRate: row.engagementRate,
-              fakeFollowerRisk: row.fakeFollowerRisk,
-              marketFitScore: row.marketFitScore,
-              authenticityScore: row.authenticityScore,
-              category: row.category,
-              country: row.country,
-              language: row.language,
-              tags: row.tags?.join(", ") ?? null,
-              displayName: row.displayName,
-              profileUrl: row.profileUrl,
-              riskNotes: row.riskNotes,
-              brandId,
-            },
-            include: { statSnapshots: { select: statSelect, orderBy: { collectedAt: "desc" }, take: 1 } },
-          })
-        : await this.db.influencerProfile.create({
-            data: {
-              brandId,
-              handle: row.handle,
-              displayName: row.displayName ?? row.handle,
-              platform: row.platform,
-              followers: row.followers,
-              engagementRate: row.engagementRate,
-              fakeFollowerRisk: row.fakeFollowerRisk,
-              marketFitScore: row.marketFitScore,
-              authenticityScore: row.authenticityScore,
-              category: row.category,
-              country: row.country,
-              language: row.language,
-              contactEmail: row.contactEmail,
-              tags: row.tags?.join(", ") ?? null,
-              profileUrl: row.profileUrl,
-              riskNotes: row.riskNotes,
-            },
-            include: { statSnapshots: { select: statSelect, orderBy: { collectedAt: "desc" }, take: 1 } },
-          });
+        ? await influencerOSRepository.updateProfile(existing.id, profileData)
+        : await influencerOSRepository.createProfile(profileData);
 
-      await this.db.influencerStatSnapshot.create({
-        data: {
-          influencerId: profile.id,
-          brandId,
-          followers: row.followers,
-          engagementRate: row.engagementRate,
-          fakeFollowerPct: row.fakeFollowerRisk,
-          marketFitScore: row.marketFitScore,
-          authenticityScore: row.authenticityScore,
-          metricsJson: row.metricsJson ? JSON.stringify(row.metricsJson) : null,
-        },
+      const stat = await influencerOSRepository.createStatSnapshot({
+        influencerId: profile.id,
+        brandId,
+        followers: row.followers,
+        engagementRate: row.engagementRate,
+        fakeFollowerPct: row.fakeFollowerRisk,
+        marketFitScore: row.marketFitScore,
+        authenticityScore: row.authenticityScore,
+        metricsJson: row.metricsJson ?? null,
       });
 
-      influencers.push(this.mapProfile(profile, profile.statSnapshots?.[0] ?? null));
+      influencers.push(mapProfileToScoreRecord(profile, stat));
     }
 
     return { taskId: task.id, influencers, sources: ["TikTok Open API", "YouTube Data API", "Instagram Basic API"] };
@@ -154,38 +92,10 @@ class InfluencerOSService {
     context?: ActionContext,
   ) {
     const brandId = context?.brandId ?? params.brandId;
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 20;
-    const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.InfluencerProfileWhereInput = {};
-    if (brandId) where.brandId = brandId;
-    if (params.platform) where.platform = params.platform;
-    if (params.category) where.category = { contains: params.category, mode: "insensitive" };
-    if (params.search) {
-      where.OR = [
-        { handle: { contains: params.search, mode: "insensitive" } },
-        { displayName: { contains: params.search, mode: "insensitive" } },
-        { tags: { contains: params.search, mode: "insensitive" } },
-      ];
-    }
-
-    const [total, rows] = await this.db.$transaction([
-      this.db.influencerProfile.count({ where }),
-      this.db.influencerProfile.findMany({
-        where,
-        include: { statSnapshots: { select: statSelect, orderBy: { collectedAt: "desc" }, take: 1 } },
-        orderBy: { followers: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-
-    return {
-      items: rows.map((row: any) => this.mapProfile(row, row.statSnapshots?.[0] ?? null)),
-      total,
-      page,
-      pageSize: take,
-    };
+    return influencerOSRepository.listScores({
+      ...params,
+      brandId,
+    });
   }
 
   async recommend(
@@ -250,10 +160,7 @@ class InfluencerOSService {
     input: { brandId?: string; influencerId: string; goal?: string; offer?: string; tone?: string },
     context?: ActionContext,
   ) {
-    const influencer = await this.db.influencerProfile.findUnique({
-      where: { id: input.influencerId },
-      include: { statSnapshots: { select: statSelect, orderBy: { collectedAt: "desc" }, take: 1 } },
-    });
+    const influencer = await influencerOSRepository.findInfluencerById(input.influencerId);
     if (!influencer) throw notFound("Influencer not found");
     if (context?.brandId && influencer.brandId && influencer.brandId !== context.brandId) {
       throw badRequest("Influencer belongs to another brand");
@@ -283,16 +190,12 @@ class InfluencerOSService {
 
     const suggestions = engineOutput.negotiation[0]?.suggestions ?? ["Lead with value", "Clarify deliverables"];
 
-    const negotiation = await this.db.influencerNegotiation.create({
-      data: {
-        brandId: context?.brandId ?? influencer.brandId,
-        influencerId: influencer.id,
-        status: "draft",
-        lastSuggestedAt: new Date(),
-        termsJson: JSON.stringify({ goal: input.goal, offer: input.offer, suggestions }),
-        notes: input.offer ?? null,
-      },
-      include: { influencer: true },
+    const negotiation = await influencerOSRepository.createNegotiation({
+      brandId: context?.brandId ?? influencer.brandId,
+      influencerId: influencer.id,
+      status: "draft",
+      terms: { goal: input.goal, offer: input.offer, suggestions },
+      notes: input.offer ?? null,
     });
 
     return {
@@ -308,24 +211,7 @@ class InfluencerOSService {
     context?: ActionContext,
   ) {
     const brandId = context?.brandId ?? params.brandId;
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 20;
-    const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.InfluencerNegotiationWhereInput = {};
-    if (brandId) where.brandId = brandId;
-
-    const [total, rows] = await this.db.$transaction([
-      this.db.influencerNegotiation.count({ where }),
-      this.db.influencerNegotiation.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        include: { influencer: true },
-        skip,
-        take,
-      }),
-    ]);
-
-    return { items: rows, total, page, pageSize: take };
+    return influencerOSRepository.listNegotiations({ brandId, page: params.page, pageSize: params.pageSize });
   }
 
   async createCampaignLink(
@@ -341,31 +227,26 @@ class InfluencerOSService {
     context?: ActionContext,
   ) {
     const brandId = context?.brandId ?? input.brandId ?? null;
-    const influencer = await this.db.influencerProfile.findUnique({ where: { id: input.influencerId } });
+    const influencer = await influencerOSRepository.findInfluencerById(input.influencerId);
     if (!influencer) throw notFound("Influencer not found");
     if (brandId && influencer.brandId && influencer.brandId !== brandId) {
       throw badRequest("Influencer belongs to another brand");
     }
 
     if (input.campaignId) {
-      const campaignExists = await this.db.campaign.findUnique({ where: { id: input.campaignId } });
+      const campaignExists = await influencerOSRepository.findCampaignById(input.campaignId);
       if (!campaignExists) throw notFound("Campaign not found");
     }
 
-    const link = await this.db.influencerCampaignLink.create({
-      data: {
-        brandId,
-        influencerId: influencer.id,
-        campaignId: input.campaignId ?? null,
-        role: input.role ?? null,
-        trackingUrl: input.trackingUrl ?? null,
-        status: input.status ?? "active",
-        performanceJson: input.performance ? JSON.stringify(input.performance) : null,
-      },
-      include: { influencer: true, campaign: true },
+    return influencerOSRepository.createCampaignLink({
+      brandId,
+      influencerId: influencer.id,
+      campaignId: input.campaignId ?? null,
+      role: input.role ?? null,
+      trackingUrl: input.trackingUrl ?? null,
+      status: input.status,
+      performance: input.performance ?? null,
     });
-
-    return link;
   }
 
   async listCampaignLinks(
@@ -373,77 +254,12 @@ class InfluencerOSService {
     context?: ActionContext,
   ) {
     const brandId = context?.brandId ?? params.brandId;
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 20;
-    const { skip, take } = buildPagination({ page, pageSize });
-    const where: Prisma.InfluencerCampaignLinkWhereInput = {};
-    if (brandId) where.brandId = brandId;
-    if (params.status) where.status = params.status;
-
-    const [total, rows] = await this.db.$transaction([
-      this.db.influencerCampaignLink.count({ where }),
-      this.db.influencerCampaignLink.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        include: { influencer: true, campaign: true },
-        skip,
-        take,
-      }),
-    ]);
-
-    return { items: rows, total, page, pageSize: take };
-  }
-
-  private mapProfile(
-    profile: Prisma.InfluencerProfileGetPayload<{ include: { statSnapshots: { select: typeof statSelect; orderBy: { collectedAt: "desc" }; take: 1 } } }> & {
-      statSnapshots?: Prisma.InfluencerStatSnapshotGetPayload<{ select: typeof statSelect }>[];
-    },
-    stat: Prisma.InfluencerStatSnapshotGetPayload<{ select: typeof statSelect }> | null,
-  ): InfluencerScoreRecord {
-    const breakdown = this.computeBreakdown(profile, stat ?? undefined);
-    return {
-      id: profile.id,
-      brandId: profile.brandId ?? undefined,
-      handle: profile.handle,
-      displayName: profile.displayName,
-      platform: profile.platform,
-      followers: profile.followers,
-      engagementRate: stat?.engagementRate ?? profile.engagementRate,
-      fakeFollowerRisk: stat?.fakeFollowerPct ?? profile.fakeFollowerRisk,
-      marketFitScore: stat?.marketFitScore ?? profile.marketFitScore,
-      authenticityScore: stat?.authenticityScore ?? profile.authenticityScore,
-      category: profile.category,
-      country: profile.country,
-      language: profile.language,
-      tags: profile.tags,
-      status: profile.status,
-      riskNotes: profile.riskNotes,
-      score: breakdown.score,
-      scoreBreakdown: breakdown.breakdown,
-      latestStat: stat ?? profile.statSnapshots?.[0] ?? undefined,
-    };
-  }
-
-  private computeBreakdown(
-    profile: { engagementRate?: number | null; marketFitScore?: number | null; authenticityScore?: number | null; fakeFollowerRisk?: number | null },
-    stat?: { engagementRate?: number | null; marketFitScore?: number | null; authenticityScore?: number | null; fakeFollowerPct?: number | null },
-  ) {
-    const engagement = (stat?.engagementRate ?? profile.engagementRate ?? 0) / 10;
-    const marketFit = (stat?.marketFitScore ?? profile.marketFitScore ?? 0) / 10;
-    const authenticity = (stat?.authenticityScore ?? profile.authenticityScore ?? 0.5);
-    const fakeRisk = stat?.fakeFollowerPct ?? profile.fakeFollowerRisk ?? 0;
-    const score = Math.round(
-      Math.max(0, Math.min(100, (0.35 * marketFit + 0.3 * engagement + 0.2 * authenticity + 0.15 * (1 - fakeRisk)) * 100)),
-    );
-    return {
-      score,
-      breakdown: {
-        engagement: Number((engagement * 100).toFixed(1)),
-        marketFit: Number((marketFit * 100).toFixed(1)),
-        authenticity: Number((authenticity * 100).toFixed(1)),
-        fakeFollowerRisk: Number(((fakeRisk ?? 0) * 100).toFixed(1)),
-      },
-    };
+    return influencerOSRepository.listCampaignLinks({
+      brandId,
+      status: params.status,
+      page: params.page,
+      pageSize: params.pageSize,
+    });
   }
 
   private simulateDiscovery(platforms?: string[], categories?: string[], limit = 10) {

@@ -155,3 +155,8 @@ export interface AffiliatePayoutStatusEventPayload {
   status?: AffiliatePayoutStatus;
   metadata?: Record<string, unknown> | null;
 }
+
+export interface AffiliateActionContext {
+  brandId?: string;
+  actorUserId?: string;
+}

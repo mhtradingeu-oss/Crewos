@@ -1,78 +1,6 @@
-// دالة metrics حسب ruleVersion (مطلوبة من explain.service)
-export async function getRuleVersionMetrics({ ruleVersionId, brandId, from, to }: { ruleVersionId: string; brandId: string; from?: Date; to?: Date }): Promise<RuleVersionMetrics | null> {
-	const runs = await prisma.automationRun.findMany({
-		where: {
-			ruleVersionId,
-			...(brandId ? { ruleVersion: { rule: { brandId } } } : {}),
-			...(from && to ? { createdAt: { gte: from, lte: to } } : {}),
-		},
-		select: {
-			id: true,
-			status: true,
-			startedAt: true,
-			finishedAt: true,
-			actionRuns: {
-				select: {
-					id: true,
-					status: true,
-					startedAt: true,
-					finishedAt: true,
-					actionType: true,
-					actionIndex: true,
-					errorJson: true,
-					resultJson: true,
-				},
-			},
-		},
-	});
-	if (!runs.length) return null;
-	const totalRuns = runs.length;
-	const totalActionRuns = runs.reduce((sum, r) => sum + r.actionRuns.length, 0);
-	const runSuccesses = runs.filter(r => r.status === "SUCCESS").length;
-	const actionRuns = runs.flatMap(r => r.actionRuns);
-	const actionSuccesses = actionRuns.filter(a => a.status === "SUCCESS").length;
-	const runLatencies = runs.filter(r => r.startedAt && r.finishedAt).map(r => new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime());
-	const actionLatencies = actionRuns.filter(a => a.startedAt && a.finishedAt).map(a => new Date(a.finishedAt!).getTime() - new Date(a.startedAt!).getTime());
-	const latency = computeLatencyMetrics([...runLatencies, ...actionLatencies]);
-	const failureCounts: Record<string, number> = {};
-	for (const a of actionRuns) {
-		if (a.status !== "SUCCESS") {
-			let errorCode = undefined;
-			let errorMessage = undefined;
-			let runnerType = undefined;
-			let gateResult = undefined;
-			if (a.errorJson && isPlainObject(a.errorJson)) {
-				const err = a.errorJson as Record<string, unknown>;
-				errorCode = (err["code"] ?? err["errorCode"]) as string | undefined;
-				errorMessage = (err["message"] ?? err["errorMessage"]) as string | undefined;
-				runnerType = err["runnerType"] as string | undefined;
-				gateResult = err["gateResult"] as string | undefined;
-			}
-			const cat = classifyFailure({ errorCode, errorMessage, runnerType, gateResult });
-			failureCounts[cat] = (failureCounts[cat] || 0) + 1;
-		}
-	}
-	return {
-		ruleVersionId,
-		totalRuns,
-		totalActionRuns,
-		runSuccessRate: computeSuccessRate(runSuccesses, totalRuns),
-		actionSuccessRate: computeSuccessRate(actionSuccesses, totalActionRuns),
-		latency,
-		failureCounts,
-	};
-}
-// Utility to check for plain object
-function isPlainObject(val: unknown): val is Record<string, unknown> {
-	return !!val && typeof val === "object" && !Array.isArray(val);
-}
-// Observability service for Automation OS (Phase 7.1)
-// Strictly read-only. See system prompt for architectural constraints.
-
-
-import { prisma } from "../../core/prisma.js";
 import { computeLatencyMetrics, computeSuccessRate } from "../../core/observability/metrics.js";
 import { classifyFailure } from "../../core/observability/failure-classifier.js";
+import { findAutomationRunsWithActionRuns } from "../../core/db/repositories/automation.repository.js";
 import type {
 	AutomationObservabilitySummary,
 	RuleVersionMetrics,
@@ -81,35 +9,61 @@ import type {
 	TopAction,
 } from "./automation.observability.types.js";
 
+type AutomationRunForObservability = Awaited<
+	ReturnType<typeof findAutomationRunsWithActionRuns>
+>[number];
+type AutomationActionRunForObservability = AutomationRunForObservability["actionRuns"][number];
 
-export async function getSummary(params: { brandId: string; from: Date; to: Date }): Promise<AutomationObservabilitySummary> {
-	const runs = await prisma.automationRun.findMany({
-		where: {
-			ruleVersion: {
-				rule: {
-					brandId: params.brandId,
-				},
-			},
-			createdAt: { gte: params.from, lte: params.to },
-		},
-		select: {
-			id: true,
-			status: true,
-			startedAt: true,
-			finishedAt: true,
-			actionRuns: {
-				select: {
-					id: true,
-					status: true,
-					startedAt: true,
-					finishedAt: true,
-					actionType: true,
-					actionIndex: true,
-					errorJson: true,
-					resultJson: true,
-				},
-			},
-		},
+// Observability service for Automation OS (Phase 7.1)
+// Strictly read-only. See system prompt for architectural constraints.
+
+export async function getRuleVersionMetrics(params: {
+	ruleVersionId: string;
+	brandId?: string;
+	from?: Date;
+	to?: Date;
+}): Promise<RuleVersionMetrics | null> {
+	const runs = await findAutomationRunsWithActionRuns({
+		ruleVersionId: params.ruleVersionId,
+		brandId: params.brandId,
+		from: params.from,
+		to: params.to,
+	});
+	if (!runs.length) return null;
+
+	const totalRuns = runs.length;
+	const totalActionRuns = runs.reduce((sum, r) => sum + r.actionRuns.length, 0);
+	const runSuccesses = runs.filter((r) => r.status === "SUCCESS").length;
+	const actionRuns = runs.flatMap((r) => r.actionRuns);
+	const actionSuccesses = actionRuns.filter((a) => a.status === "SUCCESS").length;
+	const runLatencies = runs
+		.filter((r) => r.startedAt && r.finishedAt)
+		.map((r) => new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime());
+	const actionLatencies = actionRuns
+		.filter((a) => a.startedAt && a.finishedAt)
+		.map((a) => new Date(a.finishedAt!).getTime() - new Date(a.startedAt!).getTime());
+	const latency = computeLatencyMetrics([...runLatencies, ...actionLatencies]);
+
+	return {
+		ruleVersionId: params.ruleVersionId,
+		totalRuns,
+		totalActionRuns,
+		runSuccessRate: computeSuccessRate(runSuccesses, totalRuns),
+		actionSuccessRate: computeSuccessRate(actionSuccesses, totalActionRuns),
+		latency,
+		failureCounts: collectFailureCounts(actionRuns),
+	};
+}
+
+export async function getSummary(params: {
+	brandId: string;
+	from: Date;
+	to: Date;
+}): Promise<AutomationObservabilitySummary> {
+	const runs = await findAutomationRunsWithActionRuns({
+		brandId: params.brandId,
+		from: params.from,
+		to: params.to,
 	});
 
 	if (!runs.length) {
@@ -127,39 +81,17 @@ export async function getSummary(params: { brandId: string; from: Date; to: Date
 
 	const totalRuns = runs.length;
 	const totalActionRuns = runs.reduce((sum, r) => sum + r.actionRuns.length, 0);
-	const runSuccesses = runs.filter(r => r.status === "SUCCESS").length;
-	const actionRuns = runs.flatMap(r => r.actionRuns);
-	const actionSuccesses = actionRuns.filter(a => a.status === "SUCCESS").length;
+	const runSuccesses = runs.filter((r) => r.status === "SUCCESS").length;
+	const actionRuns = runs.flatMap((r) => r.actionRuns);
+	const actionSuccesses = actionRuns.filter((a) => a.status === "SUCCESS").length;
 	const runLatencies = runs
-		.filter(r => r.startedAt && r.finishedAt)
-		.map(r => new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime());
+		.filter((r) => r.startedAt && r.finishedAt)
+		.map((r) => new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime());
 	const actionLatencies = actionRuns
-		.filter(a => a.startedAt && a.finishedAt)
-		.map(a => new Date(a.finishedAt!).getTime() - new Date(a.startedAt!).getTime());
+		.filter((a) => a.startedAt && a.finishedAt)
+		.map((a) => new Date(a.finishedAt!).getTime() - new Date(a.startedAt!).getTime());
 	const latency = computeLatencyMetrics([...runLatencies, ...actionLatencies]);
-	const failureCounts: Record<string, number> = {};
-	for (const a of actionRuns) {
-		if (a.status !== "SUCCESS") {
-			let errorCode = undefined;
-			let errorMessage = undefined;
-			let runnerType = undefined;
-			let gateResult = undefined;
-			if (a.errorJson && isPlainObject(a.errorJson)) {
-				const err = a.errorJson as Record<string, unknown>;
-				errorCode = (err["code"] ?? err["errorCode"]) as string | undefined;
-				errorMessage = (err["message"] ?? err["errorMessage"]) as string | undefined;
-				runnerType = err["runnerType"] as string | undefined;
-				gateResult = err["gateResult"] as string | undefined;
-			}
-			const cat = classifyFailure({
-				errorCode,
-				errorMessage,
-				runnerType,
-				gateResult,
-			});
-			failureCounts[cat] = (failureCounts[cat] || 0) + 1;
-		}
-	}
+
 	return {
 		brandId: params.brandId,
 		timeRange: { from: params.from, to: params.to },
@@ -168,137 +100,138 @@ export async function getSummary(params: { brandId: string; from: Date; to: Date
 		runSuccessRate: computeSuccessRate(runSuccesses, totalRuns),
 		actionSuccessRate: computeSuccessRate(actionSuccesses, totalActionRuns),
 		latency,
-		failureCounts,
+		failureCounts: collectFailureCounts(actionRuns),
 	};
 }
 
-// (Removed duplicate and incomplete getRuleVersionMetrics definition.)
-// The correct implementation should be defined elsewhere in this file, or you can move the inner function here if needed.
-
-export async function getFailureBreakdown(params: { brandId: string; from: Date; to: Date; groupBy?: "category" | "actionRunner" | "errorCode" }): Promise<FailureBreakdown> {
-	const runs = await prisma.automationRun.findMany({
-		where: {
-			ruleVersion: {
-				rule: {
-					brandId: params.brandId,
-				},
-			},
-			createdAt: { gte: params.from, lte: params.to },
-		},
-		select: {
-			actionRuns: {
-				select: {
-					status: true,
-					actionType: true,
-					actionIndex: true,
-					errorJson: true,
-				},
-			},
-		},
+export async function getFailureBreakdown(params: {
+	brandId: string;
+	from: Date;
+	to: Date;
+	groupBy?: "category" | "actionRunner" | "errorCode";
+}): Promise<FailureBreakdown> {
+	const runs = await findAutomationRunsWithActionRuns({
+		brandId: params.brandId,
+		from: params.from,
+		to: params.to,
 	});
 
-	if (!runs.length) {
-		return { byCategory: {}, byActionRunner: {}, byErrorCode: {} };
-	}
+	const actionRuns = runs.flatMap((r) => r.actionRuns).filter((a) => a.status !== "SUCCESS");
+	if (!actionRuns.length) return { byCategory: {}, byActionRunner: {}, byErrorCode: {} };
 
-	const actionRuns = runs.flatMap(r => r.actionRuns).filter(a => a.status !== "SUCCESS");
 	const byCategory: Record<string, number> = {};
 	const byActionRunner: Record<string, number> = {};
 	const byErrorCode: Record<string, number> = {};
-	for (const a of actionRuns) {
-		let errorCode = undefined;
-		let errorMessage = undefined;
-		let runnerType = undefined;
-		let gateResult = undefined;
-		if (a.errorJson && isPlainObject(a.errorJson)) {
-			const err = a.errorJson as Record<string, unknown>;
-			errorCode = (err["code"] ?? err["errorCode"]) as string | undefined;
-			errorMessage = (err["message"] ?? err["errorMessage"]) as string | undefined;
-			runnerType = err["runnerType"] as string | undefined;
-			gateResult = err["gateResult"] as string | undefined;
+	for (const actionRun of actionRuns) {
+		const metadata = extractFailureMetadata(actionRun);
+		const category = classifyFailure(metadata);
+		byCategory[category] = (byCategory[category] || 0) + 1;
+		if (metadata.runnerType) {
+			byActionRunner[metadata.runnerType] = (byActionRunner[metadata.runnerType] || 0) + 1;
 		}
-		const cat = classifyFailure({
-			errorCode,
-			errorMessage,
-			runnerType,
-			gateResult,
-		});
-		byCategory[cat] = (byCategory[cat] || 0) + 1;
-		if (runnerType) byActionRunner[runnerType] = (byActionRunner[runnerType] || 0) + 1;
-		if (errorCode) byErrorCode[errorCode] = (byErrorCode[errorCode] || 0) + 1;
+		if (metadata.errorCode) {
+			byErrorCode[metadata.errorCode] = (byErrorCode[metadata.errorCode] || 0) + 1;
+		}
 	}
 	return { byCategory, byActionRunner, byErrorCode };
 }
 
-export async function getTop(params: { brandId: string; from: Date; to: Date; by: "failures" | "latency" | "volume"; limit: number }): Promise<{ ruleVersions: TopRuleVersion[]; actions: TopAction[] }> {
-	const runs = await prisma.automationRun.findMany({
-		where: {
-			ruleVersion: {
-				rule: {
-					brandId: params.brandId,
-				},
-			},
-			createdAt: { gte: params.from, lte: params.to },
-		},
-		select: {
-			ruleVersionId: true,
-			id: true,
-			startedAt: true,
-			finishedAt: true,
-			status: true,
-			actionRuns: {
-				select: {
-					id: true,
-					actionType: true,
-					actionIndex: true,
-					status: true,
-					startedAt: true,
-					finishedAt: true,
-				},
-			},
-		},
+export async function getTop(params: {
+	brandId: string;
+	from: Date;
+	to: Date;
+	by: "failures" | "latency" | "volume";
+	limit: number;
+}): Promise<{ ruleVersions: TopRuleVersion[]; actions: TopAction[] }> {
+	const runs = await findAutomationRunsWithActionRuns({
+		brandId: params.brandId,
+		from: params.from,
+		to: params.to,
 	});
 
 	if (!runs.length) {
 		return { ruleVersions: [], actions: [] };
 	}
 
-	// Aggregate by ruleVersion
 	const ruleVersionMap = new Map<string, { failures: number; latency: number[]; volume: number }>();
-	for (const r of runs) {
-		if (!ruleVersionMap.has(r.ruleVersionId)) ruleVersionMap.set(r.ruleVersionId, { failures: 0, latency: [], volume: 0 });
-		const entry = ruleVersionMap.get(r.ruleVersionId)!;
-		entry.volume++;
-		if (r.status !== "SUCCESS") entry.failures++;
-		if (r.startedAt && r.finishedAt) entry.latency.push(new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime());
-	}
-	let ruleVersions: TopRuleVersion[] = Array.from(ruleVersionMap.entries()).map(([ruleVersionId, v]) => ({
-		ruleVersionId,
-		failures: v.failures,
-		latency: v.latency.length ? v.latency.reduce((a, b) => a + b, 0) / v.latency.length : 0,
-		volume: v.volume,
-	}));
-	// Aggregate by action (actionType + actionIndex as unique key)
-	const actionMap = new Map<string, { failures: number; latency: number[]; volume: number }>();
-	for (const r of runs) {
-		for (const a of r.actionRuns) {
-			const actionKey = `${a.actionType ?? "unknown"}#${a.actionIndex ?? 0}`;
-			if (!actionMap.has(actionKey)) actionMap.set(actionKey, { failures: 0, latency: [], volume: 0 });
-			const entry = actionMap.get(actionKey)!;
-			entry.volume++;
-			if (a.status !== "SUCCESS") entry.failures++;
-			if (a.startedAt && a.finishedAt) entry.latency.push(new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime());
+	for (const run of runs) {
+		if (!ruleVersionMap.has(run.ruleVersionId)) {
+			ruleVersionMap.set(run.ruleVersionId, { failures: 0, latency: [], volume: 0 });
+		}
+		const entry = ruleVersionMap.get(run.ruleVersionId)!;
+		entry.volume += 1;
+		if (run.status !== "SUCCESS") entry.failures += 1;
+		if (run.startedAt && run.finishedAt) {
+			entry.latency.push(new Date(run.finishedAt!).getTime() - new Date(run.startedAt!).getTime());
 		}
 	}
-	let actions: TopAction[] = Array.from(actionMap.entries()).map(([actionId, v]) => ({
-		actionId,
-		failures: v.failures,
-		latency: v.latency.length ? v.latency.reduce((a, b) => a + b, 0) / v.latency.length : 0,
-		volume: v.volume,
+
+	const ruleVersions: TopRuleVersion[] = Array.from(ruleVersionMap.entries()).map(([ruleVersionId, summary]) => ({
+		ruleVersionId,
+		failures: summary.failures,
+		latency: summary.latency.length ? summary.latency.reduce((a, b) => a + b, 0) / summary.latency.length : 0,
+		volume: summary.volume,
 	}));
-	// Sort and limit
+
+	const actionMap = new Map<string, { failures: number; latency: number[]; volume: number }>();
+	for (const run of runs) {
+		for (const actionRun of run.actionRuns) {
+			const actionKey = `${actionRun.actionType ?? "unknown"}#${actionRun.actionIndex ?? 0}`;
+			if (!actionMap.has(actionKey)) {
+				actionMap.set(actionKey, { failures: 0, latency: [], volume: 0 });
+			}
+			const summary = actionMap.get(actionKey)!;
+			summary.volume += 1;
+			if (actionRun.status !== "SUCCESS") summary.failures += 1;
+			if (actionRun.startedAt && actionRun.finishedAt) {
+				summary.latency.push(new Date(actionRun.finishedAt!).getTime() - new Date(actionRun.startedAt!).getTime());
+			}
+		}
+	}
+
+	let actions: TopAction[] = Array.from(actionMap.entries()).map(([actionId, summary]) => ({
+		actionId,
+		failures: summary.failures,
+		latency: summary.latency.length
+			? summary.latency.reduce((a, b) => a + b, 0) / summary.latency.length
+			: 0,
+		volume: summary.volume,
+	}));
+
 	const sortKey = params.by;
-	ruleVersions = ruleVersions.sort((a, b) => b[sortKey] - a[sortKey]).slice(0, params.limit);
+	const sortedRuleVersions = ruleVersions.sort((a, b) => b[sortKey] - a[sortKey]).slice(0, params.limit);
 	actions = actions.sort((a, b) => b[sortKey] - a[sortKey]).slice(0, params.limit);
-	return { ruleVersions, actions };
+	return { ruleVersions: sortedRuleVersions, actions };
+}
+
+function collectFailureCounts(actionRuns: AutomationActionRunForObservability[]): Record<string, number> {
+	const counts: Record<string, number> = {};
+	for (const actionRun of actionRuns) {
+		if (actionRun.status === "SUCCESS") continue;
+		const metadata = extractFailureMetadata(actionRun);
+		const category = classifyFailure(metadata);
+		counts[category] = (counts[category] || 0) + 1;
+	}
+	return counts;
+}
+
+function extractFailureMetadata(actionRun: AutomationActionRunForObservability) {
+	let errorCode: string | undefined;
+	let errorMessage: string | undefined;
+	let runnerType: string | undefined;
+	let gateResult: string | undefined;
+
+	if (actionRun.errorJson && isPlainObject(actionRun.errorJson)) {
+		const err = actionRun.errorJson as Record<string, unknown>;
+		errorCode = (err["code"] ?? err["errorCode"]) as string | undefined;
+		errorMessage = (err["message"] ?? err["errorMessage"]) as string | undefined;
+		runnerType = err["runnerType"] as string | undefined;
+		gateResult = err["gateResult"] as string | undefined;
+	}
+
+	return { errorCode, errorMessage, runnerType, gateResult };
+}
+
+function isPlainObject(val: unknown): val is Record<string, unknown> {
+	return !!val && typeof val === "object" && !Array.isArray(val);
 }

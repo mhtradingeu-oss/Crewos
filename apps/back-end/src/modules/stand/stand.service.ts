@@ -3,8 +3,6 @@
  * Spec: docs/os/09_stand-program.md (MASTER_INDEX)
  */
 
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../core/prisma.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
@@ -18,42 +16,29 @@ import type {
   StandPartnerUpdateInput,
   StandDashboardSummary,
 } from "./stand.types.js";
+import { standRepository, StandPartnerRecord } from "../../core/db/repositories/stand.repository.js";
 
-// ------------------------------------------------------
-// SELECT SHAPE
-// ------------------------------------------------------
-const standPartnerSelect = {
-  id: true,
-  brandId: true,
-  partnerId: true,
-  standType: true,
-  locationAddress: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-  partner: {
-    select: {
-      id: true,
-      name: true,
-      city: true,
-      country: true,
-    },
-  },
-} satisfies Prisma.StandPartnerSelect;
+const {
+  aggregateStandStats,
+  createStandPartner: createStandPartnerRecord,
+  deactivateStandPartner: deactivateStandPartnerRecord,
+  findBrandPartnerByIds,
+  getDashboardSummary: getDashboardSummaryRecord,
+  getStandPartnerById: getStandPartnerRecord,
+  listStandPartners: listStandPartnerRecords,
+  updateStandPartner: updateStandPartnerRecord,
+} = standRepository;
 
-// ------------------------------------------------------
-// DTO MAPPER
-// ------------------------------------------------------
-function mapStandPartner(
-  record: Prisma.StandPartnerGetPayload<{ select: typeof standPartnerSelect }>,
-): StandPartnerDTO {
+type StandPartnerWhereInput = Parameters<typeof listStandPartnerRecords>[0];
+
+function mapStandPartner(record: StandPartnerRecord): StandPartnerDTO {
   const brandIdValue: string | null = record.brandId ?? null;
   return {
     id: record.id,
     brandId: brandIdValue,
     partnerId: record.partnerId,
-      standType: record.standType ?? undefined,
-      locationAddress: record.locationAddress ?? undefined,
+    standType: record.standType ?? undefined,
+    locationAddress: record.locationAddress ?? undefined,
     status: record.status ?? null,
 
     createdAt: record.createdAt,
@@ -68,101 +53,11 @@ function mapStandPartner(
 }
 
 // ------------------------------------------------------
-// STATS AGGREGATOR (fixed brandId logic)
-// ------------------------------------------------------
-/**
- * Important fix:
- * StandUnit DOES NOT have brandId → must filter via StandPartner.brandId
- * StandOrder DOES NOT store brandId necessarily → must filter on standPartnerId
- */
-async function aggregateStandStats(
-  standPartnerIds: string[],
-  brandId: string,
-): Promise<Map<string, StandPartnerStatsDTO>> {
-  if (!standPartnerIds.length) return new Map();
-
-  // Units per standPartner
-  const unitGroups = await prisma.standUnit.groupBy({
-    by: ["standPartnerId"],
-    _count: { _all: true },
-    where: {
-      standPartnerId: { in: standPartnerIds },
-      // brandId filter happens on StandPartner, not standUnit
-      standPartner: { brandId },
-    },
-  });
-
-  // Orders per standPartner
-  const orderGroups = await prisma.standOrder.groupBy({
-    by: ["standPartnerId"],
-    _count: { _all: true },
-    _sum: { total: true },
-    _max: { createdAt: true },
-    where: {
-      standPartnerId: { in: standPartnerIds },
-      brandId, // StandOrder DOES HAVE brandId
-    },
-  });
-
-  const stats = new Map<string, StandPartnerStatsDTO>();
-
-  // Units
-    for (const row of unitGroups) {
-      stats.set(row.standPartnerId, {
-        standPartnerId: row.standPartnerId,
-        totalUnits: row._count._all,
-        totalOrders: 0,
-        totalRevenue: 0,
-        lastOrderAt: null,
-      });
-    }
-
-  // Orders
-    for (const row of orderGroups) {
-      const base = stats.get(row.standPartnerId) ?? {
-        standPartnerId: row.standPartnerId,
-        totalUnits: 0,
-        totalOrders: 0,
-        totalRevenue: 0,
-        lastOrderAt: null,
-      };
-    base.totalOrders = row._count._all;
-    base.totalRevenue = Number(row._sum.total ?? 0);
-    base.lastOrderAt = row._max.createdAt ?? null;
-    stats.set(row.standPartnerId, base);
-  }
-
-  return stats;
-}
-
-// ------------------------------------------------------
 // MAIN SERVICE
 // ------------------------------------------------------
 export const standService = {
   async getDashboardSummary(brandId: string): Promise<StandDashboardSummary> {
-    const [totalPartners, activePartners, unitAgg, orderAgg] = await prisma.$transaction([
-      prisma.standPartner.count({ where: { brandId } }),
-      prisma.standPartner.count({ where: { brandId, status: "ACTIVE" } }),
-      prisma.standUnit.aggregate({
-        where: { standPartner: { brandId } },
-        _count: { id: true },
-      }),
-      prisma.standOrder.aggregate({
-        where: { brandId },
-        _count: { id: true },
-        _sum: { total: true },
-        _max: { createdAt: true },
-      }),
-    ]);
-
-    return {
-      totalPartners,
-      activePartners,
-      totalUnits: unitAgg._count.id ?? 0,
-      totalOrders: orderAgg._count.id ?? 0,
-      totalRevenue: Number(orderAgg._sum.total ?? 0),
-      lastOrderAt: orderAgg._max.createdAt ?? null,
-    };
+    return getDashboardSummaryRecord(brandId);
   },
 
   // ------------------------------------------
@@ -172,7 +67,7 @@ export const standService = {
     const { brandId, search, status, page = 1, pageSize = 20 } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.StandPartnerWhereInput = { brandId };
+    const where: StandPartnerWhereInput = { brandId };
 
     if (status) where.status = status;
 
@@ -185,19 +80,10 @@ export const standService = {
       ];
     }
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.standPartner.count({ where }),
-      prisma.standPartner.findMany({
-        where,
-        select: standPartnerSelect,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-      }),
-    ]);
+    const [total, rows] = await listStandPartnerRecords(where, skip, take);
 
     const stats = await aggregateStandStats(
-      rows.map((r) => r.id),
+      rows.map((row) => row.id),
       brandId,
     );
 
@@ -205,9 +91,9 @@ export const standService = {
       total,
       page,
       pageSize: take,
-      items: rows.map((r) => ({
-        ...mapStandPartner(r),
-        stats: stats.get(r.id),
+      items: rows.map((row) => ({
+        ...mapStandPartner(row),
+        stats: stats.get(row.id),
       })),
     };
   },
@@ -216,10 +102,7 @@ export const standService = {
   // GET ONE
   // ------------------------------------------
   async getStandPartnerById(id: string, brandId: string): Promise<StandPartnerDTO | null> {
-    const record = await prisma.standPartner.findFirst({
-      where: { id, brandId },
-      select: standPartnerSelect,
-    });
+    const record = await getStandPartnerRecord(id, brandId);
     if (!record) return null;
 
     const stats = await aggregateStandStats([id], brandId);
@@ -233,21 +116,15 @@ export const standService = {
   // CREATE
   // ------------------------------------------
   async createStandPartner(input: StandPartnerCreateInput): Promise<StandPartnerDTO> {
-    const partner = await prisma.partner.findFirst({
-      where: { id: input.partnerId, brandId: input.brandId },
-      select: { id: true },
-    });
+    const partner = await findBrandPartnerByIds(input.partnerId, input.brandId);
     if (!partner) throw notFound("Partner not found for this brand");
 
-    const created = await prisma.standPartner.create({
-      data: {
-        brandId: input.brandId,
-        partnerId: input.partnerId,
-        standType: input.standType ?? null,
-        locationAddress: input.locationAddress ?? null,
-        status: "ACTIVE",
-      },
-      select: standPartnerSelect,
+    const created = await createStandPartnerRecord({
+      brandId: input.brandId,
+      partnerId: input.partnerId,
+      standType: input.standType ?? null,
+      locationAddress: input.locationAddress ?? null,
+      status: "ACTIVE",
     });
 
     logger.info(`[stand] Created stand partner ${created.id}`);
@@ -262,17 +139,13 @@ export const standService = {
     brandId: string,
     input: StandPartnerUpdateInput,
   ): Promise<StandPartnerDTO> {
-    const existing = await prisma.standPartner.findFirst({ where: { id, brandId } });
+    const existing = await getStandPartnerRecord(id, brandId);
     if (!existing) throw notFound("Stand partner not found");
 
-    const updated = await prisma.standPartner.update({
-      where: { id },
-      data: {
-        standType: input.standType ?? existing.standType,
-        locationAddress: input.locationAddress ?? existing.locationAddress,
-        status: input.status ?? existing.status,
-      },
-      select: standPartnerSelect,
+    const updated = await updateStandPartnerRecord(id, {
+      standType: input.standType ?? existing.standType,
+      locationAddress: input.locationAddress ?? existing.locationAddress,
+      status: input.status ?? existing.status,
     });
 
     logger.info(`[stand] Updated stand partner ${updated.id}`);
@@ -283,15 +156,10 @@ export const standService = {
   // DEACTIVATE
   // ------------------------------------------
   async deactivateStandPartner(id: string, brandId: string): Promise<StandPartnerDTO> {
-    const existing = await prisma.standPartner.findFirst({ where: { id, brandId } });
+    const existing = await getStandPartnerRecord(id, brandId);
     if (!existing) throw notFound("Stand partner not found");
 
-    const updated = await prisma.standPartner.update({
-      where: { id },
-      data: { status: "INACTIVE" },
-      select: standPartnerSelect,
-    });
-
+    const updated = await deactivateStandPartnerRecord(id);
     logger.info(`[stand] Deactivated stand partner ${updated.id}`);
     return mapStandPartner(updated);
   },
@@ -300,10 +168,7 @@ export const standService = {
   // STATS
   // ------------------------------------------
   async getStandPartnerStats(id: string, brandId: string): Promise<StandPartnerStatsDTO> {
-    const record = await prisma.standPartner.findFirst({
-      where: { id, brandId },
-      select: { id: true },
-    });
+    const record = await getStandPartnerRecord(id, brandId);
     if (!record) throw notFound("Stand partner not found");
 
     const stats = await aggregateStandStats([id], brandId);
