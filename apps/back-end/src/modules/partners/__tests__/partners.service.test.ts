@@ -1,10 +1,20 @@
-import { partnersService } from "../partners.service.js";
-import { partnersRepository } from "../../../core/db/repositories/partners.repository.js";
+import { partnersService } from "../partners.service";
+import { partnersRepository } from "../../../core/db/repositories/partners.repository";
+import { Decimal } from "@prisma/client/runtime/library.js";
+import type {
+  PartnerContractRecord,
+  PartnerMinimalRecord,
+  PartnerPricingRecord,
+  PartnerRecord,
+  PartnerUserRecord as PartnerUserDbRecord,
+} from "../../../core/db/repositories/partners.repository";
 
-const basePartner = {
+const baseBrandId = "brand-abc";
+
+const basePartner: PartnerMinimalRecord = {
   id: "partner-1",
-  brandId: "brand-abc",
-} as const;
+  brandId: baseBrandId,
+};
 
 const now = new Date();
 
@@ -15,7 +25,7 @@ afterEach(() => {
 describe("partners service", () => {
   it("creates a partner under the requested brand and normalizes location", async () => {
     const createInput = {
-      brandId: basePartner.brandId,
+      brandId: baseBrandId,
       type: "RESELLER" as const,
       name: "North Star",
       country: "  United  States  ",
@@ -24,13 +34,13 @@ describe("partners service", () => {
       status: "ACTIVE" as const,
     };
 
-    jest.spyOn(partnersRepository, "getBrandById").mockResolvedValue({ id: createInput.brandId } as any);
     jest
-      .spyOn(partnersRepository, "getTierForBrand")
-      .mockResolvedValue({ id: createInput.tierId, brandId: createInput.brandId } as any);
+      .spyOn(partnersRepository, "getBrandById")
+      .mockResolvedValue({ id: createInput.brandId, defaultCurrency: "EUR" });
+    jest.spyOn(partnersRepository, "getTierForBrand").mockResolvedValue({ id: createInput.tierId });
     jest.spyOn(partnersRepository, "findPartnerByName").mockResolvedValue(null);
 
-    const createdPartner = {
+    const createdPartner: PartnerRecord = {
       ...basePartner,
       type: createInput.type,
       name: createInput.name,
@@ -38,12 +48,12 @@ describe("partners service", () => {
       city: "New York",
       status: "ACTIVE",
       tierId: createInput.tierId,
-      tier: { name: "Gold" },
+      tier: { id: createInput.tierId, name: "Gold" },
       createdAt: now,
       updatedAt: now,
     };
 
-    const createSpy = jest.spyOn(partnersRepository, "createPartner").mockResolvedValue(createdPartner as any);
+    const createSpy = jest.spyOn(partnersRepository, "createPartner").mockResolvedValue(createdPartner);
 
     const result = await partnersService.create(createInput);
 
@@ -68,33 +78,34 @@ describe("partners service", () => {
 
   describe("partner contracts", () => {
     const contractTerms = { clauses: ["deliver"] };
-    const contractRow = {
+    const contractStartDate = new Date("2025-01-01T00:00:00.000Z");
+    const contractRow: PartnerContractRecord = {
       id: "contract-1",
       partnerId: basePartner.id,
-      startDate: "2025-01-01T00:00:00.000Z",
+      startDate: contractStartDate,
       endDate: null,
       termsJson: JSON.stringify(contractTerms),
       createdAt: now,
       updatedAt: now,
-      partner: { brandId: basePartner.brandId },
+      partner: { brandId: baseBrandId },
     };
 
     it("serializes terms when creating a contract", async () => {
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
+      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
       const contractSpy = jest
         .spyOn(partnersRepository, "createOrUpdatePartnerContractAtomic")
-        .mockResolvedValue(contractRow as any);
+        .mockResolvedValue(contractRow);
 
       const result = await partnersService.createPartnerContract({
         partnerId: basePartner.id,
-        brandId: basePartner.brandId,
+        brandId: baseBrandId,
         terms: contractTerms,
       });
 
       expect(contractSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           contractId: null,
-          data: expect.objectContaining({
+          createData: expect.objectContaining({
             termsJson: JSON.stringify(contractTerms),
           }),
         }),
@@ -104,24 +115,25 @@ describe("partners service", () => {
 
     it("updates a contract while preserving JSON terms", async () => {
       const updatedTerms = { clauses: ["deliver", "measure"] };
-      const contractBefore = { ...contractRow, termsJson: JSON.stringify(contractTerms) };
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
-      jest.spyOn(partnersRepository, "getPartnerContract").mockResolvedValue(contractBefore as any);
+      const contractBefore: PartnerContractRecord = { ...contractRow, termsJson: JSON.stringify(contractTerms) };
+      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
+      jest.spyOn(partnersRepository, "getPartnerContract").mockResolvedValue(contractBefore);
+      const updatedContract: PartnerContractRecord = { ...contractRow, termsJson: JSON.stringify(updatedTerms) };
       const contractSpy = jest
         .spyOn(partnersRepository, "createOrUpdatePartnerContractAtomic")
-        .mockResolvedValue({ ...contractRow, termsJson: JSON.stringify(updatedTerms) } as any);
+        .mockResolvedValue(updatedContract);
 
       const result = await partnersService.updatePartnerContract(
         contractRow.id,
         basePartner.id,
-        basePartner.brandId,
+        baseBrandId,
         { terms: updatedTerms, startDate: "2025-02-01" },
       );
 
       expect(contractSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           contractId: contractRow.id,
-          data: expect.objectContaining({
+          updateData: expect.objectContaining({
             termsJson: JSON.stringify(updatedTerms),
           }),
         }),
@@ -134,24 +146,24 @@ describe("partners service", () => {
     const productId = "product-9";
 
     it("enforces brand ownership before upserting pricing", async () => {
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
-      jest.spyOn(partnersRepository, "getProductForBrand").mockResolvedValue({ id: productId, brandId: basePartner.brandId } as any);
-      jest.spyOn(partnersRepository, "getBrandCurrency").mockResolvedValue({ defaultCurrency: "EUR" } as any);
-      const upsertSpy = jest
-        .spyOn(partnersRepository, "upsertPartnerPricingAtomic")
-        .mockResolvedValue({
-          id: "pricing-1",
-          partnerId: basePartner.id,
-          productId,
-          netPrice: 120,
-          currency: "EUR",
-          createdAt: now,
-          updatedAt: now,
-        } as any);
+    jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
+    jest.spyOn(partnersRepository, "getProductForBrand").mockResolvedValue({ id: productId });
+    jest.spyOn(partnersRepository, "getBrandCurrency").mockResolvedValue({ defaultCurrency: "EUR" });
+    const pricingRecord: PartnerPricingRecord = {
+      id: "pricing-1",
+      partnerId: basePartner.id,
+      productId,
+      netPrice: new Decimal(120),
+      currency: "EUR",
+      createdAt: now,
+      updatedAt: now,
+      product: { name: "Widget" },
+    };
+    const upsertSpy = jest.spyOn(partnersRepository, "upsertPartnerPricingAtomic").mockResolvedValue(pricingRecord);
 
       const result = await partnersService.upsertPartnerPricing({
         partnerId: basePartner.id,
-        brandId: basePartner.brandId,
+        brandId: baseBrandId,
         productId,
         netPrice: 120,
       });
@@ -168,13 +180,13 @@ describe("partners service", () => {
     });
 
     it("rejects pricing upserts when the product is not part of the brand", async () => {
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
+      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
       jest.spyOn(partnersRepository, "getProductForBrand").mockResolvedValue(null);
 
       await expect(
         partnersService.upsertPartnerPricing({
           partnerId: basePartner.id,
-          brandId: basePartner.brandId,
+          brandId: baseBrandId,
           productId,
           netPrice: 90,
         }),
@@ -185,22 +197,23 @@ describe("partners service", () => {
   describe("partner users", () => {
     it("attaches an existing user to the partner", async () => {
       const userId = "user-42";
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
-      jest.spyOn(partnersRepository, "getUserById").mockResolvedValue({ id: userId } as any);
+      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
+      jest.spyOn(partnersRepository, "getUserById").mockResolvedValue({ id: userId });
       jest.spyOn(partnersRepository, "getPartnerUserByPartnerAndUser").mockResolvedValue(null);
+      const attachedPartnerUser: PartnerUserDbRecord = {
+        id: "partner-user-1",
+        userId,
+        partnerId: basePartner.id,
+        role: "PARTNER_ADMIN",
+        user: { id: userId, email: "lead@example.com" },
+        createdAt: now,
+        updatedAt: now,
+      };
       const attachSpy = jest
         .spyOn(partnersRepository, "attachUserToPartnerAtomic")
-        .mockResolvedValue({
-          id: "partner-user-1",
-          userId,
-          partnerId: basePartner.id,
-          role: "PARTNER_ADMIN",
-          user: { email: "lead@example.com" },
-          createdAt: now,
-          updatedAt: now,
-        } as any);
+        .mockResolvedValue(attachedPartnerUser);
 
-      const result = await partnersService.createPartnerUser(basePartner.id, basePartner.brandId, {
+      const result = await partnersService.createPartnerUser(basePartner.id, baseBrandId, {
         userId,
         role: "PARTNER_ADMIN",
       });
@@ -217,15 +230,22 @@ describe("partners service", () => {
 
     it("removes a partner user after validating partner scope", async () => {
       const partnerUserId = "partner-user-2";
-      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner as any);
-      jest
-        .spyOn(partnersRepository, "getPartnerUser")
-        .mockResolvedValue({ id: partnerUserId, partnerId: basePartner.id } as any);
-      const deleteSpy = jest.spyOn(partnersRepository, "deletePartnerUser").mockResolvedValue({ id: partnerUserId } as any);
+      jest.spyOn(partnersRepository, "getPartnerMinimal").mockResolvedValue(basePartner);
+      const existingPartnerUser: PartnerUserDbRecord = {
+        id: partnerUserId,
+        userId: "user-7",
+        partnerId: basePartner.id,
+        role: "PARTNER_ADMIN",
+        user: { id: "user-7", email: "existing@example.com" },
+        createdAt: now,
+        updatedAt: now,
+      };
+      jest.spyOn(partnersRepository, "getPartnerUser").mockResolvedValue(existingPartnerUser);
+      const deleteSpy = jest.spyOn(partnersRepository, "deletePartnerUser").mockResolvedValue({ id: partnerUserId });
 
       const result = await partnersService.deactivatePartnerUser(
         basePartner.id,
-        basePartner.brandId,
+        baseBrandId,
         partnerUserId,
       );
 

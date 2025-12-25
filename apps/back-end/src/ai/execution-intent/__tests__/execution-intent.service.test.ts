@@ -1,8 +1,23 @@
 // PHASE 8.0 LOCK: ExecutionIntent Service Tests (NO EXECUTION, NO DB)
-import { v4 as uuidv4 } from 'uuid';
-import { createExecutionIntentFromDecision, approveExecutionIntent, rejectExecutionIntent, getHandoffPayload } from '../execution-intent.service.js';
-import { ExecutionIntent } from '../execution-intent.types.js';
-import { DecisionObject } from '../../decision/decision.types.js';
+import { jest } from '@jest/globals';
+import type { DecisionObject } from '../../decision/decision.types.js';
+
+jest.mock('uuid', () => ({
+  v4: () => 'mocked-uuid',
+}));
+
+type ExecutionIntentModule = typeof import('../execution-intent.service.js');
+let executionIntentModule: ExecutionIntentModule;
+let createExecutionIntentFromDecision: ExecutionIntentModule['createExecutionIntentFromDecision'];
+let approveExecutionIntent: ExecutionIntentModule['approveExecutionIntent'];
+let rejectExecutionIntent: ExecutionIntentModule['rejectExecutionIntent'];
+let getHandoffPayload: ExecutionIntentModule['getHandoffPayload'];
+
+beforeAll(async () => {
+  executionIntentModule = await import('../execution-intent.service.js');
+  ({ createExecutionIntentFromDecision, approveExecutionIntent, rejectExecutionIntent, getHandoffPayload } =
+    executionIntentModule);
+});
 
 describe('ExecutionIntent Service', () => {
   const baseDecision: Omit<DecisionObject, 'decisionId' | 'createdAt' | 'status'> = {

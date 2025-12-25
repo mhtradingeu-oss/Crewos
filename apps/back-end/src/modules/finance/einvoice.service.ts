@@ -164,7 +164,10 @@ class EInvoiceService {
   async send(input: SendEInvoiceDto, actor?: PipelineActor) {
     const format = normalizeFormat(input.format);
     const invoice = await this.loadInvoice(input.invoiceId);
-    const existing = await findEInvoice({ invoiceId: input.invoiceId, format }, { orderBy: { createdAt: "desc" } });
+    const existing = await findEInvoice({
+      where: { invoiceId: input.invoiceId, format },
+      orderBy: { createdAt: "desc" },
+    });
 
     if (!existing) {
       throw badRequest("Generate an e-invoice before sending");
@@ -188,14 +191,17 @@ class EInvoiceService {
     const updated = await updateEInvoice(existing.id, {
       peppolSent: true,
       peppolMessageId: response.id,
-      validationErrors: existing.validationErrors ?? undefined,
+      validationErrors: this.parseValidationErrors(existing.validationErrors),
     });
 
     return { status: "SENT", peppolMessageId: response.id, record: updated, requiresApproval: policy.requiresApproval } as const;
   }
 
   async getByInvoice(invoiceId: string, format?: SupportedEInvoiceFormat) {
-    const record = await findEInvoice({ invoiceId, ...(format ? { format } : {}) }, { orderBy: { createdAt: "desc" } });
+    const record = await findEInvoice({
+      where: { invoiceId, ...(format ? { format } : {}) },
+      orderBy: { createdAt: "desc" },
+    });
     if (!record) {
       throw notFound("E-invoice not found for invoice");
     }
@@ -207,14 +213,21 @@ class EInvoiceService {
       return { xml: "", validated: false, validationErrors: ["Empty validator output"] };
     }
     const data = raw as Record<string, unknown>;
+    const filteredErrors = Array.isArray(data.validationErrors)
+      ? data.validationErrors.filter((entry): entry is string => typeof entry === "string")
+      : [];
     return {
       xml: typeof data.xml === "string" ? data.xml : "",
       validated: typeof data.validated === "boolean" ? data.validated : false,
-      validationErrors: Array.isArray(data.validationErrors)
-        ? data.validationErrors.filter((entry): entry is string => typeof entry === "string")
-        : [],
+      validationErrors: filteredErrors.length ? filteredErrors : undefined,
       reasoning: typeof data.reasoning === "string" ? data.reasoning : undefined,
     };
+  }
+
+  private parseValidationErrors(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const filtered = value.filter((entry): entry is string => typeof entry === "string");
+    return filtered.length ? filtered : undefined;
   }
 }
 

@@ -1,45 +1,60 @@
-
 import { jest } from '@jest/globals';
-import { AICrewSessionService } from '../ai-crew.session.service.js';
-import { AdvisorySessionInput } from '../ai-crew.session.types.js';
-import * as AICrewServiceModule from '../ai-crew.service.js';
+import type { AdvisorySessionInput } from '../ai-crew.session.types.js';
 
-// Manual mock for AICrewService.runAdvisory (ESM compatible)
-beforeAll(() => {
-  jest.spyOn(AICrewServiceModule.AICrewService.prototype, 'runAdvisory').mockImplementation(async ({ question, agentNames }) => {
-    const topic = question.includes('sales') ? 'sales' : 'costs';
-    const verb = question.includes('increase') ? 'increase' : question.includes('decrease') ? 'decrease' : 'adjust';
-    return {
-      summary: 'mock summary',
-      recommendations: [
-        {
-          agent: (agentNames && agentNames[0]) || 'agent1',
-          recommendation: `${verb} ${topic}`,
-          rationale: 'mock rationale',
-          risks: ['risk Y'],
-          assumptions: ['assume X'],
-        },
-        {
-          agent: (agentNames && agentNames[0]) || 'agent1',
-          recommendation: 'standardize process',
-          rationale: 'mock rationale',
-          risks: ['risk Y'],
-          assumptions: ['assume X'],
-        },
-      ],
-      agentsUsed: agentNames || ['agent1'],
-      evidence: [
-        {
-          agent: (agentNames && agentNames[0]) || 'agent1',
-          analysis: 'mock analysis',
-          contextUsed: ['contextA'],
-          risks: ['risk Y'],
-          assumptions: ['assume X'],
-        },
-      ],
-      confidence: question.includes('conflict') ? 0.7 : 0.8,
-    };
-  });
+jest.mock('uuid', () => ({
+  v4: () => 'mocked-uuid',
+}));
+
+type AICrewSessionModule = typeof import('../ai-crew.session.service.js');
+type AICrewServiceModuleType = typeof import('../ai-crew.service.js');
+
+let AICrewSessionService: AICrewSessionModule['AICrewSessionService'];
+let AICrewServiceModule: AICrewServiceModuleType;
+
+beforeAll(async () => {
+  const sessionModule = await import('../ai-crew.session.service.js');
+  AICrewSessionService = sessionModule.AICrewSessionService;
+  AICrewServiceModule = await import('../ai-crew.service.js');
+  jest
+    .spyOn(AICrewServiceModule.AICrewService.prototype, 'runAdvisory')
+    .mockImplementation(async ({ question, agentNames }) => {
+      const topic = question.includes('sales') ? 'sales' : 'costs';
+      const verb = question.includes('increase')
+        ? 'increase'
+        : question.includes('decrease')
+        ? 'decrease'
+        : 'adjust';
+      return {
+        summary: 'mock summary',
+        recommendations: [
+          {
+            agent: (agentNames && agentNames[0]) || 'agent1',
+            recommendation: `${verb} ${topic}`,
+            rationale: 'mock rationale',
+            risks: ['risk Y'],
+            assumptions: ['assume X'],
+          },
+          {
+            agent: (agentNames && agentNames[0]) || 'agent1',
+            recommendation: 'standardize process',
+            rationale: 'mock rationale',
+            risks: ['risk Y'],
+            assumptions: ['assume X'],
+          },
+        ],
+        agentsUsed: agentNames || ['agent1'],
+        evidence: [
+          {
+            agent: (agentNames && agentNames[0]) || 'agent1',
+            analysis: 'mock analysis',
+            contextUsed: ['contextA'],
+            risks: ['risk Y'],
+            assumptions: ['assume X'],
+          },
+        ],
+        confidence: question.includes('conflict') ? 0.7 : 0.8,
+      };
+    });
 });
 
 const baseInput: AdvisorySessionInput = {
@@ -64,24 +79,30 @@ describe('AICrewSessionService', () => {
   });
 
   it('enforces max 3 agents per question', async () => {
-    const input = { ...baseInput, questions: [{ ...baseInput.questions[0], agentNames: ['a','b','c','d'] }] };
+    const input = { ...baseInput, questions: [{ ...baseInput.questions[0], agentNames: ['a', 'b', 'c', 'd'] }] };
     await expect(AICrewSessionService.runAdvisorySession(input as any)).rejects.toThrow('Max 3 agents per question');
   });
 
   it('deduplicates crossInsights deterministically', async () => {
-    const input = { ...baseInput, questions: [
-      { scopes: ['s'], question: 'How to increase sales?', agentNames: ['agent1'] },
-      { scopes: ['s'], question: 'How to increase sales?', agentNames: ['agent2'] },
-    ] };
+    const input = {
+      ...baseInput,
+      questions: [
+        { scopes: ['s'], question: 'How to increase sales?', agentNames: ['agent1'] },
+        { scopes: ['s'], question: 'How to increase sales?', agentNames: ['agent2'] },
+      ],
+    };
     const result = await AICrewSessionService.runAdvisorySession(input);
     expect(result.crossInsights.length).toBe(2); // increase sales, standardize process
   });
 
   it('reduces confidence for conflicts', async () => {
-    const input = { ...baseInput, questions: [
-      { scopes: ['s'], question: 'How to increase sales? (conflict)', agentNames: ['agent1'] },
-      { scopes: ['s'], question: 'How to decrease sales? (conflict)', agentNames: ['agent2'] },
-    ] };
+    const input = {
+      ...baseInput,
+      questions: [
+        { scopes: ['s'], question: 'How to increase sales? (conflict)', agentNames: ['agent1'] },
+        { scopes: ['s'], question: 'How to decrease sales? (conflict)', agentNames: ['agent2'] },
+      ],
+    };
     const result = await AICrewSessionService.runAdvisorySession(input);
     expect(result.confidence).toBeLessThan(0.8);
     expect(result.conflicts.length).toBeGreaterThanOrEqual(1);

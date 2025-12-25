@@ -1,7 +1,8 @@
 // AI Monitoring Repository
-import type { Prisma } from "@prisma/client";
+import type { AIRiskLevel, AIMonitoringCategory, Prisma } from "@prisma/client";
+import { prisma } from "../../prisma.js";
 
-export async function findMonitoringEventsByCategory(category: string, limit: number) {
+export async function findMonitoringEventsByCategory(category: AIMonitoringCategory, limit: number) {
   return prisma.aIMonitoringEvent.findMany({
     where: { category },
     orderBy: { createdAt: "desc" },
@@ -43,7 +44,7 @@ export async function createSystemAlert(data: {
   agentName?: string;
   engine?: string;
   namespace?: string;
-  riskLevel?: string;
+  riskLevel?: AIRiskLevel;
 }) {
   return prisma.aIMonitoringEvent.create({
     data: {
@@ -53,12 +54,10 @@ export async function createSystemAlert(data: {
       agentName: data.agentName,
       engine: data.engine,
       namespace: data.namespace,
-      riskLevel: data.riskLevel as any,
+      riskLevel: data.riskLevel,
     },
   });
 }
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../prisma.js";
 
 export async function createExecutionLog(data: Prisma.AIExecutionLogUncheckedCreateInput) {
   return prisma.aIExecutionLog.create({ data });

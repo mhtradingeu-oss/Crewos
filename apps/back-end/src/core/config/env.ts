@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { logger } from "../logger.js";
 
@@ -54,29 +53,6 @@ export const isProductionEnv = env.NODE_ENV === "production";
 export const isStagingEnv = env.NODE_ENV === "staging";
 export const isProdLikeEnv = isProductionEnv || isStagingEnv;
 
-function resolveEnvFilePath(): string | undefined {
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const backendRoot = path.resolve(moduleDir, "../../..");
-
-  const explicit = process.env.MHOS_BACKEND_ENV_PATH;
-  if (explicit) {
-    const explicitPath = path.isAbsolute(explicit) ? explicit : path.join(backendRoot, explicit);
-    if (existsSync(explicitPath)) {
-      return explicitPath;
-    }
-  }
-
-  const candidates = [".env", ".env.local", ".env.docker"];
-  for (const candidate of candidates) {
-    const candidatePath = path.join(backendRoot, candidate);
-    if (existsSync(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  return undefined;
-}
-
 function validateEnvironment(envData: Env): Env {
   if (envData.NODE_ENV === "production" || envData.NODE_ENV === "staging") {
     if (!envData.ALLOWED_ORIGINS?.trim()) {
@@ -88,4 +64,28 @@ function validateEnvironment(envData: Env): Env {
   }
 
   return envData;
+}
+
+function resolveEnvFilePath(): string | undefined {
+  const cwd = process.cwd();
+  const candidateRoot = path.join(cwd, "apps/back-end");
+  const backendRoot = existsSync(path.join(candidateRoot, "package.json")) ? candidateRoot : cwd;
+
+  const explicit = process.env.MHOS_BACKEND_ENV_PATH;
+  if (explicit) {
+    const explicitPath = path.isAbsolute(explicit) ? explicit : path.join(backendRoot, explicit);
+    if (existsSync(explicitPath)) {
+      return explicitPath;
+    }
+  }
+
+  const candidates = [".env", ".env.local", ".env.docker", ".env.example", ".env.sample"];
+  for (const candidate of candidates) {
+    const candidatePath = path.join(backendRoot, candidate);
+    if (existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  return undefined;
 }

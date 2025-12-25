@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { verifyToken } from "./jwt.js";
 import type { AuthenticatedRequest } from "../http/http-types.js";
 import { unauthorized, forbidden } from "../http/errors.js";
@@ -14,11 +14,12 @@ const PUBLIC_PATH_PREFIXES = [
 ] as const;
 
 export function authenticateRequest(
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  if (isPublicPath(req)) {
+  const authReq = req as AuthenticatedRequest;
+  if (isPublicPath(authReq)) {
     return next();
   }
 
@@ -44,18 +45,19 @@ export function authenticateRequest(
     return next(unauthorized());
   }
 
-  req.user = payload;
+  authReq.user = payload;
   return next();
 }
 
-function isPublicPath(req: AuthenticatedRequest) {
+function isPublicPath(req: Request) {
   const pathname = (req.path || req.originalUrl || "").split("?")[0] ?? "";
   return PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 export function requireRole(...roles: string[]) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user || !roles.includes(authReq.user.role)) {
       return next(forbidden());
     }
     return next();

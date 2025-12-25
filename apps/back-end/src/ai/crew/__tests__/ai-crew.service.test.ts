@@ -1,15 +1,26 @@
 // Tests for AICrewService.runAdvisory safety invariants
-import { AICrewService } from '../ai-crew.service.js';
+import { jest } from '@jest/globals';
 import { AI_AGENTS_MANIFEST } from '../../schema/ai-agents-manifest.js';
 
-describe('AICrewService.runAdvisory', () => {
-  const service = new AICrewService();
-  const baseInput = {
-    scopes: ['test-scope'],
-    question: 'What is the safest advisory action for this scenario?',
-    requestedBy: { userId: 'user-1', role: 'admin' },
-  };
+jest.mock('uuid', () => ({
+  v4: () => 'mocked-uuid',
+}));
 
+type AICrewModule = typeof import('../ai-crew.service.js');
+let service: InstanceType<AICrewModule['AICrewService']>;
+
+beforeAll(async () => {
+  const module = await import('../ai-crew.service.js');
+  service = new module.AICrewService();
+});
+
+const baseInput = {
+  scopes: ['test-scope'],
+  question: 'What is the safest advisory action for this scenario?',
+  requestedBy: { userId: 'user-1', role: 'admin' },
+};
+
+describe('AICrewService.runAdvisory', () => {
   it('uses only agentNames if provided (no scope auto-selection)', async () => {
     const agentNames = AI_AGENTS_MANIFEST.slice(0, 2).map((a: any) => a.name);
     const result = await service.runAdvisory({ ...baseInput, agentNames });
@@ -23,7 +34,6 @@ describe('AICrewService.runAdvisory', () => {
   });
 
   it('skips/flags agents with forbidden actions', async () => {
-    // Create a manifest with a forbidden action
     const forbiddenAgent = {
       ...AI_AGENTS_MANIFEST[0],
       name: 'forbidden-agent',
@@ -31,13 +41,12 @@ describe('AICrewService.runAdvisory', () => {
     };
     const manifest = [forbiddenAgent, ...AI_AGENTS_MANIFEST.slice(1, 3)];
     (AI_AGENTS_MANIFEST as any).splice(0, manifest.length, ...manifest);
-    const result = await service.runAdvisory({ ...baseInput, agentNames: manifest.map(a => a.name) });
+    const result = await service.runAdvisory({ ...baseInput, agentNames: manifest.map((a: any) => a.name) });
     const forbidden = result.evidence.find((e: any) => e.agent === 'forbidden-agent');
     expect(forbidden?.analysis).toMatch(/not permitted/);
   });
 
   it('context builder failure does not crash runAdvisory', async () => {
-    // Simulate a context builder that throws
     const agent = {
       ...AI_AGENTS_MANIFEST[0],
       name: 'ctx-fail-agent',

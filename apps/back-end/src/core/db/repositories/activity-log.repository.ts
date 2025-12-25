@@ -7,14 +7,20 @@ import { buildPagination } from '../../utils/pagination.js';
 export const ActivityLogRepository = {
   async appendActivity(event: EventEnvelope): Promise<void> {
     const payload = (event.payload ?? {}) as Record<string, unknown>;
-    const module = payload.module ?? event.context?.module ?? event.name.split(".")[0];
+    const toStringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
+    const toStringOrUndefined = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+    const moduleFromPayload = toStringOrUndefined(payload.module);
+    const moduleFromContext = toStringOrUndefined(event.context?.module);
+    const module = moduleFromPayload ?? moduleFromContext ?? event.name.split(".")[0];
+    const actorIdMeta = toStringOrUndefined(payload.actorId) ?? toStringOrUndefined(event.context?.actorUserId);
+    const actorRoleMeta = payload.actorRole ?? (event.context && "role" in event.context ? (event.context as Record<string, unknown>).role : undefined);
+    const tenantIdMeta = toStringOrUndefined(payload.tenantId) ?? toStringOrUndefined(event.context?.tenantId);
+    const brandIdMeta = toStringOrUndefined(payload.brandId) ?? toStringOrUndefined(event.context?.brandId);
     const metaJson = JSON.stringify({
-      actorId: payload.actorId ?? event.context?.actorUserId,
-      actorRole: payload.actorRole ?? (event.context && "role" in event.context
-        ? (event.context as Record<string, unknown>).role
-        : undefined),
-      tenantId: payload.tenantId ?? event.context?.tenantId,
-      brandId: payload.brandId ?? event.context?.brandId,
+      actorId: actorIdMeta,
+      actorRole: actorRoleMeta,
+      tenantId: tenantIdMeta,
+      brandId: brandIdMeta,
       action: payload.action ?? event.name,
       module,
       entityType: payload.entityType,
@@ -23,15 +29,19 @@ export const ActivityLogRepository = {
       context: event.context,
       createdAt: payload.createdAt ?? event.occurredAt,
     });
+    const brandIdValue = toStringOrNull(payload.brandId) ?? toStringOrNull(event.context?.brandId);
+    const userIdValue = toStringOrNull(payload.actorId) ?? toStringOrNull(event.context?.actorUserId);
+    const sourceValue = toStringOrUndefined(event.context?.source);
+    const severityValue = toStringOrUndefined(event.context?.severity);
 
     await prisma.activityLog.create({
       data: {
-        brandId: payload.brandId ?? event.context?.brandId ?? null,
-        userId: payload.actorId ?? event.context?.actorUserId ?? null,
+        brandId: brandIdValue,
+        userId: userIdValue,
         module,
         type: event.name,
-        source: event.context?.source ?? "api",
-        severity: event.context?.severity ?? "info",
+        source: sourceValue ?? "api",
+        severity: severityValue ?? "info",
         metaJson,
       },
     });
@@ -86,12 +96,18 @@ export const ActivityLogRepository = {
   async getActivityByEntity(entityType: string, entityId: string): Promise<ActivityLogRecord[]> {
     const records = await prisma.activityLog.findMany({
       where: {
-        metaJson: {
-          contains: `"entityType":"${entityType}"`,
-        },
-        metaJson: {
-          contains: `"entityId":"${entityId}"`,
-        },
+        AND: [
+          {
+            metaJson: {
+              contains: `"entityType":"${entityType}"`,
+            },
+          },
+          {
+            metaJson: {
+              contains: `"entityId":"${entityId}"`,
+            },
+          },
+        ],
       },
       orderBy: { createdAt: "desc" },
     });

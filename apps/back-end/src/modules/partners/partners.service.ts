@@ -3,6 +3,12 @@ import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import { logger } from "../../core/logger.js";
 import type {
+  PartnerContractRecord,
+  PartnerPricingRecord,
+  PartnerRecord,
+  PartnerUserRecord as PartnerUserDbRecord,
+} from "../../core/db/repositories/partners.repository.js";
+import type {
   CreatePartnerInput,
   CreatePartnerUserInput,
   PartnerContractCreateInput,
@@ -95,7 +101,7 @@ class PartnerService {
     const serializedTerms = this.serializeTerms(input.terms);
     const created = await partnersRepository.createOrUpdatePartnerContractAtomic({
       contractId: null,
-      data: {
+      createData: {
         partner: { connect: { id: input.partnerId } },
         startDate: input.startDate ? new Date(input.startDate) : null,
         endDate: input.endDate ? new Date(input.endDate) : null,
@@ -119,7 +125,7 @@ class PartnerService {
     const serializedTerms = this.serializeTerms(input.terms);
     const updated = await partnersRepository.createOrUpdatePartnerContractAtomic({
       contractId,
-      data: {
+      updateData: {
         startDate: input.startDate ? new Date(input.startDate) : undefined,
         endDate: input.endDate ? new Date(input.endDate) : undefined,
         termsJson: serializedTerms ?? undefined,
@@ -194,6 +200,10 @@ class PartnerService {
     const [contractCount, latestContract, pricingCount, orderAggregate] =
       await partnersRepository.getPartnerOverview(id, brandId);
 
+    const totalOrders =
+      typeof orderAggregate._count === "object" && orderAggregate._count
+        ? orderAggregate._count._all ?? 0
+        : 0;
     return {
       ...this.mapPartner(partner),
       contractsCount: contractCount,
@@ -201,8 +211,8 @@ class PartnerService {
         ? { startDate: latestContract.startDate ?? undefined, endDate: latestContract.endDate ?? undefined }
         : undefined,
       pricingCount,
-      totalOrders: orderAggregate._count._all ?? 0,
-      totalRevenue: this.toNumber(orderAggregate._sum.total),
+      totalOrders,
+      totalRevenue: this.toNumber(orderAggregate._sum?.total),
     };
   }
 
@@ -295,9 +305,9 @@ class PartnerService {
       typeof sumMetrics === "object" && sumMetrics !== null
         ? this.toNumber(sumMetrics.total)
         : 0;
-    const totalProducts = orderItemsAgg._sum.quantity ?? 0;
-    const whiteLabelRevenue = this.toNumber(whiteLabelRevenueAgg._sum.total);
-    const affiliateRevenue = this.toNumber(affiliateRevenueAgg._sum.revenue);
+    const totalProducts = orderItemsAgg._sum?.quantity ?? 0;
+    const whiteLabelRevenue = this.toNumber(whiteLabelRevenueAgg._sum?.total);
+    const affiliateRevenue = this.toNumber(affiliateRevenueAgg._sum?.revenue);
 
     return {
       totalOrders,
@@ -397,7 +407,7 @@ class PartnerService {
     return { id: partnerUserId };
   }
 
-  private mapPartner(row: any): PartnerDTO {
+  private mapPartner(row: PartnerRecord): PartnerDTO {
     return {
       id: row.id,
       brandId: this.mapNullable(row.brandId),
@@ -413,7 +423,7 @@ class PartnerService {
     };
   }
 
-  private mapPartnerUser(row: any): PartnerUserRecord {
+  private mapPartnerUser(row: PartnerUserDbRecord): PartnerUserRecord {
     return {
       id: row.id,
       partnerId: row.partnerId,
@@ -450,7 +460,7 @@ class PartnerService {
     return brand?.defaultCurrency ?? null;
   }
 
-  private mapPartnerContract(row: any): PartnerContractDTO {
+  private mapPartnerContract(row: PartnerContractRecord): PartnerContractDTO {
     return {
       id: row.id,
       partnerId: row.partnerId,
@@ -463,7 +473,7 @@ class PartnerService {
     };
   }
 
-  private mapPartnerPricing(row: any): PartnerPricingDTO {
+  private mapPartnerPricing(row: PartnerPricingRecord): PartnerPricingDTO {
     return {
       id: row.id,
       partnerId: row.partnerId,
@@ -480,19 +490,8 @@ class PartnerService {
     return value === null ? undefined : value;
   }
 
-  private mapDateField(value: Date | string | null | undefined): Date | string | undefined {
-    if (value === null || value === undefined) return undefined;
-    if (value instanceof Date) return value;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (!trimmed) return undefined;
-      const parsed = new Date(trimmed);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-      return trimmed;
-    }
-    return undefined;
+  private mapDateField(value: Date | null | undefined): Date | undefined {
+    return value ?? undefined;
   }
 
   private mapDecimalValue(value: unknown): number | undefined {

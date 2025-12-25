@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 // Revenue Types
 export type RevenueRecordWhere = {
   brandId?: string;
@@ -44,6 +46,11 @@ export type AggregateWhere = {
 export type EInvoiceWhere = {
   invoiceId: string;
   format?: string;
+};
+
+export type EInvoiceFindParams = {
+  where: EInvoiceWhere;
+  orderBy?: Prisma.EInvoiceOrderByWithRelationInput;
 };
 
 export type CreateEInvoiceInput = {
@@ -195,8 +202,11 @@ export async function runFinanceTransaction(actions: PrismaPromise<any>[]) {
 }
 
 // E-Invoice (for einvoice.service.ts)
-export async function findEInvoice(where: EInvoiceWhere) {
-  return prisma.eInvoice.findFirst({ where });
+export async function findEInvoice(params: EInvoiceFindParams) {
+  return prisma.eInvoice.findFirst({
+    where: params.where,
+    orderBy: params.orderBy,
+  });
 }
 export async function createEInvoice(data: CreateEInvoiceInput) {
   return prisma.eInvoice.create({ data });

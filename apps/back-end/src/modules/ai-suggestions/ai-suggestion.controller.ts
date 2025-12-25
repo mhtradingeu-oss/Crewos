@@ -1,15 +1,15 @@
-import { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../../core/http/http-types.js";
 import { AISuggestionService } from "./ai-suggestion.service.js";
 import { forbidden, notFound } from "../../core/http/errors.js";
 import { getPermissionsForRole } from "../../core/security/rbac.js";
 
 const service = new AISuggestionService();
 
-function getUserRole(req: Request) {
+function getUserRole(req: AuthenticatedRequest) {
   return req.user?.role || "";
 }
-
-export async function listSuggestions(req: Request, res: Response, next: NextFunction) {
+export async function listSuggestions(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { status, domain, tenantId, brandId } = req.query;
     const filter: any = {};
@@ -24,7 +24,7 @@ export async function listSuggestions(req: Request, res: Response, next: NextFun
   }
 }
 
-async function checkApprovalPermission(suggestion: any, req: Request) {
+async function checkApprovalPermission(suggestion: any, req: AuthenticatedRequest) {
   const userRole = getUserRole(req);
   if (!userRole) throw forbidden("No user role");
   if (userRole === "SUPER_ADMIN") return true; // If global bypass is already policy
@@ -37,27 +37,33 @@ async function checkApprovalPermission(suggestion: any, req: Request) {
   return true;
 }
 
-export async function approveSuggestion(req: Request, res: Response, next: NextFunction) {
+export async function approveSuggestion(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
     const suggestion = await service.repo.listSuggestions({ filter: { id } });
     if (!suggestion[0]) throw notFound("Suggestion not found");
     await checkApprovalPermission(suggestion[0], req);
-    const result = await service.approveSuggestion(id, req.user!.id);
+    const { user } = req;
+    if (!user?.id) throw forbidden("Missing user id");
+    const userId = user.id;
+    const result = await service.approveSuggestion(id, userId);
     res.json(result);
   } catch (err) {
     next(err);
   }
 }
 
-export async function rejectSuggestion(req: Request, res: Response, next: NextFunction) {
+export async function rejectSuggestion(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
     const { reason } = req.body;
     const suggestion = await service.repo.listSuggestions({ filter: { id } });
     if (!suggestion[0]) throw notFound("Suggestion not found");
     await checkApprovalPermission(suggestion[0], req);
-    const result = await service.rejectSuggestion(id, req.user!.id, reason);
+    const { user } = req;
+    if (!user?.id) throw forbidden("Missing user id");
+    const userId = user.id;
+    const result = await service.rejectSuggestion(id, userId, reason);
     res.json(result);
   } catch (err) {
     next(err);
