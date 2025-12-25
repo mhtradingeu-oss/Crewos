@@ -25,4 +25,35 @@ export class AISuggestionRepository {
       data,
     });
   }
+
+  async getSuggestionById(id: string) {
+    return prisma.aISuggestion.findUnique({ where: { id } });
+  }
+
+  async markSuggestionExecuted(id: string, output: any) {
+    return prisma.aISuggestion.update({
+      where: { id },
+      data: {
+        executedAt: new Date(),
+        status: "executed",
+        proposedOutputJson: JSON.stringify(output),
+      },
+    });
+  }
+
+  async markSuggestionFailed(id: string, reason: string) {
+    return prisma.aISuggestion.update({
+      where: { id },
+      data: {
+        failureReason: reason,
+        status: "failed",
+      },
+    });
+  }
+
+  async appendAuditLog(log: any) {
+    // Minimal stub: in real system, insert to audit table
+    // For now, just a placeholder
+    return true;
+  }
 }

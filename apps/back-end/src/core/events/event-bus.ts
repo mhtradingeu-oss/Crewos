@@ -43,6 +43,11 @@ export async function publish<T = unknown>(
   bus.emit(ALL_EVENTS, envelope);
 }
 
+// Alias for compatibility with executor usage
+export function emitEvent(event: string, payload: any, context?: EventContext) {
+  return publish(event, payload, context);
+}
+
 export function subscribe<T = unknown>(
   eventName: string | typeof ALL_EVENTS,
   handler: EventHandler<T>,
