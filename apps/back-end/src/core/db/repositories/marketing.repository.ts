@@ -1,6 +1,14 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../prisma.js";
+import { prisma, type PrismaArgs, type PrismaSelect } from "../../prisma.js";
 
+type CampaignFindManyArgs = PrismaArgs<typeof prisma.campaign.findMany>;
+type CampaignCreateArgs = PrismaArgs<typeof prisma.campaign.create>;
+type CampaignUpdateArgs = PrismaArgs<typeof prisma.campaign.update>;
+type CampaignLeadAttributionCreateArgs = PrismaArgs<typeof prisma.campaignLeadAttribution.create>;
+type CampaignInteractionCreateArgs = PrismaArgs<typeof prisma.campaignInteraction.create>;
+type MarketingPerformanceLogCreateArgs = PrismaArgs<typeof prisma.marketingPerformanceLog.create>;
+type AIInsightCreateArgs = PrismaArgs<typeof prisma.aIInsight.create>;
+
+type CampaignSelect = CampaignFindManyArgs["select"];
 const campaignSelect = {
   id: true,
   brandId: true,
@@ -12,14 +20,16 @@ const campaignSelect = {
   targetSegmentIds: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.CampaignSelect;
+} satisfies CampaignSelect;
 
+type CampaignTargetSegmentSelect = PrismaSelect<typeof prisma.campaign.findUnique>;
 const campaignTargetSegmentSelect = {
   id: true,
   brandId: true,
   targetSegmentIds: true,
-} satisfies Prisma.CampaignSelect;
+} satisfies CampaignTargetSegmentSelect;
 
+type CampaignAttributionSelect = NonNullable<CampaignLeadAttributionCreateArgs["select"]>;
 const campaignAttributionSelect = {
   id: true,
   campaignId: true,
@@ -29,8 +39,9 @@ const campaignAttributionSelect = {
   source: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.CampaignLeadAttributionSelect;
+} satisfies CampaignAttributionSelect;
 
+type CampaignInteractionSelect = NonNullable<CampaignInteractionCreateArgs["select"]>;
 const campaignInteractionSelect = {
   id: true,
   campaignId: true,
@@ -40,27 +51,25 @@ const campaignInteractionSelect = {
   metadata: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.CampaignInteractionSelect;
+} satisfies CampaignInteractionSelect;
 
-export type CampaignPayload = Prisma.CampaignGetPayload<{ select: typeof campaignSelect }>;
-export type CampaignTargetSegmentPayload = Prisma.CampaignGetPayload<{
-  select: typeof campaignTargetSegmentSelect;
-}>;
-export type CampaignAttributionPayload = Prisma.CampaignLeadAttributionGetPayload<{
-  select: typeof campaignAttributionSelect;
-}>;
-export type CampaignInteractionPayload = Prisma.CampaignInteractionGetPayload<{
-  select: typeof campaignInteractionSelect;
-}>;
+type CampaignInteractionData = CampaignInteractionCreateArgs["data"];
 
-export type CampaignWhereInput = Prisma.CampaignWhereInput;
-export type CampaignCreateInput = Prisma.CampaignCreateInput;
-export type CampaignUpdateInput = Prisma.CampaignUpdateInput;
-export type MarketingPerformanceLogCreateInput = Prisma.MarketingPerformanceLogCreateInput;
-export type AIInsightCreateInput = Prisma.AIInsightCreateInput;
-export type NullableJsonNullValueInput = Prisma.NullableJsonNullValueInput;
-export type JsonValue = Prisma.JsonValue;
-export type InputJsonValue = Prisma.InputJsonValue;
+export type CampaignPayload = Awaited<ReturnType<typeof prisma.campaign.findMany>>[number];
+export type CampaignTargetSegmentPayload = Awaited<ReturnType<typeof prisma.campaign.findUnique>>;
+export type CampaignAttributionPayload = Awaited<ReturnType<typeof prisma.campaignLeadAttribution.create>>;
+export type CampaignInteractionPayload = Awaited<ReturnType<typeof prisma.campaignInteraction.create>>;
+
+export type CampaignTargetSegmentInput = CampaignCreateArgs["data"]["targetSegmentIds"];
+
+export type CampaignWhereInput = CampaignFindManyArgs["where"];
+export type CampaignCreateInput = CampaignCreateArgs["data"];
+export type CampaignUpdateInput = CampaignUpdateArgs["data"];
+export type MarketingPerformanceLogCreateInput = MarketingPerformanceLogCreateArgs["data"];
+export type AIInsightCreateInput = AIInsightCreateArgs["data"];
+export type NullableJsonNullValueInput = CampaignInteractionData["metadata"] | null;
+export type JsonValue = CampaignInteractionData["metadata"];
+export type InputJsonValue = CampaignInteractionData["metadata"];
 
 async function listCampaigns(where: CampaignWhereInput, skip: number, take: number) {
   const filteredWhere = where ?? {};
@@ -128,17 +137,20 @@ async function findCustomerById(customerId: string) {
   });
 }
 
-async function createCampaignAttribution(data: Prisma.CampaignLeadAttributionCreateInput) {
+async function createCampaignAttribution(data: CampaignAttributionCreateInput) {
   return prisma.campaignLeadAttribution.create({ data, select: campaignAttributionSelect });
 }
 
-async function createCampaignInteraction(data: Prisma.CampaignInteractionCreateInput) {
+async function createCampaignInteraction(data: CampaignInteractionCreateInput) {
   return prisma.campaignInteraction.create({ data, select: campaignInteractionSelect });
 }
 
 async function logAIInsight(data: AIInsightCreateInput) {
   await prisma.aIInsight.create({ data });
 }
+
+export type CampaignAttributionCreateInput = CampaignLeadAttributionCreateArgs["data"];
+export type CampaignInteractionCreateInput = CampaignInteractionCreateArgs["data"];
 
 export const marketingRepository = {
   campaignSelect,

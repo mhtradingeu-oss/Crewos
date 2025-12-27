@@ -131,7 +131,7 @@ function getStandPartnerById(id: string, brandId: string) {
   });
 }
 
-function createStandPartner(data: Prisma.StandPartnerCreateInput) {
+function createStandPartner(data: Prisma.StandPartnerUncheckedCreateInput) {
   return prisma.standPartner.create({
     data,
     select: standPartnerSelect,

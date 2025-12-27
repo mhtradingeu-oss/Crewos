@@ -1,8 +1,9 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../prisma.js";
+
+
+import { prisma, type PrismaData, type PrismaSelect, type PrismaWhere } from "../../prisma.js";
 
 // --- Selects ---
-const affiliateSelect = {
+const affiliateSelect: PrismaSelect<typeof prisma.affiliate.findMany> = {
   id: true,
   brandId: true,
   tierId: true,
@@ -20,18 +21,18 @@ const affiliateSelect = {
       rulesJson: true,
     },
   },
-} satisfies Prisma.AffiliateSelect;
+};
 
-const linkSelect = {
+const linkSelect: PrismaSelect<typeof prisma.affiliateLink.findMany> = {
   id: true,
   affiliateId: true,
   linkCode: true,
   targetUrl: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.AffiliateLinkSelect;
+};
 
-const conversionSelect = {
+const conversionSelect: PrismaSelect<typeof prisma.affiliateConversion.findMany> = {
   id: true,
   brandId: true,
   affiliateId: true,
@@ -41,9 +42,9 @@ const conversionSelect = {
   metadata: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.AffiliateConversionSelect;
+};
 
-const payoutSelect = {
+const payoutSelect: PrismaSelect<typeof prisma.affiliatePayout.findMany> = {
   id: true,
   affiliateId: true,
   brandId: true,
@@ -57,7 +58,7 @@ const payoutSelect = {
   paidAt: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.AffiliatePayoutSelect;
+};
 
 // --- Repository ---
 export const affiliateRepository = {
@@ -83,7 +84,7 @@ export const affiliateRepository = {
   },
 
   // List affiliates (with pagination)
-  async listAffiliates(where: Prisma.AffiliateWhereInput, skip: number, take: number) {
+  async listAffiliates(where: PrismaWhere<typeof prisma.affiliate.findMany>, skip: number, take: number) {
     return prisma.$transaction([
       prisma.affiliate.count({ where }),
       prisma.affiliate.findMany({
@@ -103,11 +104,11 @@ export const affiliateRepository = {
     });
   },
 
-  async createAffiliate(data: Prisma.AffiliateCreateInput) {
+  async createAffiliate(data: PrismaData<typeof prisma.affiliate.create>) {
     return prisma.affiliate.create({ data, select: affiliateSelect });
   },
 
-  async updateAffiliate(affiliateId: string, data: Prisma.AffiliateUpdateInput) {
+  async updateAffiliate(affiliateId: string, data: PrismaData<typeof prisma.affiliate.update>) {
     return prisma.affiliate.update({ where: { id: affiliateId }, data, select: affiliateSelect });
   },
 
@@ -123,19 +124,19 @@ export const affiliateRepository = {
     });
   },
 
-  async createLink(data: Prisma.AffiliateLinkCreateInput) {
+  async createLink(data: PrismaData<typeof prisma.affiliateLink.create>) {
     return prisma.affiliateLink.create({ data, select: linkSelect });
   },
 
-  async createConversion(data: Prisma.AffiliateConversionCreateInput) {
+  async createConversion(data: PrismaData<typeof prisma.affiliateConversion.create>) {
     return prisma.affiliateConversion.create({ data, select: conversionSelect });
   },
 
-  async requestPayout(data: Prisma.AffiliatePayoutCreateInput) {
+  async requestPayout(data: PrismaData<typeof prisma.affiliatePayout.create>) {
     return prisma.affiliatePayout.create({ data, select: payoutSelect });
   },
 
-  async changePayoutStatus(payoutId: string, updates: Prisma.AffiliatePayoutUpdateInput) {
+  async changePayoutStatus(payoutId: string, updates: PrismaData<typeof prisma.affiliatePayout.update>) {
     return prisma.affiliatePayout.update({ where: { id: payoutId }, data: updates, select: payoutSelect });
   },
 

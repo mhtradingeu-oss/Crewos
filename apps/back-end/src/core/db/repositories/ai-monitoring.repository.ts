@@ -1,8 +1,19 @@
-// AI Monitoring Repository
-import type { AIRiskLevel, AIMonitoringCategory, Prisma } from "@prisma/client";
-import { prisma } from "../../prisma.js";
+import type { Prisma } from "@prisma/client";
+import { prisma, type PrismaArgs } from "../../prisma.js";
 
-export async function findMonitoringEventsByCategory(category: AIMonitoringCategory, limit: number) {
+type MonitoringEventFindManyArgs = PrismaArgs<typeof prisma.aIMonitoringEvent.findMany>;
+type ExecutionLogFindManyArgs = PrismaArgs<typeof prisma.aIExecutionLog.findMany>;
+type ExecutionLogCreateArgs = PrismaArgs<typeof prisma.aIExecutionLog.create>;
+type MonitoringEventCreateArgs = PrismaArgs<typeof prisma.aIMonitoringEvent.create>;
+type SafetyEventCreateArgs = PrismaArgs<typeof prisma.aISafetyEvent.create>;
+type ExecutionLogAggregateArgs = PrismaArgs<typeof prisma.aIExecutionLog.aggregate>;
+type AgentBudgetFindManyArgs = PrismaArgs<typeof prisma.aIAgentBudget.findMany>;
+type MonitoringEventCategory = Prisma.AIMonitoringEventWhereInput["category"];
+
+type MetricValue = MonitoringEventCreateArgs["data"]["metric"];
+export type InputJsonValue = MetricValue;
+
+async function findMonitoringEventsByCategory(category: MonitoringEventCategory, limit: number) {
   return prisma.aIMonitoringEvent.findMany({
     where: { category },
     orderBy: { createdAt: "desc" },
@@ -10,68 +21,70 @@ export async function findMonitoringEventsByCategory(category: AIMonitoringCateg
   });
 }
 
-export async function findExecutionLogs(limit: number) {
+async function findExecutionLogs(limit: number) {
   return prisma.aIExecutionLog.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 }
 
-export async function findExecutionLogsSince(startOfMonth: Date) {
+async function findExecutionLogsSince(startOfMonth: Date) {
   return prisma.aIExecutionLog.findMany({
     where: { createdAt: { gte: startOfMonth } },
     select: { agentName: true, totalTokens: true, costUsd: true, createdAt: true },
   });
 }
 
-export async function findRecentExecutionLogs(limit: number) {
+async function findRecentExecutionLogs(limit: number) {
   return prisma.aIExecutionLog.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 }
 
-export async function findSafetyEvents(limit: number) {
+async function findSafetyEvents(limit: number) {
   return prisma.aISafetyEvent.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 }
 
-export async function createSystemAlert(data: {
+export type SystemAlertPayload = {
   status: string;
-  metric?: Prisma.InputJsonValue;
+  metric?: MetricValue;
   agentName?: string;
   engine?: string;
   namespace?: string;
-  riskLevel?: AIRiskLevel;
-}) {
+  riskLevel?: MonitoringEventCreateArgs["data"]["riskLevel"];
+};
+
+async function createSystemAlert(payload: SystemAlertPayload) {
   return prisma.aIMonitoringEvent.create({
     data: {
       category: "SYSTEM_ALERT",
-      status: data.status,
-      metric: data.metric,
-      agentName: data.agentName,
-      engine: data.engine,
-      namespace: data.namespace,
-      riskLevel: data.riskLevel,
+      status: payload.status,
+      metric: payload.metric,
+      agentName: payload.agentName,
+      engine: payload.engine,
+      namespace: payload.namespace,
+      riskLevel: payload.riskLevel,
     },
   });
 }
 
-export async function createExecutionLog(data: Prisma.AIExecutionLogUncheckedCreateInput) {
+async function createExecutionLog(data: ExecutionLogCreateArgs["data"]) {
   return prisma.aIExecutionLog.create({ data });
 }
 
-export async function createMonitoringEvent(data: Prisma.AIMonitoringEventUncheckedCreateInput) {
+async function createMonitoringEvent(data: MonitoringEventCreateArgs["data"]) {
   return prisma.aIMonitoringEvent.create({ data });
 }
 
-export async function createSafetyEvent(data: Prisma.AISafetyEventUncheckedCreateInput) {
+async function createSafetyEvent(data: SafetyEventCreateArgs["data"]) {
   return prisma.aISafetyEvent.create({ data });
 }
 
-export async function findActiveAgentBudgets(params: {
+async function findActiveAgentBudgets(params: {
   agentName?: string | null;
   brandId?: string | null;
   tenantId?: string | null;
@@ -87,11 +100,23 @@ export async function findActiveAgentBudgets(params: {
   });
 }
 
-export async function aggregateExecutionCosts(where: Prisma.AIExecutionLogWhereInput) {
+async function aggregateExecutionCosts(where: ExecutionLogAggregateArgs["where"]) {
   return prisma.aIExecutionLog.aggregate({
     _sum: { costUsd: true, totalTokens: true },
     where,
   });
 }
 
-export type InputJsonValue = Prisma.InputJsonValue;
+export {
+  findMonitoringEventsByCategory,
+  findExecutionLogs,
+  findExecutionLogsSince,
+  findRecentExecutionLogs,
+  findSafetyEvents,
+  createSystemAlert,
+  createExecutionLog,
+  createMonitoringEvent,
+  createSafetyEvent,
+  findActiveAgentBudgets,
+  aggregateExecutionCosts,
+};

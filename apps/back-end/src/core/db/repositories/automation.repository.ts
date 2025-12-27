@@ -1,4 +1,5 @@
 // Atomic update + log method for rule version (example, adjust as needed)
+import type { Prisma, PrismaPromise } from "@prisma/client";
 import { prisma } from "../../prisma.js";
 
 export async function updateRuleVersionWithLog(
@@ -15,8 +16,6 @@ export async function updateRuleVersionWithLog(
     return updated;
   });
 }
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../prisma.js";
 
 const automationRunWithActionRunsSelect: Prisma.AutomationRunSelect = {
   id: true,
@@ -84,15 +83,24 @@ export async function findLatestAutomationRuleVersion(
   return prisma.automationRuleVersion.findFirst(args);
 }
 
-export async function findAutomationRuleVersionById(
+type AutomationRuleVersionQueryArgs<
+  T extends Prisma.AutomationRuleVersionArgs = Prisma.AutomationRuleVersionArgs,
+> = Omit<T, "where">;
+
+export function findAutomationRuleVersionById<
+  T extends Prisma.AutomationRuleVersionArgs = Prisma.AutomationRuleVersionArgs,
+>(
   ruleVersionId: string,
-  select?: Prisma.AutomationRuleVersionSelect,
-) {
-  const args: Prisma.AutomationRuleVersionFindUniqueArgs = {
+  args?: AutomationRuleVersionQueryArgs<T>,
+): PrismaPromise<Prisma.AutomationRuleVersionGetPayload<T> | null> {
+  const query: Prisma.AutomationRuleVersionFindUniqueArgs = {
     where: { id: ruleVersionId },
   };
-  if (select) args.select = select;
-  return prisma.automationRuleVersion.findUnique(args);
+  if (args?.select) query.select = args.select;
+  if (args?.include) query.include = args.include;
+  return prisma.automationRuleVersion.findUnique(query) as PrismaPromise<
+    Prisma.AutomationRuleVersionGetPayload<T> | null
+  >;
 }
 
 export async function createAutomationRuleVersion(data: Prisma.AutomationRuleVersionCreateInput) {

@@ -28,7 +28,7 @@ export type FinalizePlanSelectionInput = {
   targetPlanId: string;
   targetPlanKey: string;
   currentPlanId?: string | null;
-  modulesJson?: Record<string, unknown> | null;
+  modulesJson?: Prisma.InputJsonValue | null;
   changedByUserId: string;
 };
 

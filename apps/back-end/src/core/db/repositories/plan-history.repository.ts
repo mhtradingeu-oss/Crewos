@@ -1,11 +1,17 @@
 // PlanHistoryRepository: Move all prisma queries from plan-history.service.ts here
-import { prisma } from '../../prisma.js';
+import { prisma } from "../../prisma.js";
 
+export const PlanHistoryRepository = {
   async listPlanHistory(userId: string, unauthorized: () => Error) {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantId: true },
+    });
+
     if (!user?.tenantId) {
       throw unauthorized();
     }
+
     return prisma.tenantPlanChange.findMany({
       where: { tenantId: user.tenantId },
       orderBy: { createdAt: "desc" },

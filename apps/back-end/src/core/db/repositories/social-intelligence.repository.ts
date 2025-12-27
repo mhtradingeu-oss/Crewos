@@ -12,7 +12,7 @@ import type {
   SocialAISummaryResult,
   SocialMentionRecord,
   SocialTrendRecord,
-} from "../../modules/social-intelligence/social-intelligence.types.js";
+} from "../../../modules/social-intelligence/social-intelligence.types.js";
 
 const mentionSelect = {
   id: true,

@@ -75,7 +75,7 @@ export type FinanceInvoiceWhere = {
 
 export type CreateInvoiceInput = {
   brandId: string;
-  customerId: string;
+  customerId?: string;
   currency: string;
   amount: number;
   items: {
@@ -105,47 +105,47 @@ type TransactionClient = unknown;
 import { prisma } from "../../prisma.js";
 
 // Revenue Records
-export async function findRevenueRecords(where: RevenueRecordWhere) {
+export function findRevenueRecords(where: RevenueRecordWhere) {
   return prisma.revenueRecord.findMany({ where });
 }
-export async function countRevenueRecords(where: RevenueRecordWhere) {
+export function countRevenueRecords(where: RevenueRecordWhere) {
   return prisma.revenueRecord.count({ where });
 }
-export async function findRevenueRecordById(id: string) {
+export function findRevenueRecordById(id: string) {
   return prisma.revenueRecord.findUnique({ where: { id } });
 }
-export async function createRevenueRecord(data: CreateRevenueInput) {
+export function createRevenueRecord(data: CreateRevenueInput) {
   return prisma.revenueRecord.create({ data });
 }
-export async function updateRevenueRecord(id: string, data: UpdateRevenueInput) {
+export function updateRevenueRecord(id: string, data: UpdateRevenueInput) {
   return prisma.revenueRecord.update({ where: { id }, data });
 }
-export async function deleteRevenueRecord(id: string) {
+export function deleteRevenueRecord(id: string) {
   return prisma.revenueRecord.delete({ where: { id } });
 }
 
 // Expenses
-export async function findExpenses(where: ExpenseWhere) {
+export function findExpenses(where: ExpenseWhere) {
   return prisma.financeExpense.findMany({ where });
 }
-export async function countExpenses(where: ExpenseWhere) {
+export function countExpenses(where: ExpenseWhere) {
   return prisma.financeExpense.count({ where });
 }
-export async function createExpense(data: CreateExpenseInput) {
+export function createExpense(data: CreateExpenseInput) {
   return prisma.financeExpense.create({ data });
 }
-export async function findExpenseById(id: string) {
+export function findExpenseById(id: string) {
   return prisma.financeExpense.findUnique({ where: { id } });
 }
-export async function updateExpense(id: string, data: UpdateExpenseInput) {
+export function updateExpense(id: string, data: UpdateExpenseInput) {
   return prisma.financeExpense.update({ where: { id }, data });
 }
-export async function deleteExpense(id: string) {
+export function deleteExpense(id: string) {
   return prisma.financeExpense.delete({ where: { id } });
 }
 
 // Invoices
-export async function findInvoices(
+export function findInvoices(
   where: FinanceInvoiceWhere,
   pagination: { skip: number; take: number }
 ) {
@@ -156,11 +156,11 @@ export async function findInvoices(
   });
 }
 
-export async function countInvoices(where: FinanceInvoiceWhere) {
+export function countInvoices(where: FinanceInvoiceWhere) {
   return prisma.financeInvoice.count({ where });
 }
 
-export async function createInvoice(
+export function createInvoice(
   data: CreateInvoiceInput,
   tx?: TransactionClient
 ) {
@@ -168,11 +168,11 @@ export async function createInvoice(
   return prisma.financeInvoice.create({ data });
 }
 
-export async function findInvoiceById(id: string) {
+export function findInvoiceById(id: string) {
   return prisma.financeInvoice.findUnique({ where: { id } });
 }
 
-export async function updateInvoice(
+export function updateInvoice(
   id: string,
   data: UpdateInvoiceInput,
   tx?: TransactionClient
@@ -180,44 +180,44 @@ export async function updateInvoice(
   return prisma.financeInvoice.update({ where: { id }, data });
 }
 
-export async function deleteInvoice(id: string) {
+export function deleteInvoice(id: string) {
   return prisma.financeInvoice.delete({ where: { id } });
 }
 
 // Aggregates
-export async function aggregateRevenue(where: AggregateWhere) {
+export function aggregateRevenue(where: AggregateWhere) {
   return prisma.revenueRecord.aggregate({ where, _sum: { amount: true } });
 }
-export async function aggregateExpenses(where: AggregateWhere) {
+export function aggregateExpenses(where: AggregateWhere) {
   return prisma.financeExpense.aggregate({ where, _sum: { amount: true } });
 }
-export async function aggregateOutstandingInvoices(where: AggregateWhere) {
+export function aggregateOutstandingInvoices(where: AggregateWhere) {
   return prisma.financeInvoice.aggregate({ where, _sum: { amount: true } });
 }
 
 // Transactional blocks
 import type { PrismaPromise } from "@prisma/client";
-export async function runFinanceTransaction(actions: PrismaPromise<any>[]) {
+export function runFinanceTransaction(actions: PrismaPromise<any>[]) {
   return prisma.$transaction(actions);
 }
 
 // E-Invoice (for einvoice.service.ts)
-export async function findEInvoice(params: EInvoiceFindParams) {
+export function findEInvoice(params: EInvoiceFindParams) {
   return prisma.eInvoice.findFirst({
     where: params.where,
     orderBy: params.orderBy,
   });
 }
-export async function createEInvoice(data: CreateEInvoiceInput) {
+export function createEInvoice(data: CreateEInvoiceInput) {
   return prisma.eInvoice.create({ data });
 }
-export async function updateEInvoice(id: string, data: UpdateEInvoiceInput) {
+export function updateEInvoice(id: string, data: UpdateEInvoiceInput) {
   return prisma.eInvoice.update({ where: { id }, data });
 }
-export async function updateManyEInvoice(where: EInvoiceWhere, data: UpdateEInvoiceInput) {
+export function updateManyEInvoice(where: EInvoiceWhere, data: UpdateEInvoiceInput) {
   return prisma.eInvoice.updateMany({ where, data });
 }
-export async function findInvoiceWithItems(invoiceId: string) {
+export function findInvoiceWithItems(invoiceId: string) {
   return prisma.invoice.findUnique({
     where: { id: invoiceId },
     include: {

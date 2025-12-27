@@ -41,9 +41,9 @@ export type NotificationPayload = Prisma.NotificationGetPayload<{ select: typeof
 
 export type NotificationTemplateWhereInput = Prisma.NotificationTemplateWhereInput;
 export type NotificationWhereInput = Prisma.NotificationWhereInput;
-export type NotificationTemplateCreateInput = Prisma.NotificationTemplateCreateInput;
+export type NotificationTemplateCreateInput = Prisma.NotificationTemplateUncheckedCreateInput;
 export type NotificationTemplateUpdateInput = Prisma.NotificationTemplateUpdateInput;
-export type NotificationCreateInput = Prisma.NotificationCreateInput;
+export type NotificationCreateInput = Prisma.NotificationUncheckedCreateInput;
 
 async function listTemplates(where: NotificationTemplateWhereInput, skip: number, take: number) {
   return prisma.$transaction([
