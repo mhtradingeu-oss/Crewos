@@ -1,7 +1,7 @@
 // This file has been moved to the integration tests folder.
 import { jest } from '@jest/globals';
-import { partnersService } from "../partners.service.js";
-import { partnersRepository } from "../../../core/db/repositories/partners.repository.js";
+import { partnersService } from "../../modules/partners/partners.service.js";
+import { partnersRepository } from "../../core/db/repositories/partners.repository.js";
 import { Decimal } from "@prisma/client/runtime/library";
 import type {
   PartnerContractRecord,
@@ -9,7 +9,7 @@ import type {
   PartnerPricingRecord,
   PartnerRecord,
   PartnerUserRecord as PartnerUserDbRecord,
-} from "../../../core/db/repositories/partners.repository.js";
+} from "../../core/db/repositories/partners.repository.js";
 
 const baseBrandId = "brand-abc";
 

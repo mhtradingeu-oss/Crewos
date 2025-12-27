@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
-import { processDecision } from '../decision.service.js';
-import { DecisionObject } from '../decision.types.js';
-import { getDecisionAuditLog } from '../decision.audit.js';
+import { processDecision } from '../../ai/decision/decision.service.js';
+import { DecisionObject } from '../../ai/decision/decision.types.js';
+import { getDecisionAuditLog } from '../../ai/decision/decision.audit.js';
 
 describe('Phase 7 Decision Authority', () => {
   const baseDecision: Omit<DecisionObject, 'decisionId' | 'createdAt' | 'status'> = {

@@ -1,60 +1,68 @@
 import { jest } from '@jest/globals';
-import type { AdvisorySessionInput } from '../ai-crew.session.types.js';
+import type { AdvisorySessionInput } from '../../ai/crew/ai-crew.session.types.js';
 
 jest.mock('uuid', () => ({
   v4: () => 'mocked-uuid',
 }));
 
-type AICrewSessionModule = typeof import('../ai-crew.session.service.js');
-type AICrewServiceModuleType = typeof import('../ai-crew.service.js');
+type AICrewSessionModule = typeof import('../../ai/crew/ai-crew.session.service.js');
+type AICrewServiceModuleType = typeof import('../../ai/crew/ai-crew.service.js');
 
 let AICrewSessionService: AICrewSessionModule['AICrewSessionService'];
 let AICrewServiceModule: AICrewServiceModuleType;
 
 beforeAll(async () => {
-  const sessionModule = await import('../ai-crew.session.service.js');
+  const sessionModule = await import('../../ai/crew/ai-crew.session.service.js');
   AICrewSessionService = sessionModule.AICrewSessionService;
-  AICrewServiceModule = await import('../ai-crew.service.js');
+  AICrewServiceModule = await import('../../ai/crew/ai-crew.service.js');
   jest
     .spyOn(AICrewServiceModule.AICrewService.prototype, 'runAdvisory')
-    .mockImplementation(async ({ question, agentNames }) => {
-      const topic = question.includes('sales') ? 'sales' : 'costs';
-      const verb = question.includes('increase')
-        ? 'increase'
-        : question.includes('decrease')
-        ? 'decrease'
-        : 'adjust';
-      return {
-        summary: 'mock summary',
-        recommendations: [
-          {
-            agent: (agentNames && agentNames[0]) || 'agent1',
-            recommendation: `${verb} ${topic}`,
-            rationale: 'mock rationale',
-            risks: ['risk Y'],
-            assumptions: ['assume X'],
-          },
-          {
-            agent: (agentNames && agentNames[0]) || 'agent1',
-            recommendation: 'standardize process',
-            rationale: 'mock rationale',
-            risks: ['risk Y'],
-            assumptions: ['assume X'],
-          },
-        ],
-        agentsUsed: agentNames || ['agent1'],
-        evidence: [
-          {
-            agent: (agentNames && agentNames[0]) || 'agent1',
-            analysis: 'mock analysis',
-            contextUsed: ['contextA'],
-            risks: ['risk Y'],
-            assumptions: ['assume X'],
-          },
-        ],
-        confidence: question.includes('conflict') ? 0.7 : 0.8,
-      };
-    });
+    .mockImplementation(
+      async ({
+        question,
+        agentNames,
+      }: {
+        question: string;
+        agentNames?: string[];
+      }) => {
+        const topic = question.includes('sales') ? 'sales' : 'costs';
+        const verb = question.includes('increase')
+          ? 'increase'
+          : question.includes('decrease')
+          ? 'decrease'
+          : 'adjust';
+        return {
+          summary: 'mock summary',
+          recommendations: [
+            {
+              agent: (agentNames && agentNames[0]) || 'agent1',
+              recommendation: `${verb} ${topic}`,
+              rationale: 'mock rationale',
+              risks: ['risk Y'],
+              assumptions: ['assume X'],
+            },
+            {
+              agent: (agentNames && agentNames[0]) || 'agent1',
+              recommendation: 'standardize process',
+              rationale: 'mock rationale',
+              risks: ['risk Y'],
+              assumptions: ['assume X'],
+            },
+          ],
+          agentsUsed: agentNames || ['agent1'],
+          evidence: [
+            {
+              agent: (agentNames && agentNames[0]) || 'agent1',
+              analysis: 'mock analysis',
+              contextUsed: ['contextA'],
+              risks: ['risk Y'],
+              assumptions: ['assume X'],
+            },
+          ],
+          confidence: question.includes('conflict') ? 0.7 : 0.8,
+        };
+      },
+    );
 });
 
 const baseInput: AdvisorySessionInput = {

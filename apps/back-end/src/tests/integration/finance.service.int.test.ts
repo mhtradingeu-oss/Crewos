@@ -1,3 +1,7 @@
+import { jest } from "@jest/globals";
+import { financeService } from "../../modules/finance/finance.service.js";
+import { publish } from "../../core/events/event-bus.js";
+
 beforeAll(async () => {});
 afterAll(async () => {});
 afterEach(async () => {

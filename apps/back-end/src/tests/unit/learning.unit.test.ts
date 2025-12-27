@@ -4,9 +4,9 @@
  * It cannot execute, automate, approve, or modify decisions.
  */
 
-import { LearningService } from './learning.service.js';
-import type { LearningSignal, PerformanceSnapshot } from './learning.types.js';
-import { getAuditLog, clearAuditLog } from './learning.audit.js';
+import { LearningService } from '../../ai/learning/learning.service.js';
+import type { LearningSignal, PerformanceSnapshot } from '../../ai/learning/learning.types.js';
+import { getAuditLog, clearAuditLog } from '../../ai/learning/learning.audit.js';
 
 describe('Learning Loop Phase 9', () => {
   beforeEach(() => {

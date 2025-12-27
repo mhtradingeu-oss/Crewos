@@ -7,8 +7,8 @@
 
 import supertest from 'supertest';
 import { createApp } from '../../app.js';
-import { LearningService } from './learning.service.js';
-import { clearAuditLog } from './learning.audit.js';
+import { LearningService } from '../../ai/learning/learning.service.js';
+import { clearAuditLog } from '../../ai/learning/learning.audit.js';
 
 describe('Learning API & Integration', () => {
   beforeEach(() => {

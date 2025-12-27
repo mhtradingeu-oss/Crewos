@@ -1,6 +1,3 @@
-
-import { env } from "./config/env.js";
-
 const LEVELS = ["debug", "info", "warn", "error"] as const;
 type LogLevel = typeof LEVELS[number];
 
@@ -19,7 +16,7 @@ function log(level: LogLevel, message: string, context: LogContext = {}) {
     timestamp: new Date().toISOString(),
     level,
     message,
-    environment: env?.NODE_ENV || process.env.NODE_ENV || "development",
+    environment: process.env.NODE_ENV || "development",
     ...context,
   };
   // Print as single-line JSON
@@ -29,8 +26,7 @@ function log(level: LogLevel, message: string, context: LogContext = {}) {
 
 function enforceContext(level: LogLevel, message: string, context?: LogContext) {
   if (typeof context !== 'object' || context === null) {
-    // eslint-disable-next-line no-console
-    console.error(`[logger] ${level} called without context object. Message:`, message, context);
+    log("warn", `[logger] ${level} called without context object. Message: ${message}`, { meta: context });
     context = { meta: context };
   }
   log(level, message, context);

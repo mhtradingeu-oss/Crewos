@@ -19,11 +19,14 @@ export default {
     '<rootDir>/dist',
     '<rootDir>/.*/__mocks__',
   ],
+  // Exclude contract tests from default local runs
   testMatch: [
     '**/tests/unit/**/*.unit.test.ts',
+    '**/tests/unit/**/*.unit.test.mts',
     '**/tests/integration/**/*.int.test.ts',
-    '**/tests/contract/**/*.contract.test.ts',
+    // '**/tests/contract/**/*.contract.test.ts', // Only run with test:contract
     '**/__tests__/**/*.test.ts',
+    '**/__tests__/**/*.test.mts',
   ],
   cache: false,
 };

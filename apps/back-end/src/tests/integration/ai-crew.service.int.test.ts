@@ -1,17 +1,17 @@
 
 import { jest } from '@jest/globals';
 
-import { AI_AGENTS_MANIFEST } from '../../schema/ai-agents-manifest.js';
+import { AI_AGENTS_MANIFEST } from '../../ai/schema/ai-agents-manifest.js';
 
 jest.mock('uuid', () => ({
   v4: () => 'mocked-uuid',
 }));
 
-type AICrewModule = typeof import('../ai-crew.service.js');
+type AICrewModule = typeof import('../../ai/crew/ai-crew.service.js');
 let service: InstanceType<AICrewModule['AICrewService']>;
 
 beforeAll(async () => {
-  const module = await import('../ai-crew.service.js');
+  const module = await import('../../ai/crew/ai-crew.service.js');
   service = new module.AICrewService();
 });
 

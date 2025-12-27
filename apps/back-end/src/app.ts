@@ -140,7 +140,7 @@ function buildCorsOptions(): CorsOptions {
   // في الإنتاج فقط نستخدم اللائحة المسموحة
   const parsedEnv = (env.ALLOWED_ORIGINS ?? "")
     .split(",")
-    .map((o) => o.trim())
+    .map((origin: string) => origin.trim())
     .filter(Boolean);
 
   if (parsedEnv.length === 0) {

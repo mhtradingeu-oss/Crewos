@@ -1,4 +1,8 @@
-  class AISuggestionServiceMock {
+import express, { Router } from "express";
+import request from "supertest";
+import { jest } from "@jest/globals";
+
+class AISuggestionServiceMock {
     static suggestion = {
       id: "suggestion-1",
       tenantId: "t1",
@@ -55,7 +59,7 @@
 
 
 const { listSuggestions, approveSuggestion, rejectSuggestion } = await import(
-  "../ai-suggestion.controller.js"
+  "../../modules/ai-suggestions/ai-suggestion.controller.js"
 );
 
 // Helper middleware to inject req.user

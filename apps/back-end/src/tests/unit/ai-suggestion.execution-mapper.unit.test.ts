@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { buildExecutionPlanFromSuggestion } from '../ai-suggestion.execution-mapper.js';
+import { buildExecutionPlanFromSuggestion } from '../../modules/ai-suggestions/ai-suggestion.execution-mapper.js';
 
 describe('buildExecutionPlanFromSuggestion', () => {
   it('maps valid pricing suggestion to execution plan', () => {
