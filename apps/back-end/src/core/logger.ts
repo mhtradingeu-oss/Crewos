@@ -27,11 +27,20 @@ function log(level: LogLevel, message: string, context: LogContext = {}) {
   console[level === "error" ? "error" : level](JSON.stringify(logEntry));
 }
 
+function enforceContext(level: LogLevel, message: string, context?: LogContext) {
+  if (typeof context !== 'object' || context === null) {
+    // eslint-disable-next-line no-console
+    console.error(`[logger] ${level} called without context object. Message:`, message, context);
+    context = { meta: context };
+  }
+  log(level, message, context);
+}
+
 export const logger = {
-  debug: (message: string, context?: LogContext) => log("debug", message, context),
-  info: (message: string, context?: LogContext) => log("info", message, context),
-  warn: (message: string, context?: LogContext) => log("warn", message, context),
-  error: (message: string, context?: LogContext) => log("error", message, context),
+  debug: (message: string, context?: LogContext) => enforceContext("debug", message, context),
+  info: (message: string, context?: LogContext) => enforceContext("info", message, context),
+  warn: (message: string, context?: LogContext) => enforceContext("warn", message, context),
+  error: (message: string, context?: LogContext) => enforceContext("error", message, context),
 };
 
 // Usage example:

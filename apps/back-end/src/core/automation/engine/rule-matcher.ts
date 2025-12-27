@@ -76,7 +76,7 @@ function parseConditionConfig(
       if (typeof parsed !== 'object' || parsed === null) return undefined;
       return parsed as { all?: ConditionConfig[]; any?: ConditionConfig[] };
     } catch {
-      logger.warn('[automation][rule-matcher] invalid condition config JSON');
+      logger.warn('[automation][rule-matcher] invalid condition config JSON', {});
       return undefined;
     }
   }
@@ -97,7 +97,7 @@ function parseActions(value?: JsonValue | null): ActionConfig[] {
         : [];
       return actions;
     } catch {
-      logger.warn('[automation][rule-matcher] invalid actions config JSON');
+      logger.warn('[automation][rule-matcher] invalid actions config JSON', {});
       return [];
     }
   }

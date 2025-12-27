@@ -16,7 +16,7 @@ app.listen(port, () => {
 const exitHandler = () => {
   shutdownPrisma()
     .catch((error) => {
-      logger.error("Failed to shutdown Prisma", error);
+      logger.error("Failed to shutdown Prisma", { error });
     })
     .finally(() => {
       process.exit(0);

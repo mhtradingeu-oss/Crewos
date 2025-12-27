@@ -1,3 +1,4 @@
+// This file has been moved to the integration tests folder.
 import { jest } from '@jest/globals';
 import { partnersService } from "../partners.service.js";
 import { partnersRepository } from "../../../core/db/repositories/partners.repository.js";

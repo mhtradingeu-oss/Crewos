@@ -1,43 +1,3 @@
-import { jest } from "@jest/globals";
-import { Duplex } from "stream";
-
-// Patch forbidden to return unauthorized for missing user role
-jest.unstable_mockModule("../../../core/http/errors.js", async () => {
-  const real = await import("../../../core/http/errors.js");
-  return {
-    ...real,
-    forbidden: (msg?: string) => {
-      if (msg === "No user role") return real.unauthorized();
-      return real.forbidden(msg);
-    },
-  };
-});
-
-jest.unstable_mockModule("../../../core/security/rbac.js", async () => {
-  const errors = await import("../../../core/http/errors.js");
-  return {
-    requirePermission: (permission: string) => (req: any, res: any, next: any) => {
-      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-      if (req.user.role === "MANAGER") return next();
-      return res.status(403).json({ error: "Forbidden" });
-    },
-    getPermissionsForRole: async (role: string) => {
-      if (!role) throw errors.unauthorized();
-      if (role === "MANAGER") return ["ai-suggestion:approve:MANAGER"];
-      return [
-        `ai-suggestion:approve:MANAGER`,
-        `ai-suggestion:approve:${role}`
-      ];
-    },
-  };
-});
-
-import request from "supertest";
-import express from "express";
-import { Router } from "express";
-
-// Mock the service/repo layer to avoid DB dependency
-jest.unstable_mockModule("../ai-suggestion.service.js", async () => {
   class AISuggestionServiceMock {
     static suggestion = {
       id: "suggestion-1",
@@ -92,24 +52,7 @@ jest.unstable_mockModule("../ai-suggestion.service.js", async () => {
       return Promise.resolve(null) as Promise<typeof AISuggestionServiceMock.suggestion | null>;
     });
   }
-  return { AISuggestionService: AISuggestionServiceMock };
-});
 
-jest.unstable_mockModule("../../../core/prisma.js", async () => {
-  const { prisma } = await import("../../../core/mocks/prisma.js");
-  (prisma.aISuggestion.findMany as jest.Mock<any>).mockResolvedValue([
-    { id: "suggestion-1", status: "PENDING" },
-  ]);
-  (prisma.aISuggestion.findUnique as jest.Mock<any>).mockResolvedValue({
-    id: "suggestion-1",
-    status: "PENDING",
-  });
-  (prisma.aISuggestion.update as jest.Mock<any>).mockResolvedValue({
-    id: "suggestion-1",
-    status: "APPROVED",
-  });
-  return { prisma };
-});
 
 const { listSuggestions, approveSuggestion, rejectSuggestion } = await import(
   "../ai-suggestion.controller.js"

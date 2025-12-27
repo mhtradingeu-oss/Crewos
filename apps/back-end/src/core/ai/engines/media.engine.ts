@@ -140,7 +140,7 @@ function buildFallbackChain(kind: MediaProviderKind, preferredId?: MediaEngineId
       const safeProvider = resolveMediaProvider(kind, safeId) as ImageMediaProvider | VideoMediaProvider;
       chain = [...chain, safeProvider];
     } catch (err) {
-      logger.warn(`[media] safe fallback provider ${safeId} unavailable: ${err instanceof Error ? err.message : err}`);
+      logger.warn(`[media] safe fallback provider ${safeId} unavailable: ${err instanceof Error ? err.message : err}`, {});
     }
   }
 
@@ -310,7 +310,7 @@ export async function generateImage(
         generate: () => provider.generate(request, ctx),
       });
       if (provider.id !== preferredId && preferredId) {
-        logger.warn(`[media] image fallback used provider ${provider.id} instead of ${preferredId}`);
+        logger.warn(`[media] image fallback used provider ${provider.id} instead of ${preferredId}`, {});
       }
       return { ...result, riskLevel, runId };
     } catch (err) {
@@ -349,7 +349,7 @@ export async function generateVideo(
         generate: () => provider.generate(request, ctx),
       });
       if (provider.id !== preferredId && preferredId) {
-        logger.warn(`[media] video fallback used provider ${provider.id} instead of ${preferredId}`);
+        logger.warn(`[media] video fallback used provider ${provider.id} instead of ${preferredId}`, {});
       }
       return { ...result, riskLevel, runId };
     } catch (err) {

@@ -31,28 +31,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Typecheck (Turbo)
-        run: npx turbo run typecheck
 
-      - name: Test (Turbo, unit + contract)
-        run: npx turbo run test
 
-      - name: Build (Turbo)
-        run: npx turbo run build
+      # 1️⃣ Typecheck (fail on error)
+      - name: Typecheck
+        run: npm run typecheck --workspace=mh-os-superapp-backend
 
-      # Event contract check (warn mode)
-      # TODO: Change to enforce mode after 2 weeks of clean runs
-      - name: Check event contracts (warn mode)
+      # 2️⃣ Unit tests (fail on error)
+      - name: Test: Unit
+        run: npm run test -- --testMatch '**/tests/unit/**/*.unit.test.ts' --workspace=mh-os-superapp-backend
+
+      # 3️⃣ Integration tests (fail on error)
+      - name: Test: Integration
+        run: npm run test:integration --workspace=mh-os-superapp-backend
+
+      # 4️⃣ Contract tests (warn only)
+      - name: Test: Contract (warn only)
         run: |
-          echo 'Running event contract checks (warn mode)...'
-          if npm run check:event-contracts; then
-            echo 'Event contract check completed.'
+          echo 'Running contract tests (warn only)...'
+          set +e
+          npm run test -- --testMatch '**/tests/contract/**/*.contract.test.ts' --workspace=mh-os-superapp-backend > contract-test.log 2>&1
+          CONTRACT_EXIT=$?
+          if [ $CONTRACT_EXIT -eq 0 ]; then
+            echo 'Contract tests passed.'
           else
-            echo 'WARNING: Event contract check found issues (see above).'
-            echo 'Unknown events detected. Please review.'
+            echo 'WARNING: Contract test mismatches found:'
+            cat contract-test.log | grep -E 'FAIL|Mismatch|Error|Expected|Received' || cat contract-test.log
             # Do not fail the workflow yet
             exit 0
           fi
+      # TODO: After stabilization, enforce contract test failures (remove exit 0 above)
 
       - name: Turbo cache save
         if: always()

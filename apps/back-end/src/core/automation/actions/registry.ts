@@ -5,7 +5,7 @@ const runners = new Map<ActionType, ActionRunner>();
 
 export function registerRunner(runner: ActionRunner): void {
   if (runners.has(runner.type)) {
-    logger.warn(`[automation][actions] runner for ${runner.type} already registered`);
+    logger.warn(`[automation][actions] runner for ${runner.type} already registered`, {});
     return;
   }
   runners.set(runner.type, runner);

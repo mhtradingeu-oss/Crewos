@@ -20,7 +20,7 @@ const baseCookieOptions: CookieOptions = {
 
 export function issueSessionCookie(res: Response, token: string) {
   if (!token) {
-    logger.error("[auth] Session token is missing");
+    logger.error("[auth] Session token is missing", { });
     throw new Error("Session token is missing");
   }
   try {

@@ -1,11 +1,9 @@
 export default {
+  preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
-
-  // 👇 مهم: هذا يجعل Jest ESM حقيقي
   extensionsToTreatAsEsm: ['.ts'],
-
   transform: {
-    '^.+\\.ts$': [
+    '^.+\\.(ts|tsx)$': [
       'ts-jest',
       {
         useESM: true,
@@ -13,17 +11,19 @@ export default {
       },
     ],
   },
-
   moduleNameMapper: {
-    // 👇 يمنع Jest من طلب .js يدويًا
+    // Map .js imports to .ts for ESM/TypeScript
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-
   modulePathIgnorePatterns: [
     '<rootDir>/dist',
+    '<rootDir>/.*/__mocks__',
   ],
-
-  testMatch: ['**/__tests__/**/*.test.ts'],
-
+  testMatch: [
+    '**/tests/unit/**/*.unit.test.ts',
+    '**/tests/integration/**/*.int.test.ts',
+    '**/tests/contract/**/*.contract.test.ts',
+    '**/__tests__/**/*.test.ts',
+  ],
   cache: false,
 };

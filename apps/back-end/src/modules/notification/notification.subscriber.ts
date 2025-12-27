@@ -92,7 +92,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed crm lead contact", errorHandler);
+      logger.error("[notification] failed crm lead contact", { meta: { error: errorHandler } });
     }
   });
 

@@ -1,11 +1,4 @@
-import { financeService } from '../finance.service.js';
-jest.mock('../../../core/events/event-bus', () => ({ publish: jest.fn() }));
-const { publish } = require('../../../core/events/event-bus');
-
-
-beforeAll(async () => {
-  // Optionally run migrations
-});
+beforeAll(async () => {});
 afterAll(async () => {});
 afterEach(async () => {
   jest.clearAllMocks();

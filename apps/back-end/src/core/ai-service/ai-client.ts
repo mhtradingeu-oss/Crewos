@@ -73,7 +73,7 @@ export async function runAIRequest(req: AIRequest): Promise<AIResponse> {
   if (!apiKey) {
     const errMessage =
       "AI provider not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY and restart the server.";
-    logger.error(`[AI] ${errMessage}`);
+    logger.error(`[AI] ${errMessage}`, {});
     return { success: false, content: "", error: errMessage, runId };
   }
 
@@ -222,7 +222,7 @@ export async function runAIRequest(req: AIRequest): Promise<AIResponse> {
     }
   }
 
-  logger.error(`[AI ERROR] ${lastError ?? "Unknown AI failure"}`);
+  logger.error(`[AI ERROR] ${lastError ?? "Unknown AI failure"}`, {});
   await logExecution({
     runId,
     namespace,
