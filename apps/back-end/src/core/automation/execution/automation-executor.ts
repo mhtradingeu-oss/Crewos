@@ -1,8 +1,38 @@
 
+
 import { AISuggestionRepository } from '../../db/repositories/ai-suggestions.repository.js';
 import { mapSuggestionToExecutionPlan } from './automation-plan-mapper.js';
 import { runAutomationPlan } from '../engine/automation-engine.js';
 import { emitEvent } from '../../events/event-bus.js';
+
+// Helpers for safe JSON parse and redaction
+function safeParseJson(json: any) {
+  if (!json || typeof json !== 'string') return undefined;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+}
+
+function redactSecrets(obj: any) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const SENSITIVE = ['secret', 'apiKey', 'token', 'password'];
+  const redact = (val: any): any => {
+    if (Array.isArray(val)) return val.map(redact);
+    if (val && typeof val === 'object') {
+      return Object.fromEntries(
+        Object.entries(val).map(([k, v]) =>
+          SENSITIVE.includes(k.toLowerCase())
+            ? [k, '[REDACTED]']
+            : [k, redact(v)]
+        )
+      );
+    }
+    return val;
+  };
+  return redact(obj);
+}
 
 
 export async function executeApprovedSuggestion(
@@ -19,18 +49,17 @@ export async function executeApprovedSuggestion(
   const plan = mapSuggestionToExecutionPlan(suggestion);
   const correlationId = suggestion.correlationId || `exec-${suggestionId}-${Date.now()}`;
   let output, error;
-
   try {
     output = await runAutomationPlan(plan, { actorUserId, correlationId });
     await repository.markSuggestionExecuted(suggestionId, output);
     await emitEvent('ai.suggestion.executed', { suggestionId, actorUserId, output, correlationId });
     await repository.appendAuditLog({
-      type: 'ai.suggestion.executed',
+      eventType: 'ai.suggestion.executed',
       suggestionId,
       actorUserId,
-      input: suggestion,
-      output,
       correlationId,
+      inputSnapshot: redactSecrets(safeParseJson(suggestion.inputSnapshotJson)),
+      outputSnapshot: redactSecrets(output),
       timestamp: new Date().toISOString(),
     });
     return { status: 'executed', output };
@@ -39,12 +68,12 @@ export async function executeApprovedSuggestion(
     await repository.markSuggestionFailed(suggestionId, error);
     await emitEvent('ai.suggestion.failed', { suggestionId, actorUserId, error, correlationId });
     await repository.appendAuditLog({
-      type: 'ai.suggestion.failed',
+      eventType: 'ai.suggestion.failed',
       suggestionId,
       actorUserId,
-      input: suggestion,
-      output: error,
       correlationId,
+      inputSnapshot: redactSecrets(safeParseJson(suggestion.inputSnapshotJson)),
+      outputSnapshot: { error: redactSecrets(error) },
       timestamp: new Date().toISOString(),
     });
     return { status: 'failed', error };
