@@ -1,3 +1,20 @@
+export async function finalizeOnboarding(userId: string, steps: string[], persona?: Persona) {
+  const profile = await ensureProfile(userId);
+  // Persist steps and persona
+  await updateOnboardingProfile(profile.id, {
+    persona: persona ?? profile.persona,
+    completedAt: new Date(),
+  });
+  // Emit onboarding.completed event
+  const { emitOnboardingCompleted } = await import("./onboarding.events.js");
+  await emitOnboardingCompleted({
+    userId,
+    tenantId: profile.tenantId,
+    persona: persona ?? profile.persona,
+    completedAt: new Date().toISOString(),
+  });
+  // Multi-role support: persona is tracked per profile
+}
 import { badRequest, unauthorized } from "../../core/http/errors.js";
 import { getPlanDefinition, planDefinitions, type PlanKey, type PlanFeatureSet } from "../../core/plans.js";
 import {

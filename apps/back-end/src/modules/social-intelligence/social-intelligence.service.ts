@@ -31,10 +31,28 @@ const SPIKE_THRESHOLD = 10;
 class SocialIntelligenceService {
   // TODO: implement actual spike detection logic when data is available
   private async detectMentionSpike(_mention: SocialMentionRecord): Promise<void> {
-    return;
+    // spike detection logic placeholder
   }
 
-  // TODO: enhance prompt builder for more context-aware insights
+  // Persist a trend and emit spike if detected
+  async persistTrend(input: CreateTrendInput): Promise<SocialTrendRecord> {
+    const { createTrend } = socialIntelligenceRepository;
+    const trend = await createTrend(input);
+    // Simple spike detection: score above threshold
+    if (trend.score && trend.score > SPIKE_THRESHOLD) {
+      await emitTrendDetected({
+        brandId: trend.brandId ?? undefined,
+        entityType: "trend",
+        entityId: trend.id,
+        action: "spike_detected",
+        metadata: { topic: trend.topic, score: trend.score },
+      });
+    }
+    return trend;
+  }
+
+  // Only generate insight, no auto-actions
+
   private buildSocialInsightPrompt(
     brandId: string,
     mentions: SocialMentionRecord[],
@@ -43,6 +61,8 @@ class SocialIntelligenceService {
   ) {
     return `Brand: ${brandId}\nMentions: ${mentions.length}\nTrends: ${trends.length}\nCompetitor Reports: ${competitorReports.length}`;
   }
+
+  // ...existing code...
 
   private extractActions(_details: string) {
     return [] as string[];

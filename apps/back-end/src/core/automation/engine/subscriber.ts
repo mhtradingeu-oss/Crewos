@@ -10,7 +10,7 @@ export function registerAutomationEngineSubscriber() {
     try {
       await runAutomationEngine(event);
     } catch (err) {
-      logger.error(`[automation][engine] failed to process event ${event.type}`, err);
+      logger.error(`[automation][engine] failed to process event ${event.type}`, { error: err });
     }
   });
   registered = true;

@@ -32,7 +32,7 @@ export async function runAutomationEngine(event: DomainEvent): Promise<Automatio
         `[automation][engine] rule ${rule.id} conditions ${conditionsMatched ? "passed" : "filtered"}`,
       );
     } catch (err) {
-      logger.error(`[automation][engine] rule ${rule.id} condition evaluation failed`, err);
+      logger.error(`[automation][engine] rule ${rule.id} condition evaluation failed`, { error: err });
       continue;
     }
 
@@ -55,7 +55,7 @@ export async function runAutomationEngine(event: DomainEvent): Promise<Automatio
         error: runSummary.error,
       });
     } catch (err) {
-      logger.error(`[automation][engine] executor failed for rule ${rule.id}`, err);
+      logger.error(`[automation][engine] executor failed for rule ${rule.id}`, { error: err });
     }
   }
 

@@ -10,7 +10,7 @@ export async function initPrisma() {
     prismaInitialized = true;
     logger.info("Prisma connected");
   } catch (error) {
-    logger.error("Failed to connect Prisma", error);
+    logger.error("Failed to connect Prisma", { error });
     throw error;
   }
 }
@@ -21,7 +21,7 @@ export async function shutdownPrisma() {
     await prisma.$disconnect();
     logger.info("Prisma disconnected");
   } catch (error) {
-    logger.error("Failed to disconnect Prisma", error);
+    logger.error("Failed to disconnect Prisma", { error });
     throw error;
   } finally {
     prismaInitialized = false;

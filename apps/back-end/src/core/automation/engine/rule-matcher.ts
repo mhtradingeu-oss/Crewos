@@ -121,7 +121,7 @@ function loadMockRulesFromEnv(event: DomainEvent): AutomationRuleMatch[] | undef
     );
     return filtered.map((rule) => ({ ...rule, actions: rule.actions ?? [] }));
   } catch (err) {
-    logger.warn("[automation][rule-matcher] invalid mock rules payload", err);
+    logger.warn("[automation][rule-matcher] invalid mock rules payload", { error: err });
     return undefined;
   }
 }

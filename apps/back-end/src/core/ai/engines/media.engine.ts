@@ -315,7 +315,7 @@ export async function generateImage(
       return { ...result, riskLevel, runId };
     } catch (err) {
       lastError = err;
-      logger.warn(`[media] provider ${provider.id} failed, attempting fallback`, err instanceof Error ? err.message : err);
+      logger.warn(`[media] provider ${provider.id} failed, attempting fallback`, { error: err });
     }
   }
 
@@ -354,7 +354,7 @@ export async function generateVideo(
       return { ...result, riskLevel, runId };
     } catch (err) {
       lastError = err;
-      logger.warn(`[media] provider ${provider.id} failed, attempting fallback`, err instanceof Error ? err.message : err);
+      logger.warn(`[media] provider ${provider.id} failed, attempting fallback`, { error: err });
     }
   }
 

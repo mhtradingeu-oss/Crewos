@@ -30,15 +30,27 @@ export type WhiteLabelRequest = {
 };
 
 export const mediaStudioService = {
-  listImageEngines,
-  listVideoEngines,
+    generateImage: generateImage,
+    generateVideo: generateVideo,
+    listImageEngines: listImageEngines,
+    listVideoEngines: listVideoEngines,
+  // Persist mockup request and track generation state
 
-  async generateImage(payload: ImageEngineRequest, ctx: MediaCallContext) {
-    return generateImage(payload, ctx);
-  },
-
-  async generateVideo(payload: VideoEngineRequest, ctx: MediaCallContext) {
-    return generateVideo(payload, ctx);
+  async persistMockupRequest(payload: WhiteLabelRequest): Promise<{ requestId: string; state: string }> {
+    // Persist request (simulate DB save)
+    const requestId = "mockup-" + Math.random().toString(36).slice(2);
+    const state = "pending";
+    // Here you would call mediaStudioRepository.saveMockupRequest(payload, requestId, state)
+    // Track state (simulate)
+    const { emitMediaGenerated } = await import("./media-studio.events.js");
+    await emitMediaGenerated({
+      requestId,
+      brandId: payload.brandId,
+      productId: payload.productId,
+      state,
+      generatedAt: new Date().toISOString(),
+    });
+    return { requestId, state };
   },
 
   async whiteLabelPreview(payload: WhiteLabelRequest, ctx: MediaCallContext) {

@@ -1,3 +1,54 @@
+import { publish } from "../../core/events/event-bus.js";
+import { prisma } from "../../core/prisma.js";
+
+/**
+ * Persists a performance snapshot for automation metrics and emits automation.metrics.updated.
+ * Emits automation.error.detected if errors are present. No execution logic.
+ */
+export async function persistAutomationMetricsSnapshot({
+	brandId,
+	period,
+	metrics,
+	errors,
+	actorUserId,
+}: {
+	brandId: string;
+	period: string;
+	metrics: Record<string, unknown>;
+	errors?: string[];
+	actorUserId: string;
+}) {
+	// Store snapshot as AutomationLog (or similar log model)
+	const log = await prisma.automationLog.create({
+		data: {
+			brandId,
+			eventName: "automation.metrics.updated",
+			result: "SNAPSHOT",
+			detailsJson: JSON.stringify({ metrics, errors, period }),
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		},
+	});
+	// Emit metrics updated event
+	await publish("automation.metrics.updated", {
+		brandId,
+		period,
+		metrics,
+		actorUserId,
+		logId: log.id,
+	});
+	// Emit error detected event if errors present
+	if (errors && errors.length > 0) {
+		await publish("automation.error.detected", {
+			brandId,
+			period,
+			errors,
+			actorUserId,
+			logId: log.id,
+		});
+	}
+	return { status: "recorded", logId: log.id };
+}
 import { computeLatencyMetrics, computeSuccessRate } from "../../core/observability/metrics.js";
 import { classifyFailure } from "../../core/observability/failure-classifier.js";
 import { findAutomationRunsWithActionRuns } from "../../core/db/repositories/automation.repository.js";

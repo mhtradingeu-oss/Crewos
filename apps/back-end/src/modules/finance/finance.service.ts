@@ -30,7 +30,7 @@ import type { PrismaPromise } from "@prisma/client";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import {
-  emitFinanceCreated,
+  emitFinanceRevenueRecorded,
   emitFinanceDeleted,
   emitFinanceExpenseCreated,
   emitFinanceInvoiceCreated,
@@ -120,16 +120,19 @@ class FinanceService {
     if (input.amount === undefined || input.amount === null) {
       throw badRequest("amount is required");
     }
+    if (!input.currency || typeof input.currency !== "string") {
+      throw badRequest("currency is required and must be a string");
+    }
     const created = await createRevenueRecord({
       brandId: input.brandId ?? undefined,
       productId: input.productId ?? undefined,
       channel: input.channel ?? undefined,
       amount: input.amount,
-      currency: input.currency ?? "EUR",
+      currency: input.currency,
       periodStart: input.periodStart ? new Date(input.periodStart) : undefined,
       periodEnd: input.periodEnd ? new Date(input.periodEnd) : undefined,
     });
-    await emitFinanceCreated(
+    await emitFinanceRevenueRecorded(
       { id: created.id, brandId: created.brandId ?? undefined },
       { brandId: created.brandId ?? undefined, source: "api" },
     );
@@ -195,6 +198,12 @@ class FinanceService {
   }
 
   async createExpense(input: CreateFinanceExpenseInput): Promise<FinanceExpenseDTO> {
+    if (input.amount === undefined || input.amount === null) {
+      throw badRequest("amount is required");
+    }
+    if (!input.currency || typeof input.currency !== "string") {
+      throw badRequest("currency is required and must be a string");
+    }
     const created = await createExpense({
       brandId: input.brandId,
       category: input.category,

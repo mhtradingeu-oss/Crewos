@@ -4,6 +4,7 @@ import { requestLogger } from "./core/http/middleware/request-logger.js";
 import { errorHandler } from "./core/http/middleware/error-handler.js";
 import { env } from "./core/config/env.js";
 import { apiRateLimiter, createRateLimiter } from "./core/http/rate-limit.js";
+import { correlationIdMiddleware } from "./core/http/middleware/correlation-id.js";
 import { authRouter } from "./modules/auth/index.js";
 import { usersRouter } from "./modules/users/index.js";
 import { brandRouter } from "./modules/brand/index.js";
@@ -55,6 +56,7 @@ export function createApp() {
   const app = express();
   const corsOptions = buildCorsOptions();
   app.use(cookieParser());
+  app.use(correlationIdMiddleware); // Attach correlationId to req.context
   app.use(cors(corsOptions));
   app.use(addSecurityHeaders);
   app.use(express.json({ limit: "1mb" }));

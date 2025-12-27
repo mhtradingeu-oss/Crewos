@@ -26,7 +26,7 @@ export function issueCsrfCookie(res: Response) {
     res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions);
   } catch (err) {
      
-    logger.error("Failed to set CSRF cookie", err);
+    logger.error("Failed to set CSRF cookie", { error: err });
     throw err;
   }
 }

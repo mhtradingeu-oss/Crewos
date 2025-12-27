@@ -38,7 +38,7 @@ export function loadEnv(): Env {
 
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    logger.error("❌ Invalid environment configuration", parsed.error.flatten().fieldErrors);
+    logger.error("❌ Invalid environment configuration", { error: parsed.error.flatten().fieldErrors });
     throw new Error("Invalid environment configuration");
   }
 

@@ -1,3 +1,10 @@
+export enum AffiliateRewardEvents {
+  REWARD_ISSUED = "affiliate.reward.issued",
+}
+
+export async function emitAffiliateRewardIssued(payload: AffiliateEventPayload, context?: EventContext) {
+  await publish(AffiliateRewardEvents.REWARD_ISSUED, payload, context);
+}
 import { publish, type EventContext } from "../../core/events/event-bus.js";
 import type {
   AffiliateEventPayload,

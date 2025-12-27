@@ -62,6 +62,22 @@ const payoutSelect: PrismaSelect<typeof prisma.affiliatePayout.findMany> = {
 
 // --- Repository ---
 export const affiliateRepository = {
+    async findConversionByAffiliateAndOrder(affiliateId: string, orderId: string) {
+      return prisma.affiliateConversion.findFirst({
+        where: { affiliateId, orderId },
+        select: conversionSelect,
+      });
+    },
+
+    async findPayoutsByAffiliateAndOrder(affiliateId: string, brandId?: string) {
+      return prisma.affiliatePayout.findMany({
+        where: {
+          affiliateId,
+          ...(brandId ? { brandId } : {}),
+        },
+        select: payoutSelect,
+      });
+    },
   // Dashboard summary (transactional)
   async getDashboardSummary(brandId: string) {
     return prisma.$transaction([

@@ -6,6 +6,7 @@ import { ProductEvents } from "../product/product.events.js";
 import { UserEvents } from "../users/users.events.js";
 import { AiBrainEvents } from "../ai-brain/ai-brain.events.js";
 import { CrmLeadEvents } from "../crm/crm.events.js";
+import { errorHandler } from "../../core/http/middleware/error-handler.js";
 
 export function registerNotificationSubscribers() {
   subscribe(PricingEvents.UPDATED, async (event) => {
@@ -19,7 +20,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed pricing update", err);
+      logger.error("[notification] failed pricing update", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 
@@ -33,7 +34,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed product create", err);
+      logger.error("[notification] failed product create", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 
@@ -47,7 +48,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed user create", err);
+      logger.error("[notification] failed user create", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 
@@ -61,7 +62,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed ai insight", err);
+      logger.error("[notification] failed ai insight", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 
@@ -76,7 +77,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed crm lead create", err);
+      logger.error("[notification] failed crm lead create", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 
@@ -91,7 +92,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed crm lead contact", err);
+      logger.error("[notification] failed crm lead contact", errorHandler);
     }
   });
 
@@ -106,7 +107,7 @@ export function registerNotificationSubscribers() {
         data: { event },
       });
     } catch (err) {
-      logger.error("[notification] failed crm customer event", err);
+      logger.error("[notification] failed crm customer event", { meta: { error: err instanceof Error ? err.message : String(err) } });
     }
   });
 }

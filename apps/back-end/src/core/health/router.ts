@@ -51,7 +51,7 @@ async function runDatabaseCheck(): Promise<{ ok: true } | { ok: false; message: 
     await prisma.$queryRaw`SELECT 1 AS result`;
     return { ok: true };
   } catch (error) {
-    logger.warn("Health check detected an unhealthy Prisma connection", error);
+    logger.warn("Health check detected an unhealthy Prisma connection", { error });
     return {
       ok: false,
       message: isProdLikeEnv ? "database unavailable" : (error instanceof Error ? error.message : "database unavailable"),

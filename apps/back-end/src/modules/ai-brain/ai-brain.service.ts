@@ -370,7 +370,7 @@ async function generateBrandAnalysis(brandId: string, metrics?: Record<string, u
       lastAnalysisAt: new Date(),
     };
   } catch (err) {
-    logger.error("[ai-brain] analysis generation failed", err);
+    logger.error("[ai-brain] analysis generation failed", { error: err });
     return { brandId };
   }
 }

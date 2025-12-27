@@ -2,6 +2,22 @@ import type { MediaCallContext } from "../../core/ai/providers/media/media.types
 import { mediaStudioService, type WhiteLabelRequest } from "../media-studio/media-studio.service.js";
 
 export const whiteLabelConfiguratorService = {
+  // Persist WL config and emit event
+  async createConfig(payload: WhiteLabelRequest): Promise<{ configId: string }> {
+    // Simulate DB persistence
+    const configId = "wlcfg-" + Math.random().toString(36).slice(2);
+    // Track mockup (simulate)
+    // Emit event
+    const { emitWhiteLabelConfigCreated } = await import("./white-label-configurator.events.js");
+    await emitWhiteLabelConfigCreated({
+      configId,
+      brandId: payload.brandId,
+      productId: payload.productId,
+      createdAt: new Date().toISOString(),
+    });
+    return { configId };
+  },
+
   async preview(payload: WhiteLabelRequest, ctx: MediaCallContext) {
     const enriched: WhiteLabelRequest = {
       surfaces: ensureSurfaces(payload.surfaces),

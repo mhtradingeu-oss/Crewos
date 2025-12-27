@@ -1,3 +1,4 @@
+// ...existing code...
 import type { Prisma } from "@prisma/client";
 import {
   findKnowledgeCategory,
@@ -170,8 +171,8 @@ export const knowledgeBaseService = {
     };
   },
 
-  async getDocumentById(id: string, brandId: string): Promise<KnowledgeDocumentDTO | null> {
-    const record = await findKnowledgeDocument({ id, brandId });
+  async getDocument(id: string): Promise<KnowledgeDocumentDTO | null> {
+    const record = await findKnowledgeDocument({ id });
     if (!record) return null;
     return toDocumentDTO(record);
   },
@@ -190,25 +191,19 @@ export const knowledgeBaseService = {
     const data: Prisma.KnowledgeDocumentCreateInput = {
       brand: { connect: { id: input.brandId } },
       title: input.title,
-      content: input.content ?? null,
-      sourceType: input.sourceType ?? null,
-      language: input.language ?? null,
+      content: input.content ?? undefined,
+      sourceType: input.sourceType ?? undefined,
+      language: input.language ?? undefined,
       product: input.productId ? { connect: { id: input.productId } } : undefined,
       campaign: input.campaignId ? { connect: { id: input.campaignId } } : undefined,
-      fileUrl: input.fileUrl ?? null,
-      storageKey: input.storageKey ?? null,
-      category: input.categoryId
-        ? { connect: { id: input.categoryId } }
-        : undefined,
-      tags: input.tags?.length
-        ? {
-            create: input.tags.map((name) => ({ name })),
-          }
-        : undefined,
+      fileUrl: input.fileUrl ?? undefined,
+      storageKey: input.storageKey ?? undefined,
+      category: input.categoryId ? { connect: { id: input.categoryId } } : undefined,
+      tags: input.tags?.length ? { create: input.tags.map((name) => ({ name })) } : undefined,
     };
 
     const created = await createKnowledgeDocument(data);
-
+    
     logger.info(`[knowledge-base] Created document ${created.id} for brand ${input.brandId}`);
     return toDocumentDTO(created);
   },
@@ -234,13 +229,13 @@ export const knowledgeBaseService = {
       data.title = input.title;
     }
     if (Object.prototype.hasOwnProperty.call(input, "content")) {
-      data.content = input.content ?? null;
+      data.content = input.content ?? undefined;
     }
     if (Object.prototype.hasOwnProperty.call(input, "sourceType")) {
-      data.sourceType = input.sourceType ?? null;
+      data.sourceType = input.sourceType ?? undefined;
     }
     if (Object.prototype.hasOwnProperty.call(input, "language")) {
-      data.language = input.language ?? null;
+      data.language = input.language ?? undefined;
     }
     if (Object.prototype.hasOwnProperty.call(input, "productId")) {
       if (input.productId) {
@@ -257,10 +252,10 @@ export const knowledgeBaseService = {
       }
     }
     if (Object.prototype.hasOwnProperty.call(input, "fileUrl")) {
-      data.fileUrl = input.fileUrl ?? null;
+      data.fileUrl = input.fileUrl ?? undefined;
     }
     if (Object.prototype.hasOwnProperty.call(input, "storageKey")) {
-      data.storageKey = input.storageKey ?? null;
+      data.storageKey = input.storageKey ?? undefined;
     }
     if (Object.prototype.hasOwnProperty.call(input, "categoryId")) {
       if (input.categoryId) {
@@ -284,28 +279,27 @@ export const knowledgeBaseService = {
     return toDocumentDTO(updated);
   },
 
-  async attachFile(id: string, brandId: string, fileUrl?: string | null, storageKey?: string | null) {
-    const existing = await findKnowledgeDocument({ id, brandId });
+  async attachFile(id: string, fileUrl?: string | null, storageKey?: string | null) {
+    const existing = await findKnowledgeDocument({ id });
     if (!existing) {
       throw notFound("Knowledge document not found");
     }
 
     const updated = await updateKnowledgeDocument(id, {
-      fileUrl: fileUrl ?? null,
-      storageKey: storageKey ?? null,
+      fileUrl: fileUrl ?? undefined,
+      storageKey: storageKey ?? undefined,
     });
-
+    
     logger.info(`[knowledge-base] Attached file metadata to document ${id}`);
     return toDocumentDTO(updated);
   },
 
-  async deleteDocument(id: string, brandId: string) {
-    // Use repository to find document by id and brandId
-    const existing = await findKnowledgeDocument({ id, brandId });
+  async deleteDocument(id: string) {
+    const existing = await findKnowledgeDocument({ id });
     if (!existing) {
       throw notFound("Knowledge document not found");
     }
-    // Transactional delete (document + tags)
+
     await transactionalDeleteDocumentAndTags(id);
     logger.info(`[knowledge-base] Deleted document ${id}`);
     return { id };

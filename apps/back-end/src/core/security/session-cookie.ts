@@ -30,7 +30,7 @@ export function issueSessionCookie(res: Response, token: string) {
     });
   } catch (err) {
     // This should never fail silently  session auth depends on it
-    logger.error("[auth] Failed to set session cookie", err);
+    logger.error("[auth] Failed to set session cookie", { error: err });
     throw err;
   }
 }
@@ -43,7 +43,7 @@ export function clearSessionCookie(res: Response) {
     });
   } catch (err) {
      
-    logger.error("[auth] Failed to clear session cookie", err);
+    logger.error("[auth] Failed to clear session cookie", { error: err });
     throw err;
   }
 }

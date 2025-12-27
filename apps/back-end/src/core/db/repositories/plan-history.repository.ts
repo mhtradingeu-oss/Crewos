@@ -28,4 +28,37 @@ export const PlanHistoryRepository = {
       },
     });
   },
+
+  async recordPlanChange({
+    tenantId,
+    fromPlanId,
+    toPlanId,
+    changedByUserId,
+    metadata,
+  }: {
+    tenantId: string;
+    fromPlanId?: string;
+    toPlanId: string;
+    changedByUserId: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    return prisma.tenantPlanChange.create({
+      data: {
+        tenantId,
+        fromPlanId,
+        toPlanId,
+        changedByUserId,
+        metadataJson: metadata ? JSON.stringify(metadata) : undefined,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        fromPlanId: true,
+        toPlanId: true,
+        changedByUserId: true,
+        metadataJson: true,
+        createdAt: true,
+      },
+    });
+  },
 };

@@ -1,12 +1,5 @@
-import { publish, type EventContext } from "../../core/events/event-bus.js";
-import type {
-  FinanceEventPayload,
-  FinanceExpenseEventPayload,
-  FinanceInvoiceEventPayload,
-  FinanceInvoiceStatusEventPayload,
-} from "./finance.types.js";
-
 export enum FinanceEvents {
+  REVENUE_RECORDED = "finance.revenue.recorded",
   CREATED = "finance.created",
   UPDATED = "finance.updated",
   DELETED = "finance.deleted",
@@ -14,6 +7,17 @@ export enum FinanceEvents {
   INVOICE_CREATED = "finance.invoice.created",
   INVOICE_STATUS_CHANGED = "finance.invoice.status.changed",
 }
+
+export async function emitFinanceRevenueRecorded(payload: FinanceEventPayload, context?: EventContext) {
+  await publish(FinanceEvents.REVENUE_RECORDED, payload, context);
+}
+import { publish, type EventContext } from "../../core/events/event-bus.js";
+import type {
+  FinanceEventPayload,
+  FinanceExpenseEventPayload,
+  FinanceInvoiceEventPayload,
+  FinanceInvoiceStatusEventPayload,
+} from "./finance.types.js";
 
 export async function emitFinanceCreated(payload: FinanceEventPayload, context?: EventContext) {
   await publish(FinanceEvents.CREATED, payload, context);

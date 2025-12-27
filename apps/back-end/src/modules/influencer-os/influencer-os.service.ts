@@ -147,6 +147,7 @@ class InfluencerOSService {
     });
 
     return {
+
       goal: input.goal,
       audience: input.audience,
       recommendations: ranked,
@@ -154,6 +155,58 @@ class InfluencerOSService {
       negotiation: engineOutput.negotiation,
       pipeline: engineOutput.pipeline,
     };
+  }
+
+  // Track influencer and persist score
+  async scoreInfluencer(input: {
+    influencerId: string;
+    brandId: string;
+    score: number;
+    marketFitScore?: number;
+    authenticityScore?: number;
+  }): Promise<InfluencerScoreRecord> {
+    // Enforce brand isolation
+    if (!input.brandId) throw badRequest("brandId required");
+    // Fetch profile to get required fields
+    const existing = await influencerOSRepository.findInfluencerById(input.influencerId);
+    if (!existing) throw notFound("Influencer not found");
+    const profile = await influencerOSRepository.updateProfile(input.influencerId, {
+      brandId: input.brandId,
+      handle: existing.handle,
+      platform: existing.platform,
+      displayName: existing.displayName,
+      followers: existing.followers,
+      engagementRate: existing.engagementRate,
+      fakeFollowerRisk: existing.fakeFollowerRisk,
+      marketFitScore: input.marketFitScore ?? existing.marketFitScore ?? null,
+      authenticityScore: input.authenticityScore ?? existing.authenticityScore ?? null,
+      category: existing.category,
+      country: existing.country,
+      language: existing.language,
+      tags: existing.tags,
+      profileUrl: existing.profileUrl,
+      riskNotes: existing.riskNotes,
+    });
+    // Create stat snapshot
+    const stat = await influencerOSRepository.createStatSnapshot({
+      influencerId: input.influencerId,
+      brandId: input.brandId,
+      marketFitScore: input.marketFitScore ?? null,
+      authenticityScore: input.authenticityScore ?? null,
+    });
+    // Map to score record
+    const record = mapProfileToScoreRecord(profile, stat);
+    // Emit event
+    const { emitInfluencerScored } = await import("./influencer-os.events.js");
+    await emitInfluencerScored({
+      influencerId: input.influencerId,
+      brandId: input.brandId,
+      score: input.score,
+      marketFitScore: input.marketFitScore,
+      authenticityScore: input.authenticityScore,
+      scoredAt: new Date().toISOString(),
+    });
+    return record;
   }
 
   async createNegotiation(
@@ -335,6 +388,7 @@ class InfluencerOSService {
     }
     return results;
   }
+
 }
 
 export const influencerOSService = new InfluencerOSService();
