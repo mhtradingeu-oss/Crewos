@@ -2,6 +2,109 @@ name: CI
 
 on:
   push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Turbo cache restore
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Typecheck (Turbo)
+        run: npx turbo run typecheck
+
+      - name: Test (Turbo, unit + contract)
+        run: npx turbo run test
+
+      - name: Build (Turbo)
+        run: npx turbo run build
+
+      # Event contract check (warn mode)
+      # TODO: Change to enforce mode after 2 weeks of clean runs
+      - name: Check event contracts (warn mode)
+        run: |
+          echo 'Running event contract checks (warn mode)...'
+          if npm run check:event-contracts; then
+            echo 'Event contract check completed.'
+          else
+            echo 'WARNING: Event contract check found issues (see above).'
+            echo 'Unknown events detected. Please review.'
+            # Do not fail the workflow yet
+            exit 0
+          fi
+
+      - name: Turbo cache save
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}name: CI
+
+    integration:
+      name: Integration Tests
+      needs: [quality]
+      runs-on: ubuntu-latest
+      services:
+        postgres:
+          image: postgres:15
+          env:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: mh_os_test
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mh_os_test
+        NODE_ENV: test
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: Use Node.js LTS
+          uses: actions/setup-node@v4
+          with:
+            node-version: 'lts/*'
+            cache: 'npm'
+            cache-dependency-path: '**/package-lock.json'
+        - name: Install dependencies (npm ci)
+          run: npm ci
+        - name: Generate Prisma Client
+          run: npx prisma generate --schema=apps/back-end/prisma/schema.prisma
+        - name: Deploy Prisma Migrations
+          run: npx prisma migrate deploy --schema=apps/back-end/prisma/schema.prisma
+        - name: Run integration tests
+          run: npm run test:integration --workspace=mh-os-superapp-backend
+          env:
+            DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mh_os_test
+            NODE_ENV: test
+        - name: Show migration logs if failed
+          if: failure()
+          run: cat apps/back-end/prisma/migrations/*/migration.sql || true
+
+on:
+  push:
     branches: [main, master]
   pull_request:
     branches: [main, master]

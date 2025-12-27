@@ -24,7 +24,10 @@
     "seed:tenants": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/tenants.seed.ts",
     "seed:all": "npm run seed:core && npm run seed:tenants",
     "smoke:phase5": "node --loader ts-node/esm --experimental-specifier-resolution=node ./scripts/phase5-automation-smoke.ts",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest -c jest.config.mjs --runInBand --passWithNoTests"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest -c jest.config.mjs --runInBand --passWithNoTests",
+    "test:integration": "jest --config jest.config.mjs --testMatch '**/__tests__/**/*.int.test.ts'",
+    "event:audit": "ts-node scripts/event-audit-report.ts",
+    "check:event-contracts": "ts-node scripts/check-event-contracts.ts"
   },
   "dependencies": {
     "@mh-os/shared": "file:../../packages/shared",
