@@ -65,6 +65,8 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "testEnvironment": "node",
-    "roots": ["<rootDir>/src/core/observability/__tests__"]
+    "roots": [
+      "<rootDir>/src/core/observability/__tests__"
+    ]
   }
 }

@@ -1,19 +1,29 @@
-
-/** @type {import('jest').Config} */
 export default {
-  preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+
+  // 👇 مهم: هذا يجعل Jest ESM حقيقي
   extensionsToTreatAsEsm: ['.ts'],
-  globals: {
-    'ts-jest': {
-      tsconfig: '<rootDir>/tsconfig.jest.json',
-      useESM: true,
-    },
+
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: './tsconfig.jest.json',
+      },
+    ],
   },
+
   moduleNameMapper: {
-    // يسمح باستيراد بدون .js / .ts في NodeNext
+    // 👇 يمنع Jest من طلب .js يدويًا
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+
+  modulePathIgnorePatterns: [
+    '<rootDir>/dist',
+  ],
+
   testMatch: ['**/__tests__/**/*.test.ts'],
-  clearMocks: true,
+
+  cache: false,
 };
