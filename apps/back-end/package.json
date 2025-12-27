@@ -24,7 +24,7 @@
     "seed:tenants": "node --loader ts-node/esm --experimental-specifier-resolution=node ./src/seeds/tenants.seed.ts",
     "seed:all": "npm run seed:core && npm run seed:tenants",
     "smoke:phase5": "node --loader ts-node/esm --experimental-specifier-resolution=node ./scripts/phase5-automation-smoke.ts",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest -c jest.config.cjs --passWithNoTests"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest -c jest.config.mjs --runInBand --passWithNoTests"
   },
   "dependencies": {
     "@mh-os/shared": "file:../../packages/shared",
@@ -63,10 +63,8 @@
     "seed": "node --loader ts-node/esm --experimental-specifier-resolution=node ./prisma/seed.ts"
   },
   "jest": {
-    "preset": "ts-jest",
+    "preset": "ts-jest/presets/default-esm",
     "testEnvironment": "node",
-    "roots": [
-      "<rootDir>/src/core/observability/__tests__"
-    ]
+    "roots": ["<rootDir>/src/core/observability/__tests__"]
   }
 }
