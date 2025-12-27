@@ -1,12 +1,8 @@
 
 // Canonical, immutable contracts for Automation Planner (Phase C.2)
 // PLAN-ONLY — no execution, no side effects
-import type { AutomationEvent } from "./automation.js";
 
-export type ConditionEvalResult = {
-  passed: boolean;
-  reason?: string;
-};
+import type { AutomationEvent, ConditionEvalResult } from "./automation.js";
 
 export type ActionPlanItem = {
   type: string;

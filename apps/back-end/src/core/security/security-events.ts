@@ -53,7 +53,7 @@ export function emitSecurityEvent(event: SecurityEvent) {
     event.type === "SESSION_INVALID" ||
     event.type === "RATE_LIMITED"
   ) {
-    logger.warn("[security-event]", sanitized);
+    logger.warn("[security-event]", { error: sanitized });
   } else {
     logger.info("[security-event]", sanitized);
   }

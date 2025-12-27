@@ -5,6 +5,7 @@ export function defineDomainEvent<T extends DomainEventName>() {
 }
 
 import type { SecurityEvent } from "../../security/security-events.js";
+import type { AIExecutionStatus } from "@prisma/client";
 
 // إضافة دعم لحدث auth.login.success
 import type { AuthLoginSuccessPayload } from "./examples/auth-login-success.event.js";
@@ -15,7 +16,60 @@ type SecurityPayloadMap = {
 
 export type DomainEventPayloadMap =
   SecurityPayloadMap & {
-    "auth.login.success": AuthLoginSuccessPayload;
+    "auth.login.success": AuthLoginSuccessPayload,
+    "competitor.price.updated": {
+      competitorId: string,
+      productId: string,
+      price: number,
+      currency: string,
+      updatedAt: string,
+      brandId?: string,
+    },
+    "influencer.scored": {
+      influencerId: string,
+      brandId: string,
+      score: number,
+      marketFitScore?: number,
+      authenticityScore?: number,
+      scoredAt: string,
+    },
+    "media.generated": {
+      requestId: string,
+      brandId?: string,
+      productId?: string,
+      state: string,
+      generatedAt: string,
+    },
+    "onboarding.completed": {
+      userId: string,
+      tenantId: string,
+      persona: string,
+      completedAt: string,
+    },
+    "white-label.config.created": {
+      configId: string,
+      brandId?: string,
+      productId?: string,
+      createdAt: string,
+    },
+    "ai.usage.logged": {
+      runId: string,
+      agentName?: string,
+      model?: string,
+      provider?: string,
+      status: AIExecutionStatus,
+      latencyMs?: number,
+      totalTokens?: number,
+      costUsd?: number,
+      brandId?: string,
+      tenantId?: string,
+    },
+    "ai.performance.snapshot": {
+      avgLatency: number,
+      totalRequests: number,
+      errors: number,
+      fallbacks: number,
+    },
   };
 export type DomainEventName = keyof DomainEventPayloadMap;
 

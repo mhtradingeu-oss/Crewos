@@ -1,3 +1,4 @@
+import { emitAffiliateRewardIssued } from "./affiliate.events.js";
 // No Prisma imports allowed in service layer
 
 // --- Mappers ---
@@ -120,6 +121,79 @@ import * as cuid from "@paralleldrive/cuid2";
 // Payout status change logic moved to service below
 
 export const affiliateService = {
+    /**
+     * Track an affiliate action (conversion, click, etc.)
+     * Ensures no double rewards for the same order/action.
+     */
+    async trackAffiliateAction(
+      input: { affiliateId: string; orderId: string; amount: number; currency: string; metadata?: Record<string, unknown> },
+      context: AffiliateActionContext,
+    ): Promise<AffiliateConversionDTO> {
+      // Check for existing conversion for this orderId and affiliateId
+      const existing = await affiliateRepository.findConversionByAffiliateAndOrder(input.affiliateId, input.orderId);
+      if (existing) throw badRequest("Reward already issued for this order/action");
+      // Create conversion
+      const conversion = await affiliateRepository.createConversion({
+        affiliateId: input.affiliateId,
+        brandId: context.brandId ?? null,
+        orderId: input.orderId,
+        amount: input.amount,
+        currency: input.currency,
+        metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      // Calculate and issue reward
+      await this.issueAffiliateReward(conversion, context);
+      return mapAffiliateConversionToDTO(conversion);
+    },
+
+    /**
+     * Calculate the affiliate reward for a conversion.
+     * (Stub: replace with real business logic as needed)
+     */
+    async calculateAffiliateReward(conversion: any): Promise<number> {
+      // Example: 10% commission
+      if (!conversion.amount) return 0;
+      return Math.round(conversion.amount * 0.1 * 100) / 100;
+    },
+
+    /**
+     * Issue a reward for an affiliate conversion, emit event, and ensure no double rewards.
+     */
+    async issueAffiliateReward(conversion: any, context: AffiliateActionContext): Promise<void> {
+      // Check for existing payout for this conversion/orderId
+      const payouts = await affiliateRepository.findPayoutsByAffiliateAndOrder(conversion.affiliateId, conversion.brandId);
+      if (payouts && payouts.length > 0) throw badRequest("Reward already issued for this order/action");
+      // Calculate reward
+      const reward = await this.calculateAffiliateReward(conversion);
+      if (reward <= 0) return;
+      // Create payout (status: PAID)
+      const payout = await affiliateRepository.requestPayout({
+        affiliateId: conversion.affiliateId,
+        brandId: conversion.brandId ?? null,
+        amount: reward,
+        currency: conversion.currency ?? null,
+        status: "PAID",
+        requestedAt: new Date(),
+        paidAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        notes: `Auto-issued for order ${conversion.orderId}`,
+        method: "auto",
+      });
+      // Emit event
+      await emitAffiliateRewardIssued({
+        brandId: conversion.brandId ?? undefined,
+        affiliateId: conversion.affiliateId,
+        action: "reward.issued",
+        metadata: { orderId: conversion.orderId, payoutId: payout.id, amount: reward },
+      }, {
+        brandId: conversion.brandId ?? undefined,
+        actorUserId: context.actorUserId,
+        source: "api",
+      });
+    },
   async getDashboardSummary(brandId: string): Promise<AffiliateDashboardSummary> {
     const [totalAffiliates, activeAffiliates, conversionAgg, commissionAgg, pendingPayoutAgg] =
       await affiliateRepository.getDashboardSummary(brandId);

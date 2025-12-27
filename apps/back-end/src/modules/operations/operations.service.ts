@@ -12,7 +12,8 @@ import type {
   OperationsTaskListParams,
   OperationsTaskListResponse,
   UpdateOperationsTaskInput,
-} from "./operations.types.js";
+} from "@mh-os/shared";
+import { publish } from "../../core/events/event-bus.js";
 
 type OperationsTaskSelect = PrismaArgs<typeof prisma.operationsTask.findMany>["select"];
 type OperationsTaskWhereInput = PrismaArgs<typeof prisma.operationsTask.findMany>["where"];
@@ -122,27 +123,46 @@ export const operationsService = {
       data: {
         brandId: input.brandId,
         title: input.title,
-        status: input.status ?? "OPEN",
-        dueDate: input.dueDate ?? null,
       },
       select: taskSelect,
     });
-
     logger.info(`[operations] Created task ${created.id} for brand ${input.brandId}`);
+    // Emit domain event
+    await publish("operations.task.created", { taskId: created.id, brandId: created.brandId, title: created.title });
+    // Log to ActivityLog
+    await publish("operations.activity.logged", {
+      action: "created",
+      entityType: "OperationsTask",
+      entityId: created.id,
+      brandId: created.brandId,
+      metadata: { title: created.title }
+    });
     return toTaskDTO(created);
   },
 
   async updateTask(id: string, brandId: string, input: UpdateOperationsTaskInput): Promise<OperationsTaskDTO> {
     const updated = await OperationsRepository.updateOpsTask(id, brandId, input, taskSelect);
-
     logger.info(`[operations] Updated task ${id}`);
+    await publish("operations.activity.logged", {
+      action: "updated",
+      entityType: "OperationsTask",
+      entityId: updated.id,
+      brandId: updated.brandId,
+      metadata: { ...input }
+    });
     return toTaskDTO(updated);
   },
 
   async completeTask(id: string, brandId: string): Promise<OperationsTaskDTO> {
     const completed = await OperationsRepository.updateOpsTaskStatus(id, brandId, "COMPLETED", taskSelect);
-
     logger.info(`[operations] Completed task ${id}`);
+    await publish("operations.activity.logged", {
+      action: "completed",
+      entityType: "OperationsTask",
+      entityId: completed.id,
+      brandId: completed.brandId,
+      metadata: {}
+    });
     return toTaskDTO(completed);
   },
 

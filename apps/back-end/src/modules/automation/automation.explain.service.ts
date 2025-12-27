@@ -1,3 +1,42 @@
+import { prisma } from "../../core/prisma.js";
+import { publish } from "../../core/events/event-bus.js";
+
+/**
+ * Persists an explanation for a rule version and emits automation.rule.explained.
+ * Read-only, deterministic. No side effects on automation execution.
+ */
+export async function persistAutomationRuleExplanation({
+	brandId,
+	ruleVersionId,
+	explanation,
+	actorUserId,
+}: {
+	brandId: string;
+	ruleVersionId: string;
+	explanation: ExplainResponse;
+	actorUserId: string;
+}) {
+	// Store explanation in a dedicated table or as a log (here: AutomationExecutionLog with type 'EXPLANATION')
+	const log = await prisma.automationExecutionLog.create({
+		data: {
+			ruleId: ruleVersionId, // If ruleId is required, fetch from ruleVersion
+			eventName: "automation.rule.explained",
+			status: "EXPLAINED",
+			resultJson: JSON.stringify(explanation),
+			runAt: new Date(),
+			errorMessage: undefined,
+		},
+	});
+	// Emit event
+	await publish("automation.rule.explained", {
+		brandId,
+		ruleVersionId,
+		explanation,
+		actorUserId,
+		logId: log.id,
+	});
+	return { status: "recorded", logId: log.id };
+}
 
 import {
   findAutomationActionRunWithContext,
