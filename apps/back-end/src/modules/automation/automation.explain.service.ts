@@ -4,15 +4,21 @@ import {
   findAutomationRunWithDetails,
   findAutomationRuleVersionById,
 } from "../../core/db/repositories/automation.repository.js";
+import type { Prisma } from "@prisma/client";
 import { getRuleVersionMetrics } from "./automation.observability.service.js";
 import type { ExplainResponse, ExplainOutcome } from "./automation.explain.types.js";
 
 // A) explainRuleVersion
 export async function explainRuleVersion({ brandId, ruleVersionId, timeRange }: { brandId: string; ruleVersionId: string; timeRange?: { from?: Date; to?: Date } }): Promise<ExplainResponse | null> {
 	// 1. Query ruleVersion + parent rule (brandId)
-	const ruleVersion = await findAutomationRuleVersionById(ruleVersionId, {
-		select: { id: true, rule: { select: { brandId: true } }, metaSnapshotJson: true },
-	});
+	const ruleVersionSelect = {
+		id: true,
+		rule: { select: { brandId: true } },
+		metaSnapshotJson: true,
+	} satisfies Prisma.AutomationRuleVersionSelect;
+	const ruleVersion = await findAutomationRuleVersionById<
+		Prisma.AutomationRuleVersionArgs & { select: typeof ruleVersionSelect }
+	>(ruleVersionId, { select: ruleVersionSelect });
 	if (!ruleVersion || ruleVersion.rule.brandId !== brandId) return null;
 
 	// 2. Get metrics (Phase 7.1 helper)

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { prisma, type PrismaArgs } from "../../core/prisma.js";
 import { OperationsRepository } from "../../core/db/repositories/operations.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
@@ -14,6 +14,13 @@ import type {
   UpdateOperationsTaskInput,
 } from "./operations.types.js";
 
+type OperationsTaskSelect = PrismaArgs<typeof prisma.operationsTask.findMany>["select"];
+type OperationsTaskWhereInput = PrismaArgs<typeof prisma.operationsTask.findMany>["where"];
+type ActivityLogSelect = PrismaArgs<typeof prisma.activityLog.findMany>["select"];
+type ActivityLogWhereInput = PrismaArgs<typeof prisma.activityLog.findMany>["where"];
+type TaskRecord = Awaited<ReturnType<typeof prisma.operationsTask.findMany>>[number];
+type ActivityLogRecord = Awaited<ReturnType<typeof prisma.activityLog.findMany>>[number];
+
 const taskSelect = {
   id: true,
   brandId: true,
@@ -22,7 +29,7 @@ const taskSelect = {
   dueDate: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.OperationsTaskSelect;
+} satisfies OperationsTaskSelect;
 
 const activitySelect = {
   id: true,
@@ -34,7 +41,7 @@ const activitySelect = {
   severity: true,
   metaJson: true,
   createdAt: true,
-} satisfies Prisma.ActivityLogSelect;
+} satisfies ActivityLogSelect;
 
 function parseMeta(value: string | null): unknown {
   if (!value) return undefined;
@@ -45,7 +52,7 @@ function parseMeta(value: string | null): unknown {
   }
 }
 
-function toTaskDTO(record: Prisma.OperationsTaskGetPayload<{ select: typeof taskSelect }>): OperationsTaskDTO {
+function toTaskDTO(record: TaskRecord): OperationsTaskDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -57,7 +64,7 @@ function toTaskDTO(record: Prisma.OperationsTaskGetPayload<{ select: typeof task
   };
 }
 
-function toActivityLogDTO(record: Prisma.ActivityLogGetPayload<{ select: typeof activitySelect }>): ActivityLogDTO {
+function toActivityLogDTO(record: ActivityLogRecord): ActivityLogDTO {
   return {
     id: record.id,
     brandId: record.brandId ?? undefined,
@@ -80,7 +87,7 @@ export const operationsService = {
     const { status, dueFrom, dueTo, search, page = 1, pageSize = 20, brandId } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.OperationsTaskWhereInput = { brandId };
+    const where: OperationsTaskWhereInput = { brandId };
     if (status) where.status = status;
     if (dueFrom || dueTo) {
       where.dueDate = {};
@@ -91,16 +98,16 @@ export const operationsService = {
       where.title = { contains: search, mode: "insensitive" };
     }
 
-    const [total, rows] = await prisma.$transaction([
-        await OperationsRepository.countOpsTasks(where),
-        await OperationsRepository.listOpsTasks({
-          where,
-          select: taskSelect,
-          orderBy: { updatedAt: "desc" },
-          skip,
-          take,
-        }),
-      ];
+    const [total, rows] = await Promise.all([
+      OperationsRepository.countOpsTasks(where),
+      OperationsRepository.listOpsTasks({
+        where,
+        select: taskSelect,
+        orderBy: { updatedAt: "desc" },
+        skip,
+        take,
+      }),
+    ]);
 
     return {
       items: rows.map(toTaskDTO),
@@ -147,7 +154,7 @@ export const operationsService = {
     const { module, type, severity, dateFrom, dateTo, page = 1, pageSize = 20, brandId } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.ActivityLogWhereInput = { brandId };
+    const where: ActivityLogWhereInput = { brandId };
     if (module) where.module = module;
     if (type) where.type = type;
     if (severity) where.severity = severity;

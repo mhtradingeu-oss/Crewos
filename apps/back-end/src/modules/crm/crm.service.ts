@@ -1,9 +1,14 @@
 /**
  * CRM SERVICE — MH-OS v2
  * Spec: docs/os/17_crm-os.md (MASTER_INDEX)
+ *
  */
-import type { Prisma } from "@prisma/client";
-import { CrmRepository } from "../../core/db/repositories/crm.repository.js";
+
+import {
+  CrmRepository,
+  type CrmOrderSummary,
+  type CrmRevenueRecordSummary,
+} from "../../core/db/repositories/crm.repository.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import {
@@ -25,7 +30,6 @@ import type {
   CrmSegmentCreateInput,
   CrmSegmentLeadsResult,
   CrmSegmentRecord,
-  CrmSegmentUpdateInput,
   LeadRecord,
   CreateLeadInput,
   UpdateLeadInput,
@@ -35,6 +39,8 @@ import { orchestrateAI, makeCacheKey } from "../../core/ai/orchestrator.js";
 import { crmScorePrompt } from "../../core/ai/prompt-templates.js";
 import type { EventContext } from "../../core/events/event-bus.js";
 import type { CrmScoreInput, CrmScoreResult } from "./crm.ai.types.js";
+import { prisma, type PrismaArgs } from "../../core/prisma.js";
+import type { Prisma } from "@prisma/client";
 
 type CrmActionContext = {
   brandId?: string;
@@ -42,6 +48,18 @@ type CrmActionContext = {
   tenantId?: string;
 };
 
+type LeadListArgs = PrismaArgs<typeof prisma.lead.findMany>;
+type LeadWhereInput = LeadListArgs["where"];
+type LeadSelect = LeadListArgs["select"];
+type SegmentListArgs = PrismaArgs<typeof prisma.cRMSegment.findMany>;
+type SegmentWhereInput = SegmentListArgs["where"];
+type SegmentSelect = SegmentListArgs["select"];
+type SegmentFilterJson = PrismaArgs<typeof prisma.cRMSegment.create>["data"]["filterJson"];
+type InputJsonValue = SegmentFilterJson;
+type JsonValue = SegmentFilterJson;
+
+type OrderRecord = CrmOrderSummary;
+type RevenueRecord = CrmRevenueRecordSummary;
 function buildCrmEventContext(context?: CrmActionContext): EventContext {
   return {
     brandId: context?.brandId ?? undefined,
@@ -50,6 +68,8 @@ function buildCrmEventContext(context?: CrmActionContext): EventContext {
     source: "api",
   };
 }
+
+type CrmCustomerSelect = PrismaArgs<typeof prisma.crmCustomer.create>["select"];
 
 const leadSelect = {
   id: true,
@@ -64,7 +84,9 @@ const leadSelect = {
   company: { select: { id: true, name: true } },
   crmCustomer: { select: { id: true } },
   _count: { select: { deals: true } },
-} satisfies Prisma.LeadSelect;
+} satisfies LeadSelect;
+
+type LeadRecordRaw = Prisma.LeadGetPayload<{ select: typeof leadSelect }>;
 
 const segmentSelect = {
   id: true,
@@ -73,7 +95,9 @@ const segmentSelect = {
   filterJson: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.CRMSegmentSelect;
+} satisfies SegmentSelect;
+
+type SegmentRecordRaw = Prisma.CRMSegmentGetPayload<{ select: typeof segmentSelect }>;
 
 const crmCustomerSelect = {
   id: true,
@@ -85,10 +109,13 @@ const crmCustomerSelect = {
   firstRevenueRecordId: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.CrmCustomerSelect;
+} satisfies CrmCustomerSelect;
+
+type CrmCustomerRecordRaw = Prisma.CrmCustomerGetPayload<{ select: typeof crmCustomerSelect }>;
 
 
 
+class CrmService {
   async list(
     params: {
       brandId?: string;
@@ -104,7 +131,7 @@ const crmCustomerSelect = {
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.LeadWhereInput = {};
+    const where: LeadWhereInput = {};
     const scopedBrandId = context?.brandId ?? brandId;
     if (scopedBrandId) where.brandId = scopedBrandId;
     if (status) where.status = status;
@@ -117,7 +144,14 @@ const crmCustomerSelect = {
     }
 
 
-    const { total, rows } = await CrmRepository.listLeads({ where, skip, take, select: leadSelect });
+    const leadListResult = await CrmRepository.listLeads({
+      where,
+      skip,
+      take,
+      select: leadSelect,
+    });
+    const { total } = leadListResult;
+    const rows = leadListResult.rows as LeadRecordRaw[];
 
     return {
       items: rows.map((row) => this.mapLead(row)),
@@ -128,7 +162,7 @@ const crmCustomerSelect = {
   }
 
   async getById(id: string, context?: CrmActionContext): Promise<LeadRecord> {
-    const lead = await CrmRepository.findLeadById(id, leadSelect);
+    const lead = (await CrmRepository.findLeadById(id, leadSelect)) as LeadRecordRaw;
     if (!lead) throw notFound("Lead not found");
     if (context?.brandId && lead.brandId && lead.brandId !== context.brandId) {
       throw forbidden("Access denied for this brand");
@@ -163,16 +197,18 @@ const crmCustomerSelect = {
   async create(input: CreateLeadInput, context?: CrmActionContext): Promise<LeadRecord> {
     const personId = await this.ensurePerson(input);
     const brandId = context?.brandId ?? input.brandId ?? null;
-    const created = await CrmRepository.createLead({
-      data: {
-        brandId,
-        personId,
-        status: input.status ?? "new",
-        ownerId: input.ownerId ?? null,
-        sourceId: input.sourceId ?? null,
-      },
-      select: leadSelect,
-    });
+    const created =
+      (await CrmRepository.createLead({
+        data: {
+          brandId,
+          personId,
+          status: input.status ?? "new",
+          ownerId: input.ownerId ?? null,
+          sourceId: input.sourceId ?? null,
+        },
+        select: leadSelect,
+      })
+    ) as LeadRecordRaw;
     const eventContext = buildCrmEventContext({
       brandId: context?.brandId ?? created.brandId ?? undefined,
       actorUserId: context?.actorUserId,
@@ -205,17 +241,19 @@ const crmCustomerSelect = {
         : undefined;
 
     const finalBrandId = context?.brandId ?? input.brandId ?? existing.brandId;
-    const updated = await CrmRepository.updateLead({
-      id,
-      data: {
-        brandId: finalBrandId,
-        status: input.status ?? existing.status,
-        ownerId: input.ownerId ?? existing.ownerId,
-        sourceId: input.sourceId ?? undefined,
-        personId: personId ?? existing.person?.id ?? undefined,
-      },
-      select: leadSelect,
-    });
+    const updated =
+      (await CrmRepository.updateLead({
+        where: { id },
+        data: {
+          brandId: finalBrandId,
+          status: input.status ?? existing.status,
+          ownerId: input.ownerId ?? existing.ownerId,
+          sourceId: input.sourceId ?? undefined,
+          personId: personId ?? existing.person?.id ?? undefined,
+        },
+        select: leadSelect,
+      })
+    ) as LeadRecordRaw;
     const eventContext = buildCrmEventContext({
       brandId: context?.brandId ?? updated.brandId ?? undefined,
       actorUserId: context?.actorUserId,
@@ -264,14 +302,16 @@ const crmCustomerSelect = {
       throw forbidden("Access denied for this brand");
     }
 
-    const updated = await CrmRepository.updateLead({
-      id: leadId,
-      data: {
-        status: "contact",
-        ownerId: input.ownerId ?? lead.ownerId ?? null,
-      },
-      select: leadSelect,
-    });
+    const updated =
+      (await CrmRepository.updateLead({
+        where: { id: leadId },
+        data: {
+          status: "contact",
+          ownerId: input.ownerId ?? lead.ownerId ?? null,
+        },
+        select: leadSelect,
+      })
+    ) as LeadRecordRaw;
     const contactPayload: CrmContactEventPayload = {
       leadId: updated.id,
       brandId: updated.brandId ?? undefined,
@@ -297,7 +337,11 @@ const crmCustomerSelect = {
       throw forbidden("Access denied for this brand");
     }
 
-    const [order, revenueRecord] = await CrmRepository.findOrderAndRevenue(input.orderId, input.revenueRecordId);
+    const [order, revenueRecord]: [OrderRecord | null, RevenueRecord | null] =
+      (await CrmRepository.findOrderAndRevenue(input.orderId, input.revenueRecordId)) as [
+        OrderRecord | null,
+        RevenueRecord | null,
+      ];
 
     if (input.orderId && !order) {
       throw notFound("Sales order not found");
@@ -320,15 +364,16 @@ const crmCustomerSelect = {
     }
     const resolvedBrandId = brandCandidates.size === 1 ? Array.from(brandCandidates)[0] : null;
 
-    const { customer, updatedLead } = await CrmRepository.convertLeadToCustomer({
+    const conversionResult = await CrmRepository.convertLeadToCustomer<typeof leadSelect, typeof crmCustomerSelect>({
       lead,
       order,
       revenueRecord,
       resolvedBrandId,
-      input,
+      ownerId: input.ownerId ?? null,
       leadSelect,
       crmCustomerSelect,
     });
+    const { customer, updatedLead } = conversionResult;
 
     const payload: CrmCustomerEventPayload = {
       leadId: updatedLead.id,
@@ -351,7 +396,7 @@ const crmCustomerSelect = {
     return await CrmRepository.ensurePerson(input, brandId);
   }
 
-  private mapLead(row: Prisma.LeadGetPayload<{ select: typeof leadSelect }>): LeadRecord {
+  private mapLead(row: LeadRecordRaw): LeadRecord {
     const fullName = [row.person?.firstName, row.person?.lastName].filter(Boolean).join(" ").trim();
     return {
       id: row.id,
@@ -363,14 +408,14 @@ const crmCustomerSelect = {
       phone: row.person?.phone ?? undefined,
       companyName: row.company?.name ?? undefined,
       score: row.score ?? undefined,
-      dealCount: row._count.deals,
+      dealCount: row._count?.deals ?? 0,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       customerId: row.crmCustomer?.id ?? undefined,
     };
   }
 
-  private mapCustomer(record: Prisma.CrmCustomerGetPayload<{ select: typeof crmCustomerSelect }>): CrmCustomerRecord {
+  private mapCustomer(record: CrmCustomerRecordRaw): CrmCustomerRecord {
     return {
       id: record.id,
       leadId: record.leadId,
@@ -401,14 +446,16 @@ const crmCustomerSelect = {
     context?: CrmActionContext,
   ): Promise<CrmSegmentRecord> {
     const brandId = context?.brandId ?? input.brandId ?? null;
-    const created = await CrmRepository.createSegment({
-      data: {
-        brandId,
-        name: input.name,
-        filterJson: input.filter ? this.normalizeFilter(input.filter) : undefined,
-      },
-      select: segmentSelect,
-    });
+    const created =
+      (await CrmRepository.createSegment({
+        data: {
+          brandId,
+          name: input.name,
+          filterJson: input.filter ? this.normalizeFilter(input.filter) : undefined,
+        },
+        select: segmentSelect,
+      })
+    ) as SegmentRecordRaw;
     return this.mapSegment(created);
   }
 
@@ -416,17 +463,24 @@ const crmCustomerSelect = {
     params: { page?: number; pageSize?: number } = {},
     context?: CrmActionContext,
   ): Promise<{ items: CrmSegmentRecord[]; total: number; page: number; pageSize: number }> {
-    const where: Prisma.CRMSegmentWhereInput = {};
+    const where: SegmentWhereInput = {};
     if (context?.brandId) where.brandId = context.brandId;
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const { skip, take } = buildPagination({ page, pageSize });
-    const { total, rows } = await CrmRepository.listSegments({ where, skip, take, select: segmentSelect });
+    const segmentListResult = await CrmRepository.listSegments({
+      where,
+      skip,
+      take,
+      select: segmentSelect,
+    });
+    const { total } = segmentListResult;
+    const rows = segmentListResult.rows as SegmentRecordRaw[];
     return { items: rows.map((row) => this.mapSegment(row)), total, page, pageSize: take };
   }
 
   async getSegmentById(id: string, context?: CrmActionContext): Promise<CrmSegmentRecord> {
-    const segment = await CrmRepository.findSegmentById(id, segmentSelect);
+    const segment: SegmentRecordRaw | null = await CrmRepository.findSegmentById(id, segmentSelect);
     if (!segment) {
       throw notFound("Segment not found");
     }
@@ -441,9 +495,9 @@ const crmCustomerSelect = {
     context?: CrmActionContext,
   ): Promise<CrmSegmentRecord[]> {
     if (!ids.length) return [];
-    const where: Prisma.CRMSegmentWhereInput = { id: { in: ids } };
+    const where: SegmentWhereInput = { id: { in: ids } };
     if (context?.brandId) where.brandId = context.brandId;
-    const rows = await CrmRepository.findSegmentsByIds(where, segmentSelect);
+    const rows: SegmentRecordRaw[] = await CrmRepository.findSegmentsByIds(where, segmentSelect);
     if (context?.brandId) {
       const missing = ids.filter((id) => !rows.find((row) => row.id === id));
       if (missing.length) {
@@ -469,7 +523,13 @@ const crmCustomerSelect = {
     const filter = this.parseSegmentFilter(segment.filterJson);
     const where = this.buildSegmentWhere(filter, brandId);
     const limit = Math.min(Math.max(options.limit ?? 5, 1), 50);
-    const { total, rows } = await CrmRepository.resolveSegmentLeads({ where, take: limit, select: leadSelect });
+    const segmentLeadsResult = await CrmRepository.resolveSegmentLeads({
+      where,
+      take: limit,
+      select: leadSelect,
+    });
+    const { total } = segmentLeadsResult;
+    const rows = segmentLeadsResult.rows as LeadRecordRaw[];
     return {
       segmentId,
       total,
@@ -477,7 +537,7 @@ const crmCustomerSelect = {
     };
   }
 
-  private normalizeFilter(filter: CrmSegmentFilter): Prisma.InputJsonValue {
+  private normalizeFilter(filter: CrmSegmentFilter): InputJsonValue {
     return {
       statuses: filter.statuses,
       sourceIds: filter.sourceIds,
@@ -486,10 +546,10 @@ const crmCustomerSelect = {
       maxScore: filter.maxScore,
       createdAfter: filter.createdAfter,
       createdBefore: filter.createdBefore,
-    } satisfies Prisma.InputJsonValue;
+    } satisfies InputJsonValue;
   }
 
-  private mapSegment(row: Prisma.CRMSegmentGetPayload<{ select: typeof segmentSelect }>): CrmSegmentRecord {
+  private mapSegment(row: SegmentRecordRaw): CrmSegmentRecord {
     return {
       id: row.id,
       brandId: row.brandId ?? undefined,
@@ -500,7 +560,7 @@ const crmCustomerSelect = {
     };
   }
 
-  private parseSegmentFilter(value?: Prisma.JsonValue | null): CrmSegmentFilter | undefined {
+  private parseSegmentFilter(value?: JsonValue | null): CrmSegmentFilter | undefined {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       return undefined;
     }
@@ -540,8 +600,8 @@ const crmCustomerSelect = {
     };
   }
 
-  private buildSegmentWhere(filter?: CrmSegmentFilter, brandId?: string): Prisma.LeadWhereInput {
-    const where: Prisma.LeadWhereInput = {};
+  private buildSegmentWhere(filter?: CrmSegmentFilter, brandId?: string): LeadWhereInput {
+    const where: LeadWhereInput = {};
     if (brandId) {
       where.brandId = brandId;
     }

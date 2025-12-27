@@ -24,8 +24,9 @@ import {
   aggregateRevenue,
   aggregateExpenses,
   aggregateOutstandingInvoices,
-  runFinanceTransaction
+  runFinanceTransaction,
 } from "../../core/db/repositories/finance.repository.js";
+import type { PrismaPromise } from "@prisma/client";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
 import {
@@ -47,6 +48,13 @@ import type {
   UpdateFinanceInput,
   UpdateFinanceInvoiceStatusInput,
 } from "./finance.types.js";
+
+type RevenueRows = Awaited<ReturnType<typeof findRevenueRecords>>;
+type ExpenseRows = Awaited<ReturnType<typeof findExpenses>>;
+type InvoiceRows = Awaited<ReturnType<typeof findInvoices>>;
+type RevenueAggregateResult = Awaited<ReturnType<typeof aggregateRevenue>>;
+type ExpenseAggregateResult = Awaited<ReturnType<typeof aggregateExpenses>>;
+type InvoiceAggregateResult = Awaited<ReturnType<typeof aggregateOutstandingInvoices>>;
 
 // Repository controls DB shape
 
@@ -92,8 +100,8 @@ class FinanceService {
     const where: any = {};
     if (brandId) where.brandId = brandId;
     if (productId) where.productId = productId;
-    const ops = [countRevenueRecords(where), findRevenueRecords(where)];
-    const [total, rows] = await runFinanceTransaction(ops);
+    const ops: PrismaPromise<any>[] = [countRevenueRecords(where), findRevenueRecords(where)];
+    const [total, rows] = (await runFinanceTransaction(ops)) as [number, RevenueRows];
     return {
       items: rows.map((row) => this.map(row)),
       total,
@@ -133,11 +141,11 @@ class FinanceService {
     if (!existing) throw notFound("Finance record not found");
 
     const updated = await updateRevenueRecord(id, {
-      brandId: input.brandId ?? existing.brandId,
-      productId: input.productId ?? existing.productId,
-      channel: input.channel ?? existing.channel,
-      amount: input.amount ?? existing.amount,
-      currency: input.currency ?? existing.currency,
+      brandId: input.brandId ?? this.coerceString(existing.brandId),
+      productId: input.productId ?? this.coerceString(existing.productId),
+      channel: input.channel ?? this.coerceString(existing.channel),
+      amount: input.amount ?? this.coerceNumber(existing.amount),
+      currency: input.currency ?? this.coerceString(existing.currency),
       periodStart: input.periodStart ? new Date(input.periodStart) : existing.periodStart ?? undefined,
       periodEnd: input.periodEnd ? new Date(input.periodEnd) : existing.periodEnd ?? undefined,
     });
@@ -176,8 +184,8 @@ class FinanceService {
       if (startDate) where.incurredAt.gte = new Date(startDate);
       if (endDate) where.incurredAt.lte = new Date(endDate);
     }
-    const ops = [countExpenses(where), findExpenses(where)];
-    const [total, rows] = await runFinanceTransaction(ops);
+    const ops: PrismaPromise<any>[] = [countExpenses(where), findExpenses(where)];
+    const [total, rows] = (await runFinanceTransaction(ops)) as [number, ExpenseRows];
     return {
       items: rows.map((row) => mapExpense(row)),
       total,
@@ -221,8 +229,8 @@ class FinanceService {
     const { skip, take } = buildPagination({ page, pageSize });
     const where: any = { brandId };
     if (status) where.status = status;
-    const ops = [countInvoices(where), findInvoices(where, { skip, take })];
-    const [total, rows] = await runFinanceTransaction(ops);
+    const ops: PrismaPromise<any>[] = [countInvoices(where), findInvoices(where, { skip, take })];
+    const [total, rows] = (await runFinanceTransaction(ops)) as [number, InvoiceRows];
     return {
       items: rows.map((row) => mapInvoice(row)),
       total,
@@ -282,12 +290,16 @@ class FinanceService {
   }
 
   async buildFinancialSnapshot(brandId: string): Promise<FinanceSnapshot> {
-    const ops = [
+    const ops: PrismaPromise<any>[] = [
       aggregateRevenue({ brandId }),
       aggregateExpenses({ brandId }),
-      aggregateOutstandingInvoices({ brandId, status: "issued" })
+      aggregateOutstandingInvoices({ brandId, status: "issued" }),
     ];
-    const [revenueAgg, expenseAgg, invoiceAgg] = await runFinanceTransaction(ops);
+    const [revenueAgg, expenseAgg, invoiceAgg] = (await runFinanceTransaction(ops)) as [
+      RevenueAggregateResult,
+      ExpenseAggregateResult,
+      InvoiceAggregateResult,
+    ];
     const revenue = revenueAgg._sum?.amount ? (typeof revenueAgg._sum.amount.toNumber === "function" ? revenueAgg._sum.amount.toNumber() : Number(revenueAgg._sum.amount)) : 0;
     const expenses = expenseAgg._sum?.amount ? (typeof expenseAgg._sum.amount.toNumber === "function" ? expenseAgg._sum.amount.toNumber() : Number(expenseAgg._sum.amount)) : 0;
     const outstandingInvoices = invoiceAgg._sum?.amount ? (typeof invoiceAgg._sum.amount.toNumber === "function" ? invoiceAgg._sum.amount.toNumber() : Number(invoiceAgg._sum.amount)) : 0;
@@ -325,6 +337,17 @@ class FinanceService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private coerceString(value?: string | null): string | undefined {
+    return value ?? undefined;
+  }
+
+  private coerceNumber(value?: number | { toNumber?: () => number } | null): number | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === "number") return value;
+    if (typeof value.toNumber === "function") return value.toNumber();
+    return Number(value);
   }
 }
 

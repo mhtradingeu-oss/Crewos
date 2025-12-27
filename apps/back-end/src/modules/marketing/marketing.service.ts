@@ -7,10 +7,10 @@ import type {
   CampaignAttributionPayload,
   CampaignInteractionPayload,
   CampaignPayload,
+  CampaignTargetSegmentInput,
   CampaignWhereInput,
   InputJsonValue,
   JsonValue,
-  NullableJsonNullValueInput,
 } from "../../core/db/repositories/marketing.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
@@ -328,9 +328,9 @@ class MarketingService {
 
   private serializeSegmentIds(
     ids?: string[] | null,
-  ): NullableJsonNullValueInput | InputJsonValue | undefined {
-    if (!ids?.length) return undefined;
-    return ids;
+  ): CampaignTargetSegmentInput | undefined {
+    if (!ids || ids.length === 0) return undefined;
+    return ids as CampaignTargetSegmentInput;
   }
 
   private parseTargetSegmentIds(value?: JsonValue | null): string[] | undefined {

@@ -477,7 +477,7 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
         brandId,
       },
     },
-    async (adjustment, tx) => {
+    async (adjustment) => {
       await inventoryService.createInventoryAdjustment(
         {
           inventoryItemId: adjustment.inventoryItemId,
@@ -485,7 +485,6 @@ export async function createSalesOrderWithPricingAndInventory(input: CreateSales
           delta: adjustment.delta,
           reason: adjustment.reason,
         },
-        tx,
       );
     },
   );

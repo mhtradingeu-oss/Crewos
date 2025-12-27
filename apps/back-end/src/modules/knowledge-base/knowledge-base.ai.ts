@@ -1,5 +1,4 @@
-import type { Prisma } from "@prisma/client";
-import { searchDocumentsForAI, getDocumentById, listDocumentsForContext, createAIInsightWithJournalAndSummary } from "../../core/db/repositories/knowledge-base.repository.js";
+import { searchDocumentsForAI, getDocumentById, listDocumentsForContext, createAIInsightWithJournalAndSummary, type AIInsightSelect } from "./knowledge-base.repository.js";
 import type { AIMessage } from "../../core/ai-service/ai-client.js";
 import { runAIRequest } from "../../core/ai-service/ai-client.js";
 import { notFound } from "../../core/http/errors.js";
@@ -13,7 +12,7 @@ const insightSelect = {
   details: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.AIInsightSelect;
+} satisfies AIInsightSelect;
 
 export async function generateKnowledgeSummary({
   brandId,
@@ -59,7 +58,6 @@ export async function generateKnowledgeSummary({
   const insight = await createAIInsightWithJournalAndSummary({
     brandId,
     documentId,
-    document,
     summary,
     details,
     insightSelect,

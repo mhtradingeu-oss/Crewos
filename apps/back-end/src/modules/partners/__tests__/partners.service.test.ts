@@ -1,13 +1,14 @@
-import { partnersService } from "../partners.service";
-import { partnersRepository } from "../../../core/db/repositories/partners.repository";
-import { Decimal } from "@prisma/client/runtime/library.js";
+import { jest } from '@jest/globals';
+import { partnersService } from "../partners.service.js";
+import { partnersRepository } from "../../../core/db/repositories/partners.repository.js";
+import { Decimal } from "@prisma/client/runtime/library";
 import type {
   PartnerContractRecord,
   PartnerMinimalRecord,
   PartnerPricingRecord,
   PartnerRecord,
   PartnerUserRecord as PartnerUserDbRecord,
-} from "../../../core/db/repositories/partners.repository";
+} from "../../../core/db/repositories/partners.repository.js";
 
 const baseBrandId = "brand-abc";
 

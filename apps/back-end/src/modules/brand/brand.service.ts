@@ -4,6 +4,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
+import { prisma } from "../../core/prisma.js";
 import { BrandRepository } from "../../core/db/repositories/brand.repository.js";
 import { badRequest, forbidden, notFound } from "../../core/http/errors.js";
 import { buildPagination } from "../../core/utils/pagination.js";
@@ -498,7 +499,7 @@ class BrandService {
       metadata: { cached: aiResult.cached },
     });
 
-    const insight = await this.db.aIInsight.create({
+    const insight = await prisma.aIInsight.create({
       data: {
         brandId,
         os: "brand",

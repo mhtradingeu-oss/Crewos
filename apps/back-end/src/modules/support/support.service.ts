@@ -1,7 +1,6 @@
 /**
  * SUPPORT SERVICE — MH-OS v2
  */
-import type { Prisma } from "@prisma/client";
 import * as supportRepository from "../../core/db/repositories/support.repository.js";
 import { buildPagination } from "../../core/utils/pagination.js";
 import { badRequest, notFound } from "../../core/http/errors.js";
@@ -38,6 +37,22 @@ import type {
   VoiceTurnInput,
   ConversationsResponse,
 } from "./support.types.js";
+
+import type {
+  TicketAssignmentRecord,
+  TicketDetailRecord,
+  TicketDetailSelect,
+  TicketListRecord,
+  TicketListSelect,
+  TicketMessageRecord,
+  TicketWhereInput,
+  VoiceSessionInclude,
+  VoiceSessionListRecord,
+  VoiceSessionListSelect,
+  VoiceSessionRecord,
+  VoiceTranscriptSelect,
+  VoiceTranscriptRecord,
+} from "../../core/db/repositories/support.repository.js";
 
 function parseJSON<T>(value?: string | null): T | null {
   if (!value) return null;
@@ -90,9 +105,9 @@ const ticketListSelect = {
       role: true,
     },
   },
-} satisfies Prisma.TicketSelect;
+} satisfies TicketListSelect;
 
-const ticketDetailSelect: Prisma.TicketSelect = {
+const ticketDetailSelect = {
   ...ticketListSelect,
   messages: {
     select: {
@@ -105,10 +120,7 @@ const ticketDetailSelect: Prisma.TicketSelect = {
     },
     orderBy: { createdAt: "asc" },
   },
-};
-
-type TicketListRecord = Prisma.TicketGetPayload<{ select: typeof ticketListSelect }>;
-type TicketDetailRecord = Prisma.TicketGetPayload<{ select: typeof ticketDetailSelect }>;
+} satisfies TicketDetailSelect;
 const voiceTranscriptSelect = {
   id: true,
   sessionId: true,
@@ -119,7 +131,7 @@ const voiceTranscriptSelect = {
   actionJson: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.VoiceTranscriptSelect;
+} satisfies VoiceTranscriptSelect;
 
 const voiceSessionListSelect = {
   id: true,
@@ -140,17 +152,13 @@ const voiceSessionListSelect = {
     orderBy: { createdAt: "desc" },
     select: voiceTranscriptSelect,
   },
-} satisfies Prisma.VoiceSessionSelect;
+} satisfies VoiceSessionListSelect;
 
 const voiceSessionDetailInclude = {
   transcripts: { orderBy: { createdAt: "asc" }, select: voiceTranscriptSelect },
-} satisfies Prisma.VoiceSessionInclude;
+} satisfies VoiceSessionInclude;
 
-type VoiceSessionListRecord = Prisma.VoiceSessionGetPayload<{ select: typeof voiceSessionListSelect }>;
-type VoiceSessionRecord = Prisma.VoiceSessionGetPayload<{ include: typeof voiceSessionDetailInclude }>;
-type VoiceTranscriptRecord = Prisma.VoiceTranscriptGetPayload<{ select: typeof voiceTranscriptSelect }>;
-
-function toMessageDTO(record: TicketListRecord["messages"][number]): TicketMessageDTO {
+function toMessageDTO(record: TicketMessageRecord): TicketMessageDTO {
   return {
     id: record.id,
     ticketId: record.ticketId,
@@ -161,11 +169,12 @@ function toMessageDTO(record: TicketListRecord["messages"][number]): TicketMessa
   };
 }
 
-function toTagDTO(record: TicketListRecord["tags"][number]): TicketTagDTO {
+function toTagDTO(record: any): TicketTagDTO {
+  if (!record) return { id: '', name: '' };
   return { id: record.id, name: record.name };
 }
 
-function toAssignmentDTO(record: TicketListRecord["assignments"][number]): TicketAssignmentDTO {
+function toAssignmentDTO(record: TicketAssignmentRecord): TicketAssignmentDTO {
   return {
     id: record.id,
     userId: record.userId ?? undefined,
@@ -175,68 +184,107 @@ function toAssignmentDTO(record: TicketListRecord["assignments"][number]): Ticke
 }
 
 function toTicketSummary(record: TicketListRecord): TicketSummaryDTO {
-  const latestMessage = record.messages?.[0];
+  // Defensive: tags, assignments, messages may not exist on all record types
+  const tags = Array.isArray((record as any).tags) ? (record as any).tags : [];
+  const assignments = Array.isArray((record as any).assignments) ? (record as any).assignments : [];
+  const messages = Array.isArray((record as any).messages) ? (record as any).messages : [];
+  const latestMessage = messages[0];
   return {
     id: record.id,
-    brandId: record.brandId ?? null,
-    contactId: record.contactId ?? null,
-    createdByUserId: record.createdByUserId ?? null,
-    assignedToUserId: record.assignedToUserId ?? null,
-    status: record.status ?? null,
-    channel: record.channel ?? null,
-    locale: record.locale ?? null,
-    source: record.source ?? null,
-    priority: record.priority ?? null,
-    category: record.category ?? null,
-    metadata: parseJSON(record.metadataJson),
-    metadataJson: record.metadataJson ?? null,
-    closedAt: record.closedAt ?? null,
+    brandId: 'brandId' in record ? record.brandId ?? null : null,
+    contactId: 'contactId' in record ? record.contactId ?? null : null,
+    createdByUserId: 'createdByUserId' in record ? record.createdByUserId ?? null : null,
+    assignedToUserId: 'assignedToUserId' in record ? record.assignedToUserId ?? null : null,
+    status: 'status' in record ? record.status ?? null : null,
+    channel: 'channel' in record ? record.channel ?? null : null,
+    locale: 'locale' in record ? record.locale ?? null : null,
+    source: 'source' in record ? record.source ?? null : null,
+    priority: 'priority' in record ? record.priority ?? null : null,
+    category: 'category' in record ? record.category ?? null : null,
+    metadata: parseJSON((record as any).metadataJson),
+    metadataJson: 'metadataJson' in record ? record.metadataJson ?? null : null,
+    closedAt: 'closedAt' in record ? record.closedAt ?? null : null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     latestMessage: latestMessage ? toMessageDTO(latestMessage) : undefined,
-    tags: (record.tags ?? []).map(toTagDTO),
-    assignments: (record.assignments ?? []).map(toAssignmentDTO),
+    tags: tags.map(toTagDTO),
+    assignments: assignments.map(toAssignmentDTO),
   };
 }
 
 function toTicketDTO(record: TicketDetailRecord): TicketDTO {
+  const messages = Array.isArray((record as any).messages) ? (record as any).messages : [];
   return {
     ...toTicketSummary(record as TicketListRecord),
-    messages: (record.messages ?? []).map(toMessageDTO),
+    messages: messages.map(toMessageDTO),
   };
 }
 
 function toVoiceTranscriptDTO(record: VoiceTranscriptRecord): VoiceTranscriptDTO {
+  if (!record) {
+    return {
+      id: '',
+      sessionId: '',
+      role: null,
+      text: null,
+      audioUrl: null,
+      locale: null,
+      action: null,
+      createdAt: null as any,
+      updatedAt: null as any,
+    };
+  }
   return {
     id: record.id,
     sessionId: record.sessionId,
-    role: record.role ?? null,
-    text: record.text ?? null,
-    audioUrl: record.audioUrl ?? null,
-    locale: record.locale ?? null,
-    action: parseJSON<Record<string, unknown>>(record.actionJson) ?? null,
+    role: 'role' in record ? record.role ?? null : null,
+    text: 'text' in record ? record.text ?? null : null,
+    audioUrl: 'audioUrl' in record ? record.audioUrl ?? null : null,
+    locale: 'locale' in record ? record.locale ?? null : null,
+    action: 'actionJson' in record ? parseJSON<Record<string, unknown>>(record.actionJson) ?? null : null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
 }
 
 function toVoiceSessionDTO(record: VoiceSessionRecord | VoiceSessionListRecord): VoiceSessionDTO {
-  const tags = parseJSON<string[]>(record.tagsJson) ?? [];
+  if (!record) {
+    return {
+      id: '',
+      brandId: null,
+      tenantId: null,
+      ticketId: null,
+      channel: null,
+      locale: null,
+      status: null,
+      startedAt: null as any,
+      endedAt: null,
+      updatedAt: null as any,
+      summary: null,
+      sentiment: null,
+      tags: [],
+      transcripts: [],
+    };
+  }
+  const tags = parseJSON<string[]>(('tagsJson' in record ? (record as any).tagsJson : undefined)) ?? [];
+  const transcripts = Array.isArray((record as any).transcripts)
+    ? ((record as any).transcripts as VoiceTranscriptRecord[])
+    : [];
   return {
     id: record.id,
-    brandId: record.brandId ?? null,
-    tenantId: record.tenantId ?? null,
-    ticketId: record.ticketId ?? null,
-    channel: record.channel ?? null,
-    locale: record.locale ?? null,
-    status: record.status ?? null,
+    brandId: 'brandId' in record ? record.brandId ?? null : null,
+    tenantId: 'tenantId' in record ? record.tenantId ?? null : null,
+    ticketId: 'ticketId' in record ? record.ticketId ?? null : null,
+    channel: 'channel' in record ? record.channel ?? null : null,
+    locale: 'locale' in record ? record.locale ?? null : null,
+    status: 'status' in record ? record.status ?? null : null,
     startedAt: record.startedAt,
-    endedAt: record.endedAt ?? null,
+    endedAt: 'endedAt' in record ? record.endedAt ?? null : null,
     updatedAt: record.updatedAt,
-    summary: record.summary ?? null,
-    sentiment: record.sentiment ?? null,
+    summary: 'summary' in record ? record.summary ?? null : null,
+    sentiment: 'sentiment' in record ? record.sentiment ?? null : null,
     tags,
-    transcripts: (record.transcripts ?? []).map(toVoiceTranscriptDTO),
+    transcripts: transcripts.map(toVoiceTranscriptDTO),
   };
 }
 
@@ -253,7 +301,8 @@ function toConversationSummaryFromTicket(record: TicketListRecord): Conversation
 
 function toConversationSummaryFromVoiceSession(record: VoiceSessionListRecord): ConversationSummaryDTO {
   const session = toVoiceSessionDTO(record);
-  const latestTranscript = record.transcripts?.[0];
+  const transcripts = Array.isArray((record as any).transcripts) ? (record as any).transcripts : [];
+  const latestTranscript = transcripts[0];
   const lastActivityAt = latestTranscript?.createdAt ?? record.updatedAt ?? record.startedAt;
   return {
     id: session.id,
@@ -272,7 +321,7 @@ export const supportService = {
     const { page = 1, pageSize = 20, search, status, assigneeId, brandId, channel } = params;
     const { skip, take } = buildPagination({ page, pageSize });
 
-    const where: Prisma.TicketWhereInput = { brandId };
+    const where: TicketWhereInput = { brandId };
 
     if (status) where.status = status;
     if (assigneeId) where.assignedToUserId = assigneeId;
@@ -287,16 +336,13 @@ export const supportService = {
       ];
     }
 
-    const [total, rows] = await prisma.$transaction([
-        await supportRepository.countTickets(where),
-        await supportRepository.findManyTickets({
-          where,
-          select: ticketListSelect,
-          orderBy: { updatedAt: "desc" },
-          skip,
-          take,
-        }),
-      ];
+    const { total, rows } = await supportRepository.listTickets({
+      where,
+      select: ticketListSelect,
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take,
+    });
 
     return {
       items: rows.map(toTicketSummary),
@@ -307,16 +353,17 @@ export const supportService = {
   },
 
   async getTicketWithMessages(id: string, brandId: string): Promise<TicketDTO | null> {
-    const record = await prisma.ticket.findFirst({
+    const record = await supportRepository.findTicket({
       where: { id, brandId },
       select: ticketDetailSelect,
     });
-      if (!record) return null;
-      return toTicketDTO(record as TicketDetailRecord);
+
+    if (!record) return null;
+    return toTicketDTO(record as TicketDetailRecord);
   },
 
   async createTicket(input: CreateTicketInput): Promise<TicketDTO> {
-    const ticket = await prisma.ticket.create({
+    const ticket = await supportRepository.createTicket({
       data: {
         brandId: input.brandId,
         createdByUserId: input.createdByUserId,
@@ -332,7 +379,6 @@ export const supportService = {
       },
       select: ticketDetailSelect,
     });
-      // ...existing code...
 
     try {
       const routing = await runSupportRouter({
@@ -343,7 +389,7 @@ export const supportService = {
       });
       if (routing) {
         const metadata = parseJSON<Record<string, unknown>>(ticket.metadataJson) ?? {};
-        await prisma.ticket.update({
+        await supportRepository.updateTicket({
           where: { id: ticket.id },
           data: {
             metadataJson: JSON.stringify({ ...metadata, routing }),
@@ -351,21 +397,19 @@ export const supportService = {
             priority: ticket.priority ?? routing.urgency ?? null,
           },
         });
-          // ...existing code...
       }
     } catch (err) {
       logger.warn(`[support] routing classification failed for ${ticket.id}: ${String(err)}`);
     }
 
     if (input.content) {
-      await prisma.ticketMessage.create({
+      await supportRepository.createTicketMessage({
         data: {
           ticketId: ticket.id,
           senderId: input.createdByUserId,
           content: input.content,
         },
       });
-        // ...existing code...
       logger.info(`[support] Created ticket ${ticket.id} with initial message`);
       const createdTicket = await this.getTicketWithMessages(ticket.id, input.brandId);
       if (!createdTicket) {
@@ -379,13 +423,10 @@ export const supportService = {
   },
 
   async addMessage(input: AddTicketMessageInput): Promise<TicketMessageDTO> {
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: input.ticketId },
-      select: { id: true, brandId: true },
-    });
+    const ticket = await supportRepository.findTicketMinimal({ id: input.ticketId });
     if (!ticket) throw notFound("Ticket not found");
 
-    const message = await prisma.ticketMessage.create({
+    const message = await supportRepository.createTicketMessage({
       data: {
         ticketId: input.ticketId,
         senderId: input.senderId,
@@ -394,17 +435,14 @@ export const supportService = {
     });
 
     logger.info(`[support] Message added to ${input.ticketId} by ${input.senderId}`);
-    return toMessageDTO(message as TicketListRecord["messages"][number]);
+    return toMessageDTO(message as TicketMessageRecord);
   },
 
   async updateTicketStatus(input: UpdateTicketStatusInput): Promise<TicketDTO> {
-    const ticket = await prisma.ticket.findFirst({
-      where: { id: input.ticketId, brandId: input.brandId },
-      select: ticketDetailSelect,
-    });
+    const ticket = await supportRepository.findTicketMinimal({ id: input.ticketId, brandId: input.brandId });
     if (!ticket) throw notFound("Ticket not found");
 
-    const updated = await prisma.ticket.update({
+    const updated = await supportRepository.updateTicket({
       where: { id: input.ticketId },
       data: { status: input.status, closedAt: input.closedAt ?? null },
       select: ticketDetailSelect,
@@ -415,13 +453,10 @@ export const supportService = {
   },
 
   async assignTicket(input: AssignTicketInput): Promise<TicketAssignmentDTO> {
-    const ticket = await prisma.ticket.findFirst({
-      where: { id: input.ticketId },
-      select: { id: true, brandId: true },
-    });
+    const ticket = await supportRepository.findTicketMinimal({ id: input.ticketId });
     if (!ticket) throw notFound("Ticket not found");
 
-    const assignment = await prisma.ticketAssignment.create({
+    const assignment = await supportRepository.createTicketAssignment({
       data: {
         ticketId: input.ticketId,
         userId: input.assigneeUserId,
@@ -439,7 +474,7 @@ export const supportService = {
       },
     });
 
-    await prisma.ticket.update({
+    await supportRepository.updateTicket({
       where: { id: input.ticketId },
       data: { assignedToUserId: input.assigneeUserId },
     });
@@ -448,7 +483,7 @@ export const supportService = {
       `[support] Ticket ${input.ticketId} assigned to ${input.assigneeUserId} scope ${input.brandAssignmentScope}`,
     );
 
-    return toAssignmentDTO(assignment as TicketListRecord["assignments"][number]);
+    return toAssignmentDTO(assignment);
   },
 
   async getConversation(ticketId: string, brandId: string): Promise<TicketDTO | null> {
@@ -474,15 +509,15 @@ export const supportService = {
   },
 
   async listTicketMessages(ticketId: string, brandId: string): Promise<TicketMessageDTO[]> {
-    const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, brandId }, select: { id: true } });
+    const ticket = await supportRepository.findTicketMinimal({ id: ticketId, brandId });
     if (!ticket) throw notFound("Ticket not found");
 
-    const messages = await prisma.ticketMessage.findMany({
+    const messages = await supportRepository.listTicketMessages({
       where: { ticketId },
       orderBy: { createdAt: "asc" },
     });
 
-    return messages.map((message) => toMessageDTO(message as TicketListRecord["messages"][number]));
+    return messages.map((message) => toMessageDTO(message));
   },
 
   async listConversations(params: ConversationListParams): Promise<ConversationsResponse> {
@@ -494,25 +529,28 @@ export const supportService = {
     const { skip, take } = buildPagination({ page, pageSize });
     const fetchLimit = skip + take;
 
-    const [ticketCount, voiceCount] = await prisma.$transaction([
-      prisma.ticket.count({ where: { brandId: params.brandId } }),
-      prisma.voiceSession.count({ where: { brandId: params.brandId } }),
-    ]);
-
-    const [tickets, voiceSessions] = await prisma.$transaction([
-      prisma.ticket.findMany({
+    const [
+      ticketCount,
+      voiceCount,
+      ticketListResult,
+      voiceSessions,
+    ] = await Promise.all([
+      supportRepository.countTickets({ brandId: params.brandId }),
+      supportRepository.countVoiceSessions({ brandId: params.brandId }),
+      supportRepository.listTickets({
         where: { brandId: params.brandId },
         select: ticketListSelect,
         orderBy: { updatedAt: "desc" },
         take: fetchLimit,
       }),
-      prisma.voiceSession.findMany({
+      supportRepository.listVoiceSessions({
         where: { brandId: params.brandId },
         select: voiceSessionListSelect,
         orderBy: { updatedAt: "desc" },
         take: fetchLimit,
       }),
     ]);
+    const tickets = ticketListResult.rows;
 
     const combined: ConversationSummaryDTO[] = [
       ...tickets.map(toConversationSummaryFromTicket),
@@ -530,12 +568,15 @@ export const supportService = {
   },
 
   async getConversationById(id: string, brandId: string): Promise<ConversationDTO | null> {
-    const ticket = await prisma.ticket.findFirst({ where: { id, brandId }, select: ticketDetailSelect });
+    const ticket = await supportRepository.findTicket({
+      where: { id, brandId },
+      select: ticketDetailSelect,
+    });
     if (ticket) {
       return { type: "ticket", ticket: toTicketDTO(ticket as TicketDetailRecord) };
     }
 
-    const voiceSession = await prisma.voiceSession.findFirst({
+    const voiceSession = await supportRepository.findVoiceSession({
       where: { id, brandId },
       include: voiceSessionDetailInclude,
     });

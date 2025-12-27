@@ -176,19 +176,17 @@ export const communicationService = {
     const title = template?.subject ?? input.channel;
     const body = template?.body ?? input.channel;
     const log = await communicationRepository.createNotificationLog({
-      data: {
-        brandId: input.brandId,
-        channel: input.channel,
-        type: template?.code ?? null,
-        title,
-        body,
-        status: input.status ?? "SENT",
-        dataJson: JSON.stringify({ recipient: input.recipient, ...input.payload }),
-        metaJson: JSON.stringify({
-          error: input.errorMessage ?? null,
-          templateId: input.templateId ?? null,
-        }),
-      },
+      brandId: input.brandId,
+      channel: input.channel,
+      type: template?.code ?? null,
+      title,
+      body,
+      status: input.status ?? "SENT",
+      dataJson: JSON.stringify({ recipient: input.recipient, ...input.payload }),
+      metaJson: JSON.stringify({
+        error: input.errorMessage ?? null,
+        templateId: input.templateId ?? null,
+      }),
     });
 
     logger.info(`[communication] Logged ${input.channel} notification for ${input.recipient}`);
