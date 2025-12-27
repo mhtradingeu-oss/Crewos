@@ -24,6 +24,8 @@ function resolveBrandId(source: unknown): string | undefined {
   return undefined;
 }
 
+
+// List documents: { items, total, page, pageSize }
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = listKnowledgeDocumentsSchema.parse(req.query);
@@ -34,15 +36,13 @@ export async function list(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+
+// Get single document by id (KnowledgeDocumentDTO)
 export async function getById(req: Request, res: Response, next: NextFunction) {
   try {
-    const brandId = resolveBrandId(req.query.brandId);
-    if (!brandId) {
-      return next(badRequest("brandId query parameter is required"));
-    }
-
     const id = requireParam(req.params.id, "id");
-    const item = await knowledgeBaseService.getDocumentById(id, brandId);
+    // brandId is not required for service, only id
+    const item = await knowledgeBaseService.getDocument(id);
     if (!item) {
       return next(notFound("Knowledge document not found"));
     }
@@ -52,6 +52,8 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+
+// Create document (KnowledgeDocumentDTO)
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = createKnowledgeDocumentSchema.parse(req.body);
@@ -62,6 +64,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+
+// Update document (KnowledgeDocumentDTO)
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = updateKnowledgeDocumentSchema.parse(req.body);
@@ -73,14 +77,12 @@ export async function update(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+
+// Delete document (id only)
 export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
-    const brandId = resolveBrandId(req.query.brandId);
-    if (!brandId) {
-      return next(badRequest("brandId query parameter is required"));
-    }
     const id = requireParam(req.params.id, "id");
-    await knowledgeBaseService.deleteDocument(id, brandId);
+    await knowledgeBaseService.deleteDocument(id);
     respondWithSuccess(res, { deleted: true });
   } catch (err) {
     next(err);
@@ -101,16 +103,13 @@ export async function aiSummary(req: Request, res: Response, next: NextFunction)
   }
 }
 
+
+// Attach file to document (KnowledgeDocumentDTO)
 export async function attachFile(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = knowledgeBaseAttachSchema.parse(req.body);
     const id = requireParam(req.params.id, "id");
-    const document = await knowledgeBaseService.attachFile(
-      id,
-      payload.brandId,
-      payload.fileUrl,
-      payload.storageKey,
-    );
+    const document = await knowledgeBaseService.attachFile(id, payload.fileUrl, payload.storageKey);
     respondWithSuccess(res, document);
   } catch (err) {
     next(err);
