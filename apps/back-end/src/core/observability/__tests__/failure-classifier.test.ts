@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { classifyFailure, FailureCategory } from '../failure-classifier.js';
 
 describe('classifyFailure', () => {

@@ -1,4 +1,3 @@
-// PHASE 8.0 LOCK: ExecutionIntent Service Tests (NO EXECUTION, NO DB)
 import { jest } from '@jest/globals';
 import type { DecisionObject } from '../../decision/decision.types.js';
 

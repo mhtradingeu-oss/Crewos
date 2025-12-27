@@ -1,5 +1,6 @@
-// Tests for AICrewService.runAdvisory safety invariants
+
 import { jest } from '@jest/globals';
+
 import { AI_AGENTS_MANIFEST } from '../../schema/ai-agents-manifest.js';
 
 jest.mock('uuid', () => ({

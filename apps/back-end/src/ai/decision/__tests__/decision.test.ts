@@ -1,6 +1,4 @@
-// Phase 7 — Decision Authority Tests (STRICT: NO EXECUTION, NO SIDE EFFECTS)
-// Proves: No execution, correct gating, agent rules, deterministic
-
+import { jest } from '@jest/globals';
 import { processDecision } from '../decision.service.js';
 import { DecisionObject } from '../decision.types.js';
 import { getDecisionAuditLog } from '../decision.audit.js';
