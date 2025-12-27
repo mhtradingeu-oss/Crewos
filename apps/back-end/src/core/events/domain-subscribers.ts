@@ -10,6 +10,7 @@ import { StandPosEvents } from "../../modules/stand-pos/stand-pos.events.js";
 import { BrandEvents } from "../../modules/brand/brand.events.js";
 import { SecurityGovernanceEvents } from "../../modules/security-governance/security-governance.events.js";
 import { PartnersEvents } from "../../modules/partners/partners.events.js";
+import { registerAiSuggestionApprovedConsumer } from "./consumers/ai-suggestion-approved.consumer.js";
 
 type PayloadWithBrandTenant = { brandId?: string | null; tenantId?: string | null; id?: string }; // minimal shape guard
 
@@ -35,6 +36,8 @@ function handleActivity(module: string) {
 }
 
 export function registerDomainEventSubscribers() {
+  registerAiSuggestionApprovedConsumer();
+
   const mappings: Array<[string, () => Promise<void>]> = [];
 
   Object.values(PricingEvents).forEach((eventName) => {

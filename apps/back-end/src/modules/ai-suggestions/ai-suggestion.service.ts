@@ -20,3 +20,9 @@ export class AISuggestionService {
     });
   }
 }
+
+export async function getSuggestionStatus(suggestionId: string) {
+  const repository = new AISuggestionRepository();
+  const suggestion = await repository.getSuggestionById(suggestionId);
+  return suggestion?.status ?? null;
+}

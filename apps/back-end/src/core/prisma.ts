@@ -35,3 +35,8 @@ if (process.env.NODE_ENV !== "test") {
 if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;
 }
+
+export type PrismaArgs<T extends (...args: any) => any> = NonNullable<Parameters<T>[0]>;
+export type PrismaSelect<T extends (...args: any) => any> = PrismaArgs<T>["select"];
+export type PrismaWhere<T extends (...args: any) => any> = PrismaArgs<T>["where"];
+export type PrismaData<T extends (...args: any) => any> = PrismaArgs<T>["data"];
